@@ -1,0 +1,100 @@
+import { BelloryClientConfig } from "./client-config-schema";
+
+export function createDemoClientConfig(clientName = "Demo Client"): BelloryClientConfig {
+  return {
+    businessIdentity: {
+      legalName: clientName,
+      publicName: clientName,
+      industry: "Home services",
+      ownerName: "Business owner",
+      ownerPhone: "+18015550100",
+      timezone: "America/Denver",
+      brandTone: ["warm", "brief", "professional", "local"],
+      businessSummary: `${clientName} is a local service business. Bellory should collect caller details, understand urgency, check service area, and either book or escalate based on configured rules.`,
+    },
+    locationsAndHours: {
+      serviceAreas: [{ city: "Salt Lake City", radiusMiles: 35 }],
+      normalHours: {
+        monday: [{ open: "08:00", close: "17:00" }],
+        tuesday: [{ open: "08:00", close: "17:00" }],
+        wednesday: [{ open: "08:00", close: "17:00" }],
+        thursday: [{ open: "08:00", close: "17:00" }],
+        friday: [{ open: "08:00", close: "17:00" }],
+      },
+      holidays: [],
+      outOfAreaResponse: "Politely explain that the business may not service that area and offer to take details for owner review.",
+    },
+    phoneRouting: {
+      mode: "forward_existing",
+      currentNumber: "+18015550100",
+      recordingConsentMode: "custom",
+      missedCallFallback: "Collect caller details and send an owner SMS summary.",
+      spamHandling: "Politely end obvious spam calls and mark the lead as spam.",
+    },
+    aiVoice: {
+      provider: "elevenlabs",
+      greetingScript: `Thanks for calling ${clientName}. This is Bellory at the front desk. How can I help today?`,
+      speakingPace: "Variable, natural, and concise.",
+      interruptionStyle: "Allow callers to interrupt and acknowledge before continuing.",
+      backgroundAmbience: "None unless explicitly approved.",
+      disclosurePhrase: "I am Bellory, the receptionist for this business.",
+      behaviorInstructions: "Sound human, calm, and helpful. Ask one question at a time. Use tools before confirming booking details. Never invent pricing or availability.",
+    },
+    receptionistBrain: {
+      callerIntents: ["book_appointment", "ask_price", "urgent_help", "reschedule", "general_question"],
+      requiredIntakeFields: ["caller_name", "caller_phone", "service_address", "issue", "urgency", "preferred_time"],
+      faqs: [],
+      wordsToAvoid: ["guaranteed", "exact price", "licensed technician"],
+      forbiddenClaims: ["Never guarantee exact pricing.", "Never claim to be a technician.", "Never promise unavailable appointment times."],
+      lowConfidencePolicy: "Ask a clarifying question once, then collect callback details and alert the owner.",
+    },
+    servicesAndPricing: {
+      services: [{ name: "Diagnostic appointment", active: true, requiredQuestions: ["What problem are you seeing?", "Where is the service address?"] }],
+      diagnosticFees: [{ label: "Standard diagnostic fee", amountCents: 8900 }],
+      quoteGuardrails: ["Use approved ranges only.", "Ask qualifying questions before mentioning price.", "Escalate requests for exact pricing."],
+      neverQuoteConditions: ["Unsafe issue", "Unsupported service", "Caller asks for a guaranteed final price"],
+      ownerApprovalThresholdCents: 100000,
+    },
+    qualificationRules: {
+      requiredCallerInfo: ["name", "phone", "service_address"],
+      requiredIssueDetails: ["issue", "urgency", "preferred_time"],
+      photoRequestRules: ["Ask for photos only when useful and safe."],
+      propertyTypeQuestions: ["Is this a home or business?"],
+      leadScoreRules: [{ rule: "Urgent in service area", points: 30 }],
+      doNotBookConditions: ["Outside service area", "Caller needs unsupported work", "Safety emergency requiring emergency services"],
+    },
+    calendarAndDispatch: {
+      provider: "google",
+      bookingMode: "owner_approval",
+      appointmentTypes: [{ name: "Service call", durationMinutes: 60 }],
+      travelBufferMinutes: 20,
+      appointmentWindowWording: "Arrival window, not exact arrival time.",
+      technicianRoutingRules: ["Prefer nearest available technician when configured."],
+      noAvailabilityBehavior: "Collect preferred windows and alert the owner.",
+    },
+    urgencyAndEscalation: {
+      urgentTriggers: ["safety risk", "active leak", "door stuck open", "caller trapped", "property damage", "angry caller"],
+      smsAlertTemplate: "Urgent Bellory call for {{client_name}}: {{issue}}. Caller: {{caller_phone}}.",
+      operatorReviewThreshold: "Escalate low confidence, urgent, or pricing-outside-rules calls.",
+    },
+    complianceAndPolicies: {
+      aiDisclosurePolicy: "Use the approved Bellory disclosure phrase when asked and wherever legally required.",
+      callRecordingConsentScript: "This call may be recorded so we can help the team follow up accurately.",
+      dataRetentionDays: 730,
+      safetyDisclaimerRules: ["Do not provide dangerous instructions.", "Tell caller to avoid unsafe equipment or areas."],
+      prohibitedAdvice: ["Electrical diagnosis", "Medical/legal advice", "Guaranteed safety instructions"],
+      complaintHandlingScript: "Apologize, collect details, and escalate to the owner.",
+      paymentInfoPolicy: "Do not collect full payment card details by voice.",
+    },
+    integrations: {
+      elevenLabs: { status: "not_connected" },
+      twilio: { status: "not_connected" },
+      googleCalendar: { status: "not_connected" },
+      crm: { status: "planned" },
+    },
+    launchQa: {
+      requiredScenarios: ["normal booking", "urgent transfer", "quote shopper", "after hours", "no availability", "tool failure fallback"],
+      passed: false,
+    },
+  };
+}
