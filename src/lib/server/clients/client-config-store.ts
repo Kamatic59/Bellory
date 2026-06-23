@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
+  clientDailyMetrics,
   clientConfigVersions,
   clientIssues,
   clients,
@@ -88,6 +89,18 @@ export async function listClientsForDefaultOrganization() {
       .select({ count: sql<number>`count(*)::int` })
       .from(clientIssues)
       .where(and(eq(clientIssues.clientId, client.id), eq(clientIssues.status, "open")));
+    const [metrics] = await db
+      .select({
+        callsAnswered: sql<number>`coalesce(sum(${clientDailyMetrics.callsAnswered}), 0)::int`,
+        appointmentsBooked: sql<number>`coalesce(sum(${clientDailyMetrics.appointmentsBooked}), 0)::int`,
+        jobsSaved: sql<number>`coalesce(sum(${clientDailyMetrics.jobsSaved}), 0)::int`,
+        estimatedRevenueCents: sql<number>`coalesce(sum(${clientDailyMetrics.estimatedRevenueCents}), 0)::int`,
+        hoursSavedMinutes: sql<number>`coalesce(sum(${clientDailyMetrics.hoursSavedMinutes}), 0)::int`,
+        urgentHandoffs: sql<number>`coalesce(sum(${clientDailyMetrics.urgentHandoffs}), 0)::int`,
+        toolFailures: sql<number>`coalesce(sum(${clientDailyMetrics.toolFailures}), 0)::int`,
+      })
+      .from(clientDailyMetrics)
+      .where(eq(clientDailyMetrics.clientId, client.id));
 
     return {
       ...client,
@@ -95,8 +108,42 @@ export async function listClientsForDefaultOrganization() {
       configStatus: configVersion?.status ?? null,
       readiness,
       openIssues: Number(openIssueCount?.count ?? 0),
+      metrics: {
+        callsAnswered: Number(metrics?.callsAnswered ?? 0),
+        appointmentsBooked: Number(metrics?.appointmentsBooked ?? 0),
+        jobsSaved: Number(metrics?.jobsSaved ?? 0),
+        estimatedRevenueCents: Number(metrics?.estimatedRevenueCents ?? 0),
+        hoursSavedMinutes: Number(metrics?.hoursSavedMinutes ?? 0),
+        urgentHandoffs: Number(metrics?.urgentHandoffs ?? 0),
+        toolFailures: Number(metrics?.toolFailures ?? 0),
+      },
     };
   }));
+}
+
+export async function listOpenIssuesForDefaultOrganization() {
+  const db = getDb();
+  const org = await getOrCreateDefaultOrganization();
+
+  return db
+    .select({
+      id: clientIssues.id,
+      clientId: clientIssues.clientId,
+      clientName: clients.name,
+      clientIndustry: clients.industry,
+      severity: clientIssues.severity,
+      status: clientIssues.status,
+      source: clientIssues.source,
+      title: clientIssues.title,
+      description: clientIssues.description,
+      actionLabel: clientIssues.actionLabel,
+      createdAt: clientIssues.createdAt,
+      updatedAt: clientIssues.updatedAt,
+    })
+    .from(clientIssues)
+    .leftJoin(clients, eq(clientIssues.clientId, clients.id))
+    .where(and(eq(clientIssues.organizationId, org.id), eq(clientIssues.status, "open")))
+    .orderBy(desc(clientIssues.createdAt));
 }
 
 export async function createClientWithDraft(input: CreateClientInput) {

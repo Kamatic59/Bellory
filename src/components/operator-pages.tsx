@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   Brain,
@@ -30,37 +30,25 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { clients, leads } from "@/data/mock";
+import type { BelloryClientConfigDraft } from "@/lib/server/config/client-config-schema";
+import {
+  getClientConfig,
+  publishClientConfig,
+  saveClientConfigDraft,
+  validateClientConfig,
+  type AppClient,
+  type ClientIssue,
+  type ClientMetrics,
+  type ClientConfigPayload,
+  type CreateClientPayload,
+  type Readiness,
+  type ValidationResult,
+} from "@/lib/client-api";
 import { PageId } from "./app-shell";
-import { Badge, Button, Card, DemoState, EmptyCheck, IconBox, Input, Progress, SectionTitle, Toggle } from "./ui";
+import { Badge, Button, Card, DemoState, EmptyCheck, IconBox, Input, Progress, SectionTitle, Select, Toggle } from "./ui";
 
-type Client = (typeof clients)[number];
 type Tone = "mint" | "honey" | "coral" | "blue" | "violet";
-
-type AccountMetrics = {
-  setupProgress: number;
-  jobsSaved: number;
-  hoursSaved: number;
-  revenueSaved: string;
-  callsAnswered: number;
-  appointmentsBooked: number;
-  errors: number;
-  phoneMode: string;
-  phoneRoute: string;
-  calendar: string;
-  fallback: string;
-  owner: string;
-  lastIssue: string;
-};
-
-const metricsByClient: Record<string, AccountMetrics> = {
-  davis: { setupProgress: 100, jobsSaved: 19, hoursSaved: 42, revenueSaved: "$12.8k", callsAnswered: 86, appointmentsBooked: 19, errors: 0, phoneMode: "Existing number forwarded", phoneRoute: "(801) 555-0100 -> ElevenLabs agent", calendar: "Google Calendar connected", fallback: "Owner call, then SMS summary", owner: "Alex Davis", lastIssue: "None" },
-  wasatch: { setupProgress: 72, jobsSaved: 7, hoursSaved: 18, revenueSaved: "$4.1k", callsAnswered: 38, appointmentsBooked: 8, errors: 1, phoneMode: "New Bellory number", phoneRoute: "Provisioned test number", calendar: "Owner approval mode", fallback: "Jordan Miller direct transfer", owner: "Jordan Miller", lastIssue: "Quote ranges need approval" },
-  peak: { setupProgress: 91, jobsSaved: 13, hoursSaved: 31, revenueSaved: "$9.7k", callsAnswered: 64, appointmentsBooked: 15, errors: 0, phoneMode: "Existing number forwarded", phoneRoute: "(801) 555-0141 -> ElevenLabs agent", calendar: "Google Calendar connected", fallback: "Emergency transfer to owner", owner: "Nate Cole", lastIssue: "None" },
-  canyon: { setupProgress: 88, jobsSaved: 11, hoursSaved: 27, revenueSaved: "$6.4k", callsAnswered: 51, appointmentsBooked: 10, errors: 3, phoneMode: "Existing number forwarded", phoneRoute: "Live route", calendar: "Calendar timeout", fallback: "Office manager, then voicemail", owner: "Ari Patel", lastIssue: "Calendar availability failing" },
-  summit: { setupProgress: 100, jobsSaved: 9, hoursSaved: 23, revenueSaved: "$5.8k", callsAnswered: 44, appointmentsBooked: 9, errors: 0, phoneMode: "Existing number forwarded", phoneRoute: "(435) 555-0166 -> ElevenLabs agent", calendar: "Google Calendar connected", fallback: "Owner alert for urgent calls", owner: "Mia Brooks", lastIssue: "None" },
-  clearflow: { setupProgress: 58, jobsSaved: 3, hoursSaved: 9, revenueSaved: "$1.6k", callsAnswered: 19, appointmentsBooked: 4, errors: 2, phoneMode: "Phone setup incomplete", phoneRoute: "Needs Twilio number assignment", calendar: "Connected", fallback: "Sam Reed SMS only", owner: "Sam Reed", lastIssue: "Phone route not live" },
-};
+type StatusTone = "mint" | "honey" | "coral" | "blue" | "muted";
 
 const setupSteps = [
   "Business identity",
@@ -108,111 +96,290 @@ const onboardingDetails: Record<SetupStep, StepDetail> = {
   "Business identity": {
     title: "Define the business Bellory represents.",
     description: "The AI needs the same facts a trained receptionist would use before answering the first call.",
-    fields: ["Legal business name", "Public greeting name", "Owner / primary contact", "Business category", "Short company description", "Brand words to use"],
+    fields: ["Legal business name", "Caller-facing name", "Owner / primary contact", "Business category", "Short company description", "Brand words"],
     checklist: ["Primary contact saved", "Industry selected", "Caller-facing name approved", "Business timezone set"],
-    backend: "organizations, clients, client_profile",
+    backend: "clients, client_config_versions.businessIdentity",
   },
   "Locations & hours": {
     title: "Set where and when the business operates.",
     description: "Service area, working hours, holidays, and after-hours behavior determine what the AI can promise.",
     fields: ["Primary address", "Service cities / ZIP codes", "Normal hours", "Emergency hours", "Holiday schedule", "Out-of-area response"],
-    checklist: ["Timezone mapped to calendar", "After-hours script selected", "Service radius rules saved", "Holiday overrides ready"],
-    backend: "business_locations, service_areas, business_hours",
+    checklist: ["Timezone mapped to calendar", "After-hours script selected", "Service area saved", "Holiday overrides ready"],
+    backend: "client_config_versions.locationsAndHours",
   },
   "Phone routing": {
     title: "Decide how callers reach the receptionist.",
     description: "Choose forwarding, a new Bellory number, or porting later, then define recording and failover behavior.",
     fields: ["Current phone number", "Caller ID label", "Forward-to number", "Recording consent mode", "Missed-call fallback", "Spam handling"],
-    checklist: ["Twilio number or forward target selected", "Recording rule approved", "Caller ID verified", "Route failover configured"],
-    backend: "phone_numbers, call_routes, recording_settings",
+    checklist: ["Twilio number or forward target selected", "Recording rule approved", "Caller ID planned", "Route failover configured"],
+    backend: "phone_numbers, client_config_versions.phoneRouting",
   },
   "AI voice": {
     title: "Tune the human-sounding receptionist.",
     description: "Set provider, voice, pacing, interruption handling, greeting, personality, and disclosure rules.",
     fields: ["Voice provider", "Voice / agent ID", "Greeting script", "Speaking pace", "Interruption style", "Disclosure phrase"],
-    checklist: ["Voice provider connected", "Greeting approved", "Natural pauses configured", "Disclosure language approved"],
-    backend: "ai_agents, voice_profiles, agent_prompts",
+    checklist: ["Voice provider selected", "Greeting approved", "Natural pauses configured", "Disclosure language approved"],
+    backend: "voice_agents, client_config_versions.aiVoice",
   },
   "Receptionist brain": {
     title: "Teach Bellory how this business thinks.",
     description: "This is the source of truth for what the AI can answer, ask, avoid, and escalate.",
-    fields: ["Business summary", "Common caller intents", "Required intake questions", "FAQ answers", "Words to avoid", "Competitor / warranty rules"],
+    fields: ["Business summary", "Caller intents", "Required intake questions", "FAQ answers", "Words to avoid", "Forbidden claims"],
     checklist: ["Prompt instructions drafted", "FAQ knowledge loaded", "Forbidden claims saved", "Low-confidence policy selected"],
-    backend: "agent_instructions, knowledge_items, prompt_versions",
+    backend: "client_config_versions.receptionistBrain",
   },
   "Services & pricing": {
     title: "Configure services, quote ranges, and limits.",
     description: "Pricing must be structured so the AI knows when to give a range, ask more questions, or refuse exact pricing.",
-    fields: ["Service catalog", "Diagnostic fees", "Starting prices", "Quote ranges", "Upsell / membership rules", "Never-quote conditions"],
+    fields: ["Service catalog", "Diagnostic fees", "Starting prices", "Quote ranges", "Upsell rules", "Never-quote conditions"],
     checklist: ["At least one service active", "Quote ranges approved", "Exact-price restrictions saved", "Owner approval threshold set"],
-    backend: "services, pricing_rules, quote_guardrails",
+    backend: "client_config_versions.servicesAndPricing",
   },
   "Qualification rules": {
     title: "Tell the AI what to ask before booking.",
     description: "Qualification fields make every call useful: issue, urgency, location, photos, property type, and decision maker.",
-    fields: ["Required caller info", "Required issue details", "Photo/SMS request rules", "Property type questions", "Lead quality score rules", "Do-not-book conditions"],
+    fields: ["Caller info", "Issue details", "Photo/SMS request rules", "Property type questions", "Lead score rules", "Do-not-book conditions"],
     checklist: ["Required fields selected", "Lead scoring rules saved", "Photo request policy approved", "Spam handling configured"],
-    backend: "qualification_rules, lead_fields, call_intents",
+    backend: "client_config_versions.qualificationRules",
   },
   "Calendar & dispatch": {
     title: "Connect appointments to real availability.",
     description: "Booking rules decide direct booking, owner approval, travel buffers, tech assignment, and reschedules.",
     fields: ["Calendar provider", "Booking mode", "Appointment types", "Slot length", "Travel buffer", "Technician routing rules"],
-    checklist: ["Calendar OAuth connected", "Booking mode selected", "Slot templates configured", "No-availability fallback set"],
-    backend: "calendar_connections, appointment_rules, dispatch_rules",
+    checklist: ["Calendar provider selected", "Booking mode selected", "Slot templates configured", "No-availability fallback set"],
+    backend: "calendar_connections, client_config_versions.calendarAndDispatch",
   },
   "Urgency & escalation": {
     title: "Define when Bellory gets a human involved.",
     description: "The AI needs explicit urgent triggers, transfer order, low-confidence paths, and after-hours escalation rules.",
     fields: ["Urgent trigger phrases", "Primary fallback", "Secondary fallback", "Transfer hours", "SMS alert template", "Operator review threshold"],
-    checklist: ["Urgent intents mapped", "Transfer numbers verified", "SMS templates approved", "Low-confidence handoff enabled"],
-    backend: "fallback_contacts, escalation_rules, alert_templates",
+    checklist: ["Urgent intents mapped", "Transfer numbers planned", "SMS templates approved", "Low-confidence handoff enabled"],
+    backend: "owner_notifications, client_config_versions.urgencyAndEscalation",
   },
   "Compliance & policies": {
     title: "Set the rules the AI must never break.",
-    description: "Recording consent, AI disclosure, data retention, privacy, safety, and forbidden advice belong here.",
-    fields: ["AI disclosure policy", "Call recording consent", "Data retention window", "Safety disclaimer rules", "Prohibited advice", "Complaint handling script"],
+    description: "Recording consent, AI disclosure, retention, privacy, safety, and forbidden advice belong here.",
+    fields: ["AI disclosure policy", "Call recording consent", "Data retention", "Safety disclaimer rules", "Prohibited advice", "Complaint script"],
     checklist: ["Consent language approved", "Retention policy set", "Never-say list saved", "Complaint path configured"],
-    backend: "compliance_settings, policy_rules, audit_logs",
+    backend: "audit_logs, client_config_versions.complianceAndPolicies",
   },
   Integrations: {
     title: "Connect the tools the AI will use.",
     description: "Provider credentials and tool permissions need to be explicit before backend wiring starts.",
     fields: ["ElevenLabs agent", "Twilio account", "Google Calendar account", "CRM / job system", "SMS provider", "Billing system"],
     checklist: ["Tool permissions scoped", "Webhook endpoints planned", "Provider status visible", "Secrets ready for environment vars"],
-    backend: "provider_connections, oauth_tokens, webhook_endpoints",
+    backend: "voice_agents, phone_numbers, calendar_connections",
   },
   "Launch QA": {
     title: "Prove the receptionist is safe to launch.",
     description: "Run the same test scenarios every account needs before traffic goes live.",
     fields: ["Normal booking test", "Urgent call test", "Quote shopper test", "After-hours test", "No availability test", "Angry caller test"],
-    checklist: ["All required scenarios pass", "Owner approves call summaries", "Phone route live", "Rollback plan ready"],
-    backend: "test_scenarios, test_runs, launch_checks",
+    checklist: ["All required scenarios pass", "Owner approves summaries", "Phone route live", "Rollback plan ready"],
+    backend: "eval_scenarios, eval_runs, client_config_versions.launchQa",
   },
 };
 
-const issues = [
-  { id: "calendar-canyon", clientId: "canyon", severity: "High", title: "Calendar availability failing", detail: "Canyon HVAC timed out checking available appointment slots 3 times today.", owner: "Fix calendar", age: "12m" },
-  { id: "quote-wasatch", clientId: "wasatch", severity: "Medium", title: "Quote rules need approval", detail: "Wasatch Door Co. has opener replacement pricing in draft mode.", owner: "Approve quotes", age: "38m" },
-  { id: "phone-clearflow", clientId: "clearflow", severity: "High", title: "Phone route not live", detail: "ClearFlow still needs a Twilio number or forwarded existing number.", owner: "Set up phone", age: "1h" },
-  { id: "fallback-davis", clientId: "davis", severity: "Low", title: "Fallback owner missed one transfer", detail: "Owner did not answer one urgent handoff; SMS summary was sent successfully.", owner: "Review fallback", age: "2h" },
-];
+const sectionLabels: Record<string, string> = {
+  businessIdentity: "Business identity",
+  locationsAndHours: "Locations & hours",
+  phoneRouting: "Phone routing",
+  aiVoice: "AI voice",
+  receptionistBrain: "Receptionist brain",
+  servicesAndPricing: "Services & pricing",
+  qualificationRules: "Qualification rules",
+  calendarAndDispatch: "Calendar & dispatch",
+  urgencyAndEscalation: "Urgency & escalation",
+  complianceAndPolicies: "Compliance & policies",
+  integrations: "Integrations",
+  launchQa: "Launch QA",
+};
 
-const statusTone = (value: string) =>
-  value === "Live" || value === "Connected" || value === "Operational" || value === "Complete" ? "mint"
-    : value === "Needs Attention" || value === "Issue" || value === "High" ? "coral"
-      : value === "Setup" || value === "Pilot" || value === "Approval" || value === "Testing" || value === "Medium" ? "honey"
+const emptyMetrics: ClientMetrics = {
+  callsAnswered: 0,
+  appointmentsBooked: 0,
+  jobsSaved: 0,
+  estimatedRevenueCents: 0,
+  hoursSavedMinutes: 0,
+  urgentHandoffs: 0,
+  toolFailures: 0,
+};
+
+function displayStatus(status: string) {
+  return status.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+
+function displayPlan(plan: string) {
+  return plan.charAt(0).toUpperCase() + plan.slice(1);
+}
+
+function statusTone(value: string): StatusTone {
+  return value === "Live" || value === "Connected" || value === "Published" || value === "Complete" || value === "low"
+    ? "mint"
+    : value === "Needs Attention" || value === "Issue" || value === "High" || value === "critical" || value === "high"
+      ? "coral"
+      : value === "Setup" || value === "Pilot" || value === "Draft" || value === "medium" || value === "Preview"
+        ? "honey"
         : "muted";
+}
 
-const getMetrics = (clientId: string) => metricsByClient[clientId] ?? metricsByClient.davis;
-const getClient = (clientId: string) => clients.find((client) => client.id === clientId) ?? clients[0];
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "B";
+}
+
+function formatCurrency(cents = 0) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
+}
+
+function formatHours(minutes = 0) {
+  return `${Math.round(minutes / 60)}`;
+}
+
+function ageFrom(dateString: string) {
+  const diffMs = Date.now() - new Date(dateString).getTime();
+  const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
+  if (diffMinutes < 60) return `${diffMinutes}m`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 48) return `${diffHours}h`;
+  return `${Math.round(diffHours / 24)}d`;
+}
+
+function getMetrics(client: AppClient) {
+  const metrics = client.metrics ?? emptyMetrics;
+  return {
+    setupProgress: client.readiness?.percentage ?? 0,
+    jobsSaved: metrics.jobsSaved,
+    hoursSaved: formatHours(metrics.hoursSavedMinutes),
+    revenueSaved: formatCurrency(metrics.estimatedRevenueCents),
+    callsAnswered: metrics.callsAnswered,
+    appointmentsBooked: metrics.appointmentsBooked,
+    errors: client.openIssues + metrics.toolFailures,
+    owner: client.primaryContactName || "Business owner",
+    lastIssue: client.openIssues > 0 ? `${client.openIssues} open issue${client.openIssues === 1 ? "" : "s"}` : "None",
+  };
+}
+
+function getPath(value: unknown, path: string): unknown {
+  return path.split(".").reduce<unknown>((current, key) => {
+    if (!current || typeof current !== "object" || Array.isArray(current)) return undefined;
+    return (current as Record<string, unknown>)[key];
+  }, value);
+}
+
+function getString(config: BelloryClientConfigDraft | null, path: string, fallback = "") {
+  const value = getPath(config, path);
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return typeof value === "string" ? value : fallback;
+}
+
+function getNumber(config: BelloryClientConfigDraft | null, path: string, fallback = 0) {
+  const value = getPath(config, path);
+  return typeof value === "number" ? value : fallback;
+}
+
+function getStringArray(config: BelloryClientConfigDraft | null, path: string) {
+  const value = getPath(config, path);
+  return Array.isArray(value) ? value.map(String) : [];
+}
+
+function getJsonValue(config: BelloryClientConfigDraft | null, path: string, fallback: unknown[] | Record<string, unknown> = []) {
+  return getPath(config, path) ?? fallback;
+}
+
+function setConfigPath(config: BelloryClientConfigDraft, path: string, value: unknown): BelloryClientConfigDraft {
+  const parts = path.split(".");
+  const root: Record<string, unknown> = { ...config };
+  let cursor = root;
+
+  parts.forEach((part, index) => {
+    if (index === parts.length - 1) {
+      cursor[part] = value;
+      return;
+    }
+
+    const current = cursor[part];
+    const next = current && typeof current === "object" && !Array.isArray(current)
+      ? { ...(current as Record<string, unknown>) }
+      : {};
+    cursor[part] = next;
+    cursor = next;
+  });
+
+  return root as BelloryClientConfigDraft;
+}
+
+function splitLines(value: string) {
+  return value.split("\n").map((item) => item.trim()).filter(Boolean);
+}
+
+function setupPatch(form: SetupForm): BelloryClientConfigDraft {
+  const publicName = form.publicName || form.name;
+  const ownerName = form.primaryContactName || "Business owner";
+  const ownerPhone = form.primaryContactPhone || "+18015550100";
+
+  return {
+    businessIdentity: {
+      legalName: form.name,
+      publicName,
+      industry: form.industry,
+      ownerName,
+      ownerPhone,
+      ownerEmail: form.primaryContactEmail,
+      timezone: form.timezone,
+      brandTone: form.brandTone.split(",").map((item) => item.trim()).filter(Boolean),
+      businessSummary: form.businessSummary || `${publicName} is a local service business. Bellory should qualify callers, understand urgency, and book or escalate based on the configured rules.`,
+    },
+    locationsAndHours: {
+      primaryAddress: form.primaryAddress,
+      serviceAreas: [{ city: form.serviceArea, radiusMiles: Number(form.radiusMiles) || 25 }],
+      outOfAreaResponse: form.outOfAreaResponse,
+    },
+    phoneRouting: {
+      mode: form.phoneChoice === "new" ? "new_number" : form.phoneChoice === "port" ? "port_later" : "forward_existing",
+      currentNumber: form.primaryContactPhone,
+      callerIdLabel: publicName,
+      missedCallFallback: form.missedCallFallback,
+      spamHandling: form.spamHandling,
+    },
+    aiVoice: {
+      greetingScript: form.greetingScript || `Thanks for calling ${publicName}. This is Bellory at the front desk. How can I help today?`,
+      speakingPace: form.speakingPace,
+      interruptionStyle: form.interruptionStyle,
+      backgroundAmbience: form.backgroundAmbience,
+      disclosurePhrase: form.disclosurePhrase,
+      behaviorInstructions: form.behaviorInstructions,
+    },
+    calendarAndDispatch: {
+      bookingMode: form.bookingChoice === "approval" ? "owner_approval" : form.bookingChoice === "lead" ? "lead_only" : "direct",
+      noAvailabilityBehavior: form.noAvailabilityBehavior,
+    },
+    urgencyAndEscalation: {
+      urgentTriggers: splitLines(form.urgentTriggers),
+      smsAlertTemplate: form.smsAlertTemplate,
+      operatorReviewThreshold: form.operatorReviewThreshold,
+    },
+    complianceAndPolicies: {
+      aiDisclosurePolicy: form.aiDisclosurePolicy,
+      callRecordingConsentScript: form.callRecordingConsentScript,
+    },
+    integrations: {
+      elevenLabs: { status: "not_connected" },
+      twilio: { status: "not_connected" },
+      googleCalendar: { status: "not_connected" },
+      crm: { status: "planned" },
+    },
+    launchQa: {
+      requiredScenarios: splitLines(form.launchScenarios),
+      passed: false,
+    },
+  };
+}
 
 function MetricCard({ label, value, helper, icon, tone = "mint" }: { label: string; value: string; helper: string; icon: LucideIcon; tone?: Tone }) {
   return (
     <Card hover className="p-5">
       <div className="mb-5 flex items-start justify-between">
         <IconBox icon={icon} tone={tone} />
-        <span className="rounded-full bg-white/[.04] px-2 py-1 text-[10px] font-bold text-[#94836A]">MVP</span>
+        <span className="rounded-full bg-white/[.04] px-2 py-1 text-[10px] font-bold text-[#94836A]">Live data</span>
       </div>
       <p className="text-3xl font-semibold tracking-[-.04em] text-white">{value}</p>
       <p className="mt-1 text-[12px] font-semibold text-[#FFF7E8]">{label}</p>
@@ -221,7 +388,7 @@ function MetricCard({ label, value, helper, icon, tone = "mint" }: { label: stri
   );
 }
 
-function ConfigPanel({ title, eyebrow, icon, tone = "mint", children, action }: { title: string; eyebrow: string; icon?: LucideIcon; tone?: Tone; children: ReactNode; action?: ReactNode }) {
+function ConfigPanel({ title, eyebrow, icon, tone = "mint", children, action }: { title: string; eyebrow?: string; icon?: LucideIcon; tone?: Tone; children: ReactNode; action?: ReactNode }) {
   return (
     <Card className="p-5">
       <SectionTitle title={title} eyebrow={eyebrow} action={action ?? (icon ? <IconBox icon={icon} tone={tone} /> : undefined)} />
@@ -230,34 +397,20 @@ function ConfigPanel({ title, eyebrow, icon, tone = "mint", children, action }: 
   );
 }
 
-function FieldGrid({ fields }: { fields: Array<{ label: string; value?: string; type?: string } | string> }) {
+function LoadingState({ title = "Loading live data..." }: { title?: string }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {fields.map((field) => {
-        const label = typeof field === "string" ? field : field.label;
-        const value = typeof field === "string" ? undefined : field.value;
-        const type = typeof field === "string" ? "text" : field.type;
-        return (
-          <div key={label}>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
-            <Input value={value} placeholder={`Enter ${label.toLowerCase()}...`} type={type} />
-          </div>
-        );
-      })}
-    </div>
+    <Card className="p-6">
+      <DemoState title={title} description="Bellory is reading the Supabase-backed API." tone="honey" />
+    </Card>
   );
 }
 
-function TextAreaField({ label, value, rows = 5 }: { label: string; value: string; rows?: number }) {
+function ErrorState({ title, error, onRetry }: { title: string; error: string; onRetry?: () => void }) {
   return (
-    <div>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
-      <textarea
-        rows={rows}
-        defaultValue={value}
-        className="w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-sm leading-6 text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40"
-      />
-    </div>
+    <Card className="p-6">
+      <DemoState title={title} description={error} tone="coral" />
+      {onRetry && <Button className="mt-4" kind="secondary" onClick={onRetry}>Retry</Button>}
+    </Card>
   );
 }
 
@@ -283,25 +436,27 @@ function BackendMapping({ label, checks }: { label: string; checks: string[] }) 
     <div className="mt-6 grid gap-3 rounded-2xl border border-white/[.06] bg-white/[.025] p-4 lg:grid-cols-[1fr_1.2fr]">
       <div>
         <p className="text-[10px] font-bold uppercase tracking-wider text-[#C7F76F]">Backend mapping</p>
-        <p className="mt-2 text-[12px] leading-5 text-[#B7AB98]">Stores to <span className="font-bold text-white">{label}</span>. This is intentionally shaped like the future database/API payload.</p>
+        <p className="mt-2 text-[12px] leading-5 text-[#B7AB98]">Saved into <span className="font-bold text-white">{label}</span>. This setup creates a real Supabase client record and draft config.</p>
       </div>
       <div className="space-y-2">{checks.map((check) => <EmptyCheck key={check} text={check} />)}</div>
     </div>
   );
 }
 
-function AccountRow({ client, onOpen }: { client: Client; onOpen: () => void }) {
-  const metrics = getMetrics(client.id);
+function AccountRow({ client, onOpen }: { client: AppClient; onOpen: () => void }) {
+  const metrics = getMetrics(client);
+  const status = displayStatus(client.status);
+
   return (
     <button onClick={onOpen} className="grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-white/[.025] lg:grid-cols-[1.35fr_.65fr_.75fr_.7fr_.65fr_90px] lg:items-center">
       <div className="flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-2xl bg-[#C7F76F]/10 text-[11px] font-black text-[#C7F76F]">{client.initials}</span>
+        <span className="grid size-11 place-items-center rounded-2xl bg-[#C7F76F]/10 text-[11px] font-black text-[#C7F76F]">{initials(client.name)}</span>
         <div className="min-w-0">
           <p className="truncate text-[13px] font-bold text-white">{client.name}</p>
           <p className="mt-1 text-[11px] text-[#B7AB98]">{client.industry} - {metrics.owner}</p>
         </div>
       </div>
-      <span><Badge tone={statusTone(client.status)}>{client.status}</Badge></span>
+      <span><Badge tone={statusTone(status)}>{status}</Badge></span>
       <div>
         <p className="text-[12px] font-semibold text-white">{metrics.setupProgress}% ready</p>
         <Progress value={metrics.setupProgress} tone={metrics.setupProgress > 90 ? "mint" : metrics.setupProgress > 70 ? "honey" : "coral"} />
@@ -313,23 +468,41 @@ function AccountRow({ client, onOpen }: { client: Client; onOpen: () => void }) 
   );
 }
 
-export function AccountsPage({ navigate, onOpenAccount }: { navigate: (id: PageId) => void; onOpenAccount: (id: string) => void }) {
+export function AccountsPage({
+  clients,
+  loading,
+  error,
+  navigate,
+  onOpenAccount,
+  onRefresh,
+}: {
+  clients: AppClient[];
+  loading: boolean;
+  error: string | null;
+  navigate: (id: PageId) => void;
+  onOpenAccount: (id: string) => void;
+  onRefresh: () => void;
+}) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
   const shown = useMemo(() => clients.filter((client) => {
-    const matchesFilter = filter === "All" || client.status === filter;
-    const target = `${client.name} ${client.industry} ${client.status}`.toLowerCase();
+    const status = displayStatus(client.status);
+    const matchesFilter = filter === "All" || status === filter;
+    const target = `${client.name} ${client.industry} ${status}`.toLowerCase();
     return matchesFilter && target.includes(query.toLowerCase());
-  }), [filter, query]);
+  }), [clients, filter, query]);
 
   const totals = clients.reduce((acc, client) => {
-    const metrics = getMetrics(client.id);
+    const metrics = getMetrics(client);
     acc.calls += metrics.callsAnswered;
     acc.jobs += metrics.jobsSaved;
-    acc.hours += metrics.hoursSaved;
+    acc.hours += Number(metrics.hoursSaved);
     acc.issues += metrics.errors;
     return acc;
   }, { calls: 0, jobs: 0, hours: 0, issues: 0 });
+
+  if (loading) return <LoadingState title="Loading businesses..." />;
+  if (error) return <ErrorState title="Could not load accounts" error={error} onRetry={onRefresh} />;
 
   return (
     <div className="space-y-5">
@@ -337,25 +510,25 @@ export function AccountsPage({ navigate, onOpenAccount }: { navigate: (id: PageI
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(199,247,111,.095),transparent_32%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <Badge><span className="size-1.5 rounded-full bg-[#C7F76F]" /> Business operations</Badge>
+            <Badge><span className="size-1.5 rounded-full bg-[#C7F76F]" /> Live Supabase accounts</Badge>
             <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-.045em] text-white sm:text-5xl">Find a business, launch a receptionist, or fix what is broken.</h1>
-            <p className="mt-4 max-w-2xl text-[14px] leading-6 text-[#B7AB98]">This is the whole console: setup accounts, update their rules, and prove Bellory is booking work.</p>
+            <p className="mt-4 max-w-2xl text-[14px] leading-6 text-[#B7AB98]">This page now reads real client records, readiness, issues, and metrics from the backend.</p>
           </div>
           <Button onClick={() => navigate("setup")} className="w-fit"><ClipboardCheck size={14} /> Set up new business</Button>
         </div>
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={PhoneIncoming} label="Calls answered" value={`${totals.calls}`} helper="Across all active accounts" />
+        <MetricCard icon={PhoneIncoming} label="Calls answered" value={`${totals.calls}`} helper="From client_daily_metrics" />
         <MetricCard icon={CalendarCheck} label="Jobs saved" value={`${totals.jobs}`} helper="Booked or escalated instead of missed" tone="blue" />
         <MetricCard icon={Clock3} label="Hours saved" value={`${totals.hours}`} helper="Estimated receptionist time saved" tone="honey" />
-        <MetricCard icon={TriangleAlert} label="Open issues" value={`${totals.issues}`} helper="Things an operator should fix" tone={totals.issues > 0 ? "coral" : "mint"} />
+        <MetricCard icon={TriangleAlert} label="Open issues" value={`${totals.issues}`} helper="Config or runtime problems" tone={totals.issues > 0 ? "coral" : "mint"} />
       </div>
 
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-white/[.06] p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-2">
-            {["All", "Live", "Setup", "Pilot", "Needs Attention", "Paused"].map((item) => (
+            {["All", "Live", "Setup", "Pilot", "Needs Attention", "Paused", "Draft"].map((item) => (
               <button key={item} onClick={() => setFilter(item)} className={clsx("rounded-xl px-3 py-2 text-[11px] font-bold transition", filter === item ? "bg-[#C7F76F] text-[#17120C]" : "border border-white/[.07] bg-white/[.03] text-[#B7AB98] hover:text-white")}>{item}</button>
             ))}
           </div>
@@ -366,32 +539,34 @@ export function AccountsPage({ navigate, onOpenAccount }: { navigate: (id: PageI
         </div>
         <div>
           {shown.map((client) => <AccountRow key={client.id} client={client} onOpen={() => onOpenAccount(client.id)} />)}
-          {shown.length === 0 && <div className="p-5"><DemoState tone="honey" title="No businesses match" description="Try a different status filter or search term." /></div>}
+          {shown.length === 0 && <div className="p-5"><DemoState tone="honey" title="No businesses match" description="Create a real business record from New Business Setup, or clear the filter." /></div>}
         </div>
       </Card>
     </div>
   );
 }
 
-function AccountDirectoryCard({ client, onOpen }: { client: Client; onOpen: () => void }) {
-  const metrics = getMetrics(client.id);
+function AccountDirectoryCard({ client, onOpen }: { client: AppClient; onOpen: () => void }) {
+  const metrics = getMetrics(client);
+  const status = displayStatus(client.status);
+
   return (
     <button onClick={onOpen} className="group flex h-full flex-col rounded-[1.35rem] border border-white/[.075] bg-white/[.028] p-5 text-left transition hover:-translate-y-0.5 hover:border-[#C7F76F]/25 hover:bg-[#C7F76F]/[.035] hover:shadow-[0_18px_50px_rgba(0,0,0,.22)]">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#C7F76F]/10 text-[12px] font-black text-[#C7F76F] shadow-[inset_0_0_0_1px_rgba(199,247,111,.08)]">{client.initials}</span>
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#C7F76F]/10 text-[12px] font-black text-[#C7F76F] shadow-[inset_0_0_0_1px_rgba(199,247,111,.08)]">{initials(client.name)}</span>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-bold tracking-tight text-white">{client.name}</p>
             <p className="mt-1 text-[11px] text-[#B7AB98]">{client.industry}</p>
           </div>
         </div>
-        <Badge tone={statusTone(client.status)}>{client.status}</Badge>
+        <Badge tone={statusTone(status)}>{status}</Badge>
       </div>
       <div className="grid gap-2 text-[11px] text-[#B7AB98]">
         <div className="flex justify-between gap-3"><span>Owner</span><span className="font-semibold text-white">{metrics.owner}</span></div>
-        <div className="flex justify-between gap-3"><span>Phone</span><span className="font-semibold text-white">{client.phone}</span></div>
-        <div className="flex justify-between gap-3"><span>Calendar</span><span className={clsx("font-semibold", client.calendar === "Issue" ? "text-[#F08B72]" : "text-white")}>{client.calendar}</span></div>
-        <div className="flex justify-between gap-3"><span>AI</span><span className="font-semibold text-white">{client.ai}</span></div>
+        <div className="flex justify-between gap-3"><span>Plan</span><span className="font-semibold text-white">{displayPlan(client.plan)}</span></div>
+        <div className="flex justify-between gap-3"><span>Config</span><span className="font-semibold text-white">{client.configStatus || "draft"}</span></div>
+        <div className="flex justify-between gap-3"><span>Version</span><span className="font-semibold text-white">{client.configVersion ?? "new"}</span></div>
       </div>
       <div className="my-5">
         <div className="mb-2 flex items-center justify-between">
@@ -410,14 +585,18 @@ function AccountDirectoryCard({ client, onOpen }: { client: Client; onOpen: () =
   );
 }
 
-function AccountDirectory({ onOpenAccount }: { onOpenAccount: (id: string) => void }) {
+function AccountDirectory({ clients, loading, error, onOpenAccount, onRefresh }: { clients: AppClient[]; loading: boolean; error: string | null; onOpenAccount: (id: string) => void; onRefresh: () => void }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
   const shown = useMemo(() => clients.filter((client) => {
-    const matchesFilter = filter === "All" || client.status === filter;
-    const target = `${client.name} ${client.industry} ${client.status}`.toLowerCase();
+    const status = displayStatus(client.status);
+    const matchesFilter = filter === "All" || status === filter;
+    const target = `${client.name} ${client.industry} ${status}`.toLowerCase();
     return matchesFilter && target.includes(query.toLowerCase());
-  }), [filter, query]);
+  }), [clients, filter, query]);
+
+  if (loading) return <LoadingState title="Loading account directory..." />;
+  if (error) return <ErrorState title="Could not load account directory" error={error} onRetry={onRefresh} />;
 
   return (
     <div className="space-y-5">
@@ -427,7 +606,7 @@ function AccountDirectory({ onOpenAccount }: { onOpenAccount: (id: string) => vo
           <div>
             <Badge><Building2 size={12} /> Configured accounts</Badge>
             <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-.045em] text-white sm:text-5xl">Choose a business to configure its receptionist.</h1>
-            <p className="mt-4 max-w-2xl text-[14px] leading-6 text-[#B7AB98]">Each card opens the settings for one client: AI voice, business brain, quote rules, calendar, routing, fallbacks, compliance, integrations, and testing.</p>
+            <p className="mt-4 max-w-2xl text-[14px] leading-6 text-[#B7AB98]">Each card opens live settings for one client: voice, business brain, quote rules, calendar, routing, fallbacks, compliance, integrations, and testing.</p>
           </div>
           <div className="relative w-full lg:w-[330px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94836A]" />
@@ -436,7 +615,7 @@ function AccountDirectory({ onOpenAccount }: { onOpenAccount: (id: string) => vo
         </div>
       </Card>
       <div className="flex flex-wrap gap-2">
-        {["All", "Live", "Setup", "Pilot", "Needs Attention", "Paused"].map((item) => (
+        {["All", "Live", "Setup", "Pilot", "Needs Attention", "Paused", "Draft"].map((item) => (
           <button key={item} onClick={() => setFilter(item)} className={clsx("rounded-xl px-3 py-2 text-[11px] font-bold transition", filter === item ? "bg-[#C7F76F] text-[#17120C]" : "border border-white/[.07] bg-white/[.03] text-[#B7AB98] hover:text-white")}>{item}</button>
         ))}
       </div>
@@ -446,23 +625,142 @@ function AccountDirectory({ onOpenAccount }: { onOpenAccount: (id: string) => vo
   );
 }
 
-export function NewBusinessSetupPage({ navigate }: { navigate: (id: PageId) => void }) {
+type SetupForm = {
+  name: string;
+  publicName: string;
+  industry: string;
+  primaryContactName: string;
+  primaryContactPhone: string;
+  primaryContactEmail: string;
+  timezone: string;
+  primaryAddress: string;
+  serviceArea: string;
+  radiusMiles: string;
+  outOfAreaResponse: string;
+  phoneChoice: string;
+  missedCallFallback: string;
+  spamHandling: string;
+  voiceChoice: string;
+  greetingScript: string;
+  speakingPace: string;
+  interruptionStyle: string;
+  backgroundAmbience: string;
+  disclosurePhrase: string;
+  behaviorInstructions: string;
+  businessSummary: string;
+  brandTone: string;
+  bookingChoice: string;
+  noAvailabilityBehavior: string;
+  fallbackChoice: string;
+  urgentTriggers: string;
+  smsAlertTemplate: string;
+  operatorReviewThreshold: string;
+  aiDisclosurePolicy: string;
+  callRecordingConsentScript: string;
+  launchScenarios: string;
+};
+
+const defaultSetupForm: SetupForm = {
+  name: "",
+  publicName: "",
+  industry: "Home services",
+  primaryContactName: "",
+  primaryContactPhone: "",
+  primaryContactEmail: "",
+  timezone: "America/Denver",
+  primaryAddress: "",
+  serviceArea: "Salt Lake City",
+  radiusMiles: "35",
+  outOfAreaResponse: "Politely explain that the business may not service that area and offer to take details for owner review.",
+  phoneChoice: "forward",
+  missedCallFallback: "Collect caller details and send the owner an SMS summary.",
+  spamHandling: "Politely end obvious spam calls and mark the lead as spam.",
+  voiceChoice: "elevenlabs",
+  greetingScript: "",
+  speakingPace: "Variable, natural, and concise.",
+  interruptionStyle: "Allow callers to interrupt and acknowledge before continuing.",
+  backgroundAmbience: "None unless explicitly approved.",
+  disclosurePhrase: "I am Bellory, the receptionist for this business.",
+  behaviorInstructions: "Sound human, calm, and helpful. Ask one question at a time. Use tools before confirming booking details. Never invent pricing or availability.",
+  businessSummary: "",
+  brandTone: "warm, brief, professional, local",
+  bookingChoice: "direct",
+  noAvailabilityBehavior: "Collect preferred windows and alert the owner.",
+  fallbackChoice: "owner",
+  urgentTriggers: "safety risk\nactive leak\ndoor stuck open\ncaller trapped\nproperty damage\nangry caller",
+  smsAlertTemplate: "Urgent Bellory call for {{client_name}}: {{issue}}. Caller: {{caller_phone}}.",
+  operatorReviewThreshold: "Escalate low confidence, urgent, or pricing-outside-rules calls.",
+  aiDisclosurePolicy: "Use the approved Bellory disclosure phrase when asked and wherever legally required.",
+  callRecordingConsentScript: "This call may be recorded so we can help the team follow up accurately.",
+  launchScenarios: "normal booking\nurgent transfer\nquote shopper\nafter hours\nno availability\ntool failure fallback",
+};
+
+function SetupField({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <Input value={value} onChange={onChange} placeholder={`Enter ${label.toLowerCase()}...`} type={type} />
+    </div>
+  );
+}
+
+function SetupTextarea({ label, value, onChange, rows = 5 }: { label: string; value: string; onChange: (value: string) => void; rows?: number }) {
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <textarea
+        rows={rows}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-sm leading-6 text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40"
+      />
+    </div>
+  );
+}
+
+export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (payload: CreateClientPayload, configPatch: BelloryClientConfigDraft) => Promise<string> }) {
   const [step, setStep] = useState(0);
-  const [phoneChoice, setPhoneChoice] = useState("forward");
-  const [voiceChoice, setVoiceChoice] = useState("elevenlabs");
-  const [bookingChoice, setBookingChoice] = useState("direct");
-  const [fallbackChoice, setFallbackChoice] = useState("owner");
+  const [form, setForm] = useState(defaultSetupForm);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const complete = Math.round((step / (setupSteps.length - 1)) * 100);
   const current = setupSteps[step];
   const detail = onboardingDetails[current];
+
+  const update = (key: keyof SetupForm) => (value: string) => setForm((currentForm) => ({ ...currentForm, [key]: value }));
+  const createDisabled = !form.name.trim() || !form.industry.trim() || saving;
+
+  const handleCreate = async () => {
+    if (createDisabled) {
+      setError("Business name and industry are required before creating the account.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      await onCreateBusiness({
+        name: form.name.trim(),
+        industry: form.industry.trim(),
+        primaryContactName: form.primaryContactName.trim() || undefined,
+        primaryContactPhone: form.primaryContactPhone.trim() || undefined,
+        primaryContactEmail: form.primaryContactEmail.trim() || undefined,
+      }, setupPatch(form));
+      setForm(defaultSetupForm);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to create business");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="grid gap-4 xl:grid-cols-[330px_1fr]">
       <Card className="p-4">
         <div className="mb-5 rounded-2xl bg-gradient-to-br from-[#C7F76F]/10 to-transparent p-4">
-          <div className="flex items-center justify-between"><Badge tone="honey">Draft setup</Badge><span className="text-sm font-bold">{complete}%</span></div>
+          <div className="flex items-center justify-between"><Badge tone="honey">Live draft setup</Badge><span className="text-sm font-bold">{complete}%</span></div>
           <p className="mt-4 text-base font-semibold text-white">New business onboarding</p>
-          <p className="mt-1 text-[11px] text-[#B7AB98]">One backend-shaped path from discovery call to live receptionist.</p>
+          <p className="mt-1 text-[11px] text-[#B7AB98]">Creates a real client and first config draft in Supabase.</p>
           <div className="mt-4"><Progress value={complete} /></div>
         </div>
         <div className="space-y-1">
@@ -487,7 +785,7 @@ export function NewBusinessSetupPage({ navigate }: { navigate: (id: PageId) => v
 
         {current === "Phone routing" && (
           <div className="mb-5">
-            <ChoiceGrid selected={phoneChoice} onSelect={setPhoneChoice} options={[
+            <ChoiceGrid selected={form.phoneChoice} onSelect={update("phoneChoice")} options={[
               { id: "forward", title: "Forward current number", description: "Fastest launch: business forwards calls to Bellory." },
               { id: "new", title: "Assign Bellory number", description: "Use a Twilio number immediately and optionally advertise it." },
               { id: "port", title: "Port later", description: "Start forwarding, then port the existing number after pilot." },
@@ -497,7 +795,7 @@ export function NewBusinessSetupPage({ navigate }: { navigate: (id: PageId) => v
 
         {current === "AI voice" && (
           <div className="mb-5">
-            <ChoiceGrid selected={voiceChoice} onSelect={setVoiceChoice} options={[
+            <ChoiceGrid selected={form.voiceChoice} onSelect={update("voiceChoice")} options={[
               { id: "elevenlabs", title: "ElevenLabs agent", description: "Use the most human voice profile and live call agent config." },
               { id: "brand", title: "Custom brand voice", description: "Prepare for cloned or custom voice once approved." },
               { id: "fallback", title: "Fallback voice", description: "Choose a safe secondary voice if the primary provider fails." },
@@ -507,7 +805,7 @@ export function NewBusinessSetupPage({ navigate }: { navigate: (id: PageId) => v
 
         {current === "Calendar & dispatch" && (
           <div className="mb-5">
-            <ChoiceGrid selected={bookingChoice} onSelect={setBookingChoice} options={[
+            <ChoiceGrid selected={form.bookingChoice} onSelect={update("bookingChoice")} options={[
               { id: "direct", title: "Book directly", description: "AI books when all rules match and calendar has availability." },
               { id: "approval", title: "Owner approval", description: "AI collects details and holds appointment until approved." },
               { id: "lead", title: "Lead only", description: "AI captures qualified jobs without committing a time." },
@@ -517,7 +815,7 @@ export function NewBusinessSetupPage({ navigate }: { navigate: (id: PageId) => v
 
         {current === "Urgency & escalation" && (
           <div className="mb-5">
-            <ChoiceGrid selected={fallbackChoice} onSelect={setFallbackChoice} options={[
+            <ChoiceGrid selected={form.fallbackChoice} onSelect={update("fallbackChoice")} options={[
               { id: "owner", title: "Owner first", description: "Transfer urgent calls to owner, then SMS summary." },
               { id: "manager", title: "Manager first", description: "Use office manager for scheduling or pricing uncertainty." },
               { id: "bellory", title: "Bellory operator", description: "Route ambiguous calls to an internal Bellory operator." },
@@ -525,15 +823,88 @@ export function NewBusinessSetupPage({ navigate }: { navigate: (id: PageId) => v
           </div>
         )}
 
-        <FieldGrid fields={detail.fields} />
+        <div className="grid gap-3 md:grid-cols-2">
+          {current === "Business identity" && (
+            <>
+              <SetupField label="Legal business name" value={form.name} onChange={update("name")} />
+              <SetupField label="Caller-facing name" value={form.publicName} onChange={update("publicName")} />
+              <SetupField label="Industry" value={form.industry} onChange={update("industry")} />
+              <SetupField label="Owner name" value={form.primaryContactName} onChange={update("primaryContactName")} />
+              <SetupField label="Owner phone" value={form.primaryContactPhone} onChange={update("primaryContactPhone")} />
+              <SetupField label="Owner email" value={form.primaryContactEmail} onChange={update("primaryContactEmail")} type="email" />
+              <SetupField label="Timezone" value={form.timezone} onChange={update("timezone")} />
+              <SetupField label="Brand tone" value={form.brandTone} onChange={update("brandTone")} />
+            </>
+          )}
+          {current === "Locations & hours" && (
+            <>
+              <SetupField label="Primary address" value={form.primaryAddress} onChange={update("primaryAddress")} />
+              <SetupField label="Primary service city" value={form.serviceArea} onChange={update("serviceArea")} />
+              <SetupField label="Service radius miles" value={form.radiusMiles} onChange={update("radiusMiles")} type="number" />
+              <SetupField label="Out-of-area response" value={form.outOfAreaResponse} onChange={update("outOfAreaResponse")} />
+            </>
+          )}
+          {current === "Phone routing" && (
+            <>
+              <SetupField label="Current / owner phone" value={form.primaryContactPhone} onChange={update("primaryContactPhone")} />
+              <SetupField label="Missed-call fallback" value={form.missedCallFallback} onChange={update("missedCallFallback")} />
+              <SetupField label="Spam handling" value={form.spamHandling} onChange={update("spamHandling")} />
+            </>
+          )}
+          {current === "AI voice" && (
+            <>
+              <SetupField label="Speaking pace" value={form.speakingPace} onChange={update("speakingPace")} />
+              <SetupField label="Interruption style" value={form.interruptionStyle} onChange={update("interruptionStyle")} />
+              <SetupField label="Background ambience" value={form.backgroundAmbience} onChange={update("backgroundAmbience")} />
+              <SetupField label="Disclosure phrase" value={form.disclosurePhrase} onChange={update("disclosurePhrase")} />
+            </>
+          )}
+          {current === "Calendar & dispatch" && (
+            <>
+              <SetupField label="No availability behavior" value={form.noAvailabilityBehavior} onChange={update("noAvailabilityBehavior")} />
+            </>
+          )}
+          {current === "Compliance & policies" && (
+            <>
+              <SetupField label="AI disclosure policy" value={form.aiDisclosurePolicy} onChange={update("aiDisclosurePolicy")} />
+              <SetupField label="Recording consent script" value={form.callRecordingConsentScript} onChange={update("callRecordingConsentScript")} />
+            </>
+          )}
+        </div>
+
+        <div className="mt-4 grid gap-4">
+          {current === "Business identity" && <SetupTextarea label="Business summary" value={form.businessSummary} onChange={update("businessSummary")} />}
+          {current === "AI voice" && (
+            <>
+              <SetupTextarea label="Greeting script" value={form.greetingScript} onChange={update("greetingScript")} rows={3} />
+              <SetupTextarea label="Behavior instructions" value={form.behaviorInstructions} onChange={update("behaviorInstructions")} />
+            </>
+          )}
+          {current === "Urgency & escalation" && (
+            <>
+              <SetupTextarea label="Urgent triggers, one per line" value={form.urgentTriggers} onChange={update("urgentTriggers")} rows={5} />
+              <SetupTextarea label="SMS alert template" value={form.smsAlertTemplate} onChange={update("smsAlertTemplate")} rows={3} />
+              <SetupTextarea label="Operator review threshold" value={form.operatorReviewThreshold} onChange={update("operatorReviewThreshold")} rows={3} />
+            </>
+          )}
+          {current === "Launch QA" && <SetupTextarea label="Required launch scenarios, one per line" value={form.launchScenarios} onChange={update("launchScenarios")} rows={6} />}
+        </div>
+
+        {!(["Business identity", "Locations & hours", "Phone routing", "AI voice", "Calendar & dispatch", "Urgency & escalation", "Compliance & policies", "Launch QA"] as SetupStep[]).includes(current) && (
+          <div className="grid gap-3 md:grid-cols-2">
+            {detail.fields.map((field) => <EmptyCheck key={field} text={field} />)}
+          </div>
+        )}
+
         <BackendMapping label={detail.backend} checks={detail.checklist} />
+        {error && <div className="mt-4"><DemoState title="Setup needs attention" description={error} tone="coral" /></div>}
 
         <div className="mt-6 flex justify-between border-t border-white/[.06] pt-5">
           <Button kind="ghost" disabled={step === 0} onClick={() => setStep(Math.max(0, step - 1))}>Back</Button>
           {step < setupSteps.length - 1 ? (
             <Button onClick={() => setStep(step + 1)}>Save & continue <ArrowRight size={13} /></Button>
           ) : (
-            <Button onClick={() => navigate("accounts")}><Sparkles size={14} /> Launch account</Button>
+            <Button disabled={createDisabled} onClick={handleCreate}><Sparkles size={14} /> {saving ? "Creating..." : "Create live account"}</Button>
           )}
         </div>
       </Card>
@@ -541,28 +912,163 @@ export function NewBusinessSetupPage({ navigate }: { navigate: (id: PageId) => v
   );
 }
 
-function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: Client; metrics: AccountMetrics }) {
+function EditableField({ config, path, label, onChange, type = "text", helper }: { config: BelloryClientConfigDraft | null; path: string; label: string; onChange: (path: string, value: unknown) => void; type?: string; helper?: string }) {
+  const value = type === "number" ? String(getNumber(config, path)) : getString(config, path);
+
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <Input value={value} type={type} onChange={(next) => onChange(path, type === "number" ? Number(next) || 0 : next)} />
+      {helper && <p className="mt-1.5 text-[10px] leading-4 text-[#94836A]">{helper}</p>}
+    </div>
+  );
+}
+
+function EditableTextArea({ config, path, label, onChange, rows = 5 }: { config: BelloryClientConfigDraft | null; path: string; label: string; onChange: (path: string, value: unknown) => void; rows?: number }) {
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <textarea
+        rows={rows}
+        value={getString(config, path)}
+        onChange={(event) => onChange(path, event.target.value)}
+        className="w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-sm leading-6 text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40"
+      />
+    </div>
+  );
+}
+
+function EditableList({ config, path, label, onChange, rows = 5 }: { config: BelloryClientConfigDraft | null; path: string; label: string; onChange: (path: string, value: unknown) => void; rows?: number }) {
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <textarea
+        rows={rows}
+        value={getStringArray(config, path).join("\n")}
+        onChange={(event) => onChange(path, splitLines(event.target.value))}
+        className="w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-sm leading-6 text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40"
+      />
+      <p className="mt-1.5 text-[10px] leading-4 text-[#94836A]">One item per line.</p>
+    </div>
+  );
+}
+
+function SelectField({ config, path, label, options, onChange }: { config: BelloryClientConfigDraft | null; path: string; label: string; options: string[]; onChange: (path: string, value: unknown) => void }) {
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <Select value={getString(config, path)} onChange={(value) => onChange(path, value)}>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </Select>
+    </div>
+  );
+}
+
+function BooleanSelect({ config, path, label, onChange }: { config: BelloryClientConfigDraft | null; path: string; label: string; onChange: (path: string, value: unknown) => void }) {
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <Select value={getString(config, path, "false")} onChange={(value) => onChange(path, value === "true")}>
+        <option value="false">false</option>
+        <option value="true">true</option>
+      </Select>
+    </div>
+  );
+}
+
+function JsonEditor({ config, path, label, onChange }: { config: BelloryClientConfigDraft | null; path: string; label: string; onChange: (path: string, value: unknown) => void }) {
+  const value = getJsonValue(config, path);
+  const valueText = JSON.stringify(value, null, 2);
+  const [draftText, setDraftText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const text = draftText ?? valueText;
+
+  const apply = () => {
+    try {
+      onChange(path, JSON.parse(text));
+      setDraftText(null);
+      setError(null);
+    } catch {
+      setError("Invalid JSON. Fix the structure before saving.");
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+        <Button kind="ghost" onClick={apply}>Apply JSON</Button>
+      </div>
+      <textarea
+        rows={8}
+        value={text}
+        onChange={(event) => setDraftText(event.target.value)}
+        onBlur={apply}
+        className="font-mono w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-xs leading-5 text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40"
+      />
+      {error && <p className="mt-1.5 text-[11px] text-[#F08B72]">{error}</p>}
+    </div>
+  );
+}
+
+function ValidationPanel({ validation }: { validation: ValidationResult | null }) {
+  if (!validation) return null;
+  if (validation.ok) return <DemoState title="Validation passed" description="This config is publishable for the live receptionist runtime." />;
+
+  return (
+    <div className="rounded-2xl border border-[#E05F45]/20 bg-[#E05F45]/10 p-4">
+      <p className="text-[12px] font-bold text-[#F08B72]">Validation issues</p>
+      <div className="mt-3 space-y-2">
+        {validation.issues.slice(0, 8).map((issue) => <p key={issue} className="text-[11px] leading-5 text-[#F8C2B6]">{issue}</p>)}
+      </div>
+    </div>
+  );
+}
+
+function AccountTabContent({
+  tab,
+  client,
+  config,
+  readiness,
+  validation,
+  onChange,
+}: {
+  tab: AccountTab;
+  client: AppClient;
+  config: BelloryClientConfigDraft | null;
+  readiness: Readiness;
+  validation: ValidationResult | null;
+  onChange: (path: string, value: unknown) => void;
+}) {
+  const metrics = getMetrics(client);
+
   if (tab === "Overview") {
+    const sectionStatus = Object.entries(readiness.sectionStatus ?? {});
     return (
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard icon={Brain} label="Config readiness" value={`${metrics.setupProgress}%`} helper="Required receptionist settings complete" />
+          <MetricCard icon={Brain} label="Config readiness" value={`${readiness.percentage}%`} helper={`${readiness.complete} of ${readiness.required} required settings complete`} />
           <MetricCard icon={PhoneIncoming} label="Calls answered" value={`${metrics.callsAnswered}`} helper="Live calls Bellory picked up" tone="blue" />
           <MetricCard icon={CalendarCheck} label="Jobs saved" value={`${metrics.jobsSaved}`} helper="Booked or escalated work" tone="honey" />
           <MetricCard icon={TriangleAlert} label="Open issues" value={`${metrics.errors}`} helper={metrics.lastIssue} tone={metrics.errors > 0 ? "coral" : "mint"} />
         </div>
         <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
-          <ConfigPanel title="Backend-ready configuration checklist" eyebrow="Account health" icon={ListChecks}>
-            <ChecklistGrid items={["Business profile + service area", "AI voice and greeting", "Services, pricing, and quote guardrails", "Calendar booking rules", "Urgency and fallback paths", "Knowledge base and FAQs", "Compliance and never-say rules", "Launch test suite"]} />
+          <ConfigPanel title="Configuration checklist" eyebrow="Live readiness" icon={ListChecks}>
+            <div className="grid gap-2 md:grid-cols-2">
+              {sectionStatus.map(([key, status]) => (
+                <EmptyCheck key={key} checked={status.complete} text={`${sectionLabels[key] ?? key}${status.missing.length ? ` - missing ${status.missing.length}` : ""}`} />
+              ))}
+            </div>
           </ConfigPanel>
-          <ConfigPanel title="Live routing summary" eyebrow={metrics.phoneMode} icon={Route} tone="blue">
+          <ConfigPanel title="Routing summary" eyebrow="Current draft" icon={Route} tone="blue">
             <div className="space-y-2">
-              <DemoState title="Phone" description={metrics.phoneRoute} />
-              <DemoState title="Calendar" description={metrics.calendar} tone={client.calendar === "Issue" ? "coral" : "mint"} />
-              <DemoState title="Fallback" description={metrics.fallback} tone="honey" />
+              <DemoState title="Phone mode" description={getString(config, "phoneRouting.mode", "Not configured")} />
+              <DemoState title="Calendar mode" description={getString(config, "calendarAndDispatch.bookingMode", "Not configured")} tone="honey" />
+              <DemoState title="Fallback" description={getString(config, "phoneRouting.missedCallFallback", "Not configured")} />
             </div>
           </ConfigPanel>
         </div>
+        <ValidationPanel validation={validation} />
       </div>
     );
   }
@@ -571,20 +1077,26 @@ function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: 
     return (
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
         <ConfigPanel title="Business facts" eyebrow="Core memory" icon={Building2}>
-          <FieldGrid fields={[
-            { label: "Caller-facing name", value: client.name },
-            { label: "Industry", value: client.industry },
-            { label: "Primary owner", value: metrics.owner },
-            { label: "Timezone", value: "America/Denver" },
-            { label: "Service area", value: "Salt Lake City metro + nearby suburbs" },
-            { label: "Brand tone", value: "Warm, capable, concise, local" },
-          ]} />
-          <div className="mt-3">
-            <TextAreaField label="Business summary used by the AI" value={`${client.name} helps local homeowners with ${client.industry.toLowerCase()} needs. Bellory should answer as a calm receptionist, gather the problem, service location, urgency, caller details, and booking intent before using tools.`} />
+          <div className="grid gap-3 md:grid-cols-2">
+            <EditableField config={config} path="businessIdentity.legalName" label="Legal name" onChange={onChange} />
+            <EditableField config={config} path="businessIdentity.publicName" label="Caller-facing name" onChange={onChange} />
+            <EditableField config={config} path="businessIdentity.industry" label="Industry" onChange={onChange} />
+            <EditableField config={config} path="businessIdentity.ownerName" label="Owner name" onChange={onChange} />
+            <EditableField config={config} path="businessIdentity.ownerPhone" label="Owner phone" onChange={onChange} />
+            <EditableField config={config} path="businessIdentity.ownerEmail" label="Owner email" onChange={onChange} />
+            <EditableField config={config} path="businessIdentity.timezone" label="Timezone" onChange={onChange} />
+          </div>
+          <div className="mt-4 grid gap-4">
+            <EditableList config={config} path="businessIdentity.brandTone" label="Brand tone words" onChange={onChange} rows={4} />
+            <EditableTextArea config={config} path="businessIdentity.businessSummary" label="Business summary used by AI" onChange={onChange} />
           </div>
         </ConfigPanel>
-        <ConfigPanel title="Caller intake fields" eyebrow="Lead schema" icon={UsersRound} tone="honey">
-          <ChecklistGrid items={["Caller name", "Callback phone", "Service address", "Problem description", "Urgency", "Preferred appointment window", "Photos requested when useful", "Decision maker confirmed"]} />
+        <ConfigPanel title="Receptionist brain" eyebrow="Runtime instructions" icon={UsersRound} tone="honey">
+          <div className="space-y-4">
+            <EditableList config={config} path="receptionistBrain.callerIntents" label="Caller intents" onChange={onChange} />
+            <EditableList config={config} path="receptionistBrain.requiredIntakeFields" label="Required intake fields" onChange={onChange} />
+            <EditableTextArea config={config} path="receptionistBrain.lowConfidencePolicy" label="Low-confidence policy" onChange={onChange} rows={4} />
+          </div>
         </ConfigPanel>
       </div>
     );
@@ -594,23 +1106,23 @@ function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: 
     return (
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
         <ConfigPanel title="Voice and personality" eyebrow="ElevenLabs agent profile" icon={Headphones}>
-          <FieldGrid fields={[
-            { label: "Voice provider", value: "ElevenLabs Conversational AI" },
-            { label: "Voice / agent ID", value: `${client.id}-bellory-agent` },
-            { label: "Speaking pace", value: "Variable, human-natural" },
-            { label: "Interruption behavior", value: "Allow short caller interruptions" },
-            { label: "Background noise", value: "Subtle office ambience" },
-            { label: "Disclosure phrase", value: "I am Bellory, the receptionist for this business." },
-          ]} />
-          <div className="mt-3">
-            <TextAreaField label="Greeting script" value={`Thanks for calling ${client.name}. This is Bellory at the front desk. How can I help today?`} rows={3} />
+          <div className="grid gap-3 md:grid-cols-2">
+            <SelectField config={config} path="aiVoice.provider" label="Voice provider" options={["elevenlabs"]} onChange={onChange} />
+            <EditableField config={config} path="aiVoice.providerAccountId" label="Provider account ID" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.externalAgentId" label="External agent ID" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.externalVoiceId" label="External voice ID" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.speakingPace" label="Speaking pace" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.interruptionStyle" label="Interruption style" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.backgroundAmbience" label="Background ambience" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.disclosurePhrase" label="Disclosure phrase" onChange={onChange} />
           </div>
-          <div className="mt-3">
-            <TextAreaField label="Agent behavior instructions" value="Sound human, brief, and helpful. Use natural pauses. Acknowledge the caller before asking the next question. Never invent pricing, appointment availability, warranties, or safety advice. Use tools before confirming booking details." />
+          <div className="mt-4 grid gap-4">
+            <EditableTextArea config={config} path="aiVoice.greetingScript" label="Greeting script" onChange={onChange} rows={3} />
+            <EditableTextArea config={config} path="aiVoice.behaviorInstructions" label="Behavior instructions" onChange={onChange} />
           </div>
         </ConfigPanel>
         <ConfigPanel title="Human-likeness controls" eyebrow="Voice QA" icon={SlidersHorizontal} tone="violet">
-          <ChecklistGrid items={["Variable speech speed", "Natural filler words allowed", "Breath/pause behavior enabled", "No robotic long monologues", "Can be interrupted", "Keeps answers under 20 seconds", "Repeats critical details", "Escalates when unsure"]} />
+          <ChecklistGrid items={["Variable speech speed", "Natural filler words allowed", "Breath/pause behavior in voice provider", "No robotic long monologues", "Can be interrupted", "Keeps answers brief", "Repeats critical details", "Escalates when unsure"]} />
         </ConfigPanel>
       </div>
     );
@@ -619,23 +1131,21 @@ function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: 
   if (tab === "Call Flow") {
     return (
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
-        <ConfigPanel title="Conversation stages" eyebrow="Runtime flow" icon={MessageSquareText}>
+        <ConfigPanel title="Phone route and call behavior" eyebrow="Runtime flow" icon={MessageSquareText}>
           <div className="grid gap-3 md:grid-cols-2">
-            {["Answer with approved greeting", "Classify caller intent", "Collect required intake fields", "Check service area", "Determine urgency", "Use calendar/pricing tools", "Confirm next step", "Send owner/client summary"].map((item, index) => (
-              <div key={item} className="rounded-2xl border border-white/[.07] bg-white/[.025] p-4">
-                <p className="text-[10px] font-black text-[#C7F76F]">0{index + 1}</p>
-                <p className="mt-2 text-[13px] font-bold text-white">{item}</p>
-              </div>
-            ))}
+            <SelectField config={config} path="phoneRouting.mode" label="Phone routing mode" options={["forward_existing", "new_number", "port_later"]} onChange={onChange} />
+            <EditableField config={config} path="phoneRouting.currentNumber" label="Current number" onChange={onChange} />
+            <EditableField config={config} path="phoneRouting.belloryNumber" label="Bellory number" onChange={onChange} />
+            <EditableField config={config} path="phoneRouting.callerIdLabel" label="Caller ID label" onChange={onChange} />
+            <SelectField config={config} path="phoneRouting.recordingConsentMode" label="Recording consent mode" options={["one_party", "two_party", "disabled", "custom"]} onChange={onChange} />
+            <EditableField config={config} path="phoneRouting.spamHandling" label="Spam handling" onChange={onChange} />
+          </div>
+          <div className="mt-4">
+            <EditableTextArea config={config} path="phoneRouting.missedCallFallback" label="Failed tool / missed-call fallback" onChange={onChange} rows={4} />
           </div>
         </ConfigPanel>
-        <ConfigPanel title="Call handling settings" eyebrow="Phone behavior" icon={PhoneForwarded} tone="blue">
-          <FieldGrid fields={[
-            { label: "Max ring before answer", value: "1.8 seconds" },
-            { label: "Max call duration before review", value: "12 minutes" },
-            { label: "Spam handling", value: "Politely end and mark spam" },
-            { label: "Failed tool fallback", value: "Collect callback + alert owner" },
-          ]} />
+        <ConfigPanel title="Conversation stages" eyebrow="What the AI must do" icon={PhoneForwarded} tone="blue">
+          <ChecklistGrid items={["Answer with approved greeting", "Classify caller intent", "Collect required intake fields", "Check service area", "Determine urgency", "Use calendar/pricing tools", "Confirm next step", "Send owner/client summary"]} />
         </ConfigPanel>
       </div>
     );
@@ -646,23 +1156,23 @@ function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: 
       <div className="space-y-4">
         <div className="grid gap-4 lg:grid-cols-3">
           <ConfigPanel title="Service catalog" eyebrow={client.industry} icon={Wrench}>
-            <ChecklistGrid items={["Diagnostics", "Repair", "Replacement", "Maintenance", "Emergency service", "Membership / tune-up plan"]} />
+            <JsonEditor config={config} path="servicesAndPricing.services" label="Services JSON" onChange={onChange} />
           </ConfigPanel>
-          <ConfigPanel title="Quote guardrails" eyebrow="Pricing safety" icon={ShieldCheck} tone="honey">
-            <ChecklistGrid items={["Use ranges only", "Mention diagnostic fee", "Ask qualifying questions first", "Owner approval above threshold", "Never guarantee exact price", "Never quote unsupported work"]} />
+          <ConfigPanel title="Diagnostic fees" eyebrow="Pricing safety" icon={ShieldCheck} tone="honey">
+            <JsonEditor config={config} path="servicesAndPricing.diagnosticFees" label="Diagnostic fees JSON" onChange={onChange} />
           </ConfigPanel>
-          <ConfigPanel title="Qualification before price" eyebrow="Required context" icon={ListChecks} tone="blue">
-            <ChecklistGrid items={["Problem type", "Brand/model if known", "Property type", "Urgency", "Photos if useful", "Service address"]} />
+          <ConfigPanel title="Approval threshold" eyebrow="Owner approval" icon={ListChecks} tone="blue">
+            <EditableField config={config} path="servicesAndPricing.ownerApprovalThresholdCents" label="Owner approval threshold cents" type="number" onChange={onChange} />
           </ConfigPanel>
         </div>
-        <ConfigPanel title="Editable pricing rules" eyebrow="Backend pricing_rules" icon={Database} tone="violet">
-          <FieldGrid fields={[
-            { label: "Diagnostic fee", value: "$89" },
-            { label: "Standard repair range", value: "$180-$650" },
-            { label: "Emergency surcharge", value: "$125 after hours" },
-            { label: "Exact quote threshold", value: "Never exact without owner approval" },
-          ]} />
-        </ConfigPanel>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ConfigPanel title="Quote guardrails" eyebrow="What Bellory may say" icon={Database} tone="violet">
+            <EditableList config={config} path="servicesAndPricing.quoteGuardrails" label="Quote guardrails" onChange={onChange} />
+          </ConfigPanel>
+          <ConfigPanel title="Never quote conditions" eyebrow="Escalate instead" icon={TriangleAlert} tone="coral">
+            <EditableList config={config} path="servicesAndPricing.neverQuoteConditions" label="Never-quote conditions" onChange={onChange} />
+          </ConfigPanel>
+        </div>
       </div>
     );
   }
@@ -670,18 +1180,20 @@ function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: 
   if (tab === "Calendar & Dispatch") {
     return (
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
-        <ConfigPanel title="Booking rules" eyebrow={metrics.calendar} icon={CalendarCheck}>
-          <FieldGrid fields={[
-            { label: "Calendar provider", value: "Google Calendar" },
-            { label: "Booking mode", value: client.calendar === "Approval" ? "Owner approval before booking" : "Book directly when rules match" },
-            { label: "Slot length", value: "30 minutes" },
-            { label: "Travel buffer", value: "20 minutes" },
-            { label: "Appointment window wording", value: "Arrival window, not exact arrival time" },
-            { label: "No availability behavior", value: "Collect preferred windows + alert owner" },
-          ]} />
+        <ConfigPanel title="Booking rules" eyebrow="Calendar and dispatch" icon={CalendarCheck}>
+          <div className="grid gap-3 md:grid-cols-2">
+            <SelectField config={config} path="calendarAndDispatch.provider" label="Calendar provider" options={["google", "manual", "none"]} onChange={onChange} />
+            <SelectField config={config} path="calendarAndDispatch.bookingMode" label="Booking mode" options={["direct", "owner_approval", "lead_only"]} onChange={onChange} />
+            <EditableField config={config} path="calendarAndDispatch.travelBufferMinutes" label="Travel buffer minutes" type="number" onChange={onChange} />
+            <EditableField config={config} path="calendarAndDispatch.appointmentWindowWording" label="Appointment window wording" onChange={onChange} />
+          </div>
+          <div className="mt-4 grid gap-4">
+            <JsonEditor config={config} path="calendarAndDispatch.appointmentTypes" label="Appointment types JSON" onChange={onChange} />
+            <EditableTextArea config={config} path="calendarAndDispatch.noAvailabilityBehavior" label="No-availability behavior" onChange={onChange} rows={4} />
+          </div>
         </ConfigPanel>
         <ConfigPanel title="Dispatch intelligence" eyebrow="Job assignment" icon={MapPinned} tone="honey">
-          <ChecklistGrid items={["Service area matched", "Nearest tech preferred", "Emergency slots protected", "Owner approval for high-value jobs", "Reschedule rules set", "Cancellation policy read when needed"]} />
+          <EditableList config={config} path="calendarAndDispatch.technicianRoutingRules" label="Technician routing rules" onChange={onChange} rows={7} />
         </ConfigPanel>
       </div>
     );
@@ -691,15 +1203,15 @@ function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: 
     return (
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
         <ConfigPanel title="Urgency triggers" eyebrow="Escalation rules" icon={TriangleAlert} tone="coral">
-          <ChecklistGrid items={["Safety risk", "Active leak / property damage", "Door stuck open", "Caller trapped or business-critical issue", "Caller angry or asking for owner", "AI confidence low", "Pricing outside rules", "Calendar unavailable"]} />
+          <EditableList config={config} path="urgencyAndEscalation.urgentTriggers" label="Urgent triggers" onChange={onChange} rows={8} />
         </ConfigPanel>
-        <ConfigPanel title="Fallback route" eyebrow={metrics.fallback} icon={PhoneForwarded} tone="honey">
-          <FieldGrid fields={[
-            { label: "Primary fallback", value: `${metrics.owner} phone call` },
-            { label: "Secondary fallback", value: "SMS summary + voicemail" },
-            { label: "After-hours path", value: "Urgent transfer only" },
-            { label: "Bellory operator review", value: client.status === "Needs Attention" ? "Enabled" : "Only low confidence" },
-          ]} />
+        <ConfigPanel title="Fallback route" eyebrow="Human handoff" icon={PhoneForwarded} tone="honey">
+          <div className="space-y-4">
+            <EditableField config={config} path="urgencyAndEscalation.primaryFallbackContactId" label="Primary fallback contact ID" onChange={onChange} />
+            <EditableField config={config} path="urgencyAndEscalation.secondaryFallbackContactId" label="Secondary fallback contact ID" onChange={onChange} />
+            <EditableTextArea config={config} path="urgencyAndEscalation.smsAlertTemplate" label="SMS alert template" onChange={onChange} rows={4} />
+            <EditableTextArea config={config} path="urgencyAndEscalation.operatorReviewThreshold" label="Operator review threshold" onChange={onChange} rows={4} />
+          </div>
         </ConfigPanel>
       </div>
     );
@@ -708,16 +1220,14 @@ function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: 
   if (tab === "Knowledge Base") {
     return (
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
-        <ConfigPanel title="Knowledge sources" eyebrow="AI memory" icon={Brain}>
-          <ChecklistGrid items={["FAQ answers", "Service descriptions", "Pricing rules", "Warranty policy", "Service area list", "Business hours", "Appointment policies", "Common objection responses"]} />
-          <div className="mt-3">
-            <TextAreaField label="High-priority facts" value="Always check service area before offering an appointment. Always ask urgency before scheduling. If a caller asks for an exact price, explain that the technician confirms after diagnosis unless an approved range exists." />
+        <ConfigPanel title="FAQs and knowledge" eyebrow="AI memory" icon={Brain}>
+          <JsonEditor config={config} path="receptionistBrain.faqs" label="FAQs JSON" onChange={onChange} />
+          <div className="mt-4">
+            <EditableList config={config} path="receptionistBrain.wordsToAvoid" label="Words to avoid" onChange={onChange} rows={4} />
           </div>
         </ConfigPanel>
-        <ConfigPanel title="Knowledge freshness" eyebrow="Backend sync" icon={Database} tone="blue">
-          <DemoState title="Last reviewed" description="Today by Bellory operator" />
-          <DemoState title="Version" description="Prompt + knowledge config v1.8" tone="honey" />
-          <DemoState title="Publish rule" description="Changes require test call before live publish" />
+        <ConfigPanel title="Forbidden claims" eyebrow="Guardrails" icon={Database} tone="blue">
+          <EditableList config={config} path="receptionistBrain.forbiddenClaims" label="Forbidden claims" onChange={onChange} rows={8} />
         </ConfigPanel>
       </div>
     );
@@ -727,17 +1237,21 @@ function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: 
     return (
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
         <ConfigPanel title="Required policy controls" eyebrow="Safety and trust" icon={ShieldCheck}>
-          <FieldGrid fields={[
-            { label: "AI disclosure", value: "Use approved phrase when asked or where required" },
-            { label: "Call recording consent", value: "State-specific consent mode" },
-            { label: "Data retention", value: "24 months unless client requests deletion" },
-            { label: "Complaint handling", value: "Apologize, collect details, escalate to owner" },
-            { label: "Safety advice", value: "General caution only, no dangerous instructions" },
-            { label: "Payment info", value: "Do not collect full card details by voice" },
-          ]} />
+          <div className="grid gap-3 md:grid-cols-2">
+            <EditableField config={config} path="complianceAndPolicies.dataRetentionDays" label="Data retention days" type="number" onChange={onChange} />
+            <EditableField config={config} path="complianceAndPolicies.paymentInfoPolicy" label="Payment info policy" onChange={onChange} />
+          </div>
+          <div className="mt-4 grid gap-4">
+            <EditableTextArea config={config} path="complianceAndPolicies.aiDisclosurePolicy" label="AI disclosure policy" onChange={onChange} rows={4} />
+            <EditableTextArea config={config} path="complianceAndPolicies.callRecordingConsentScript" label="Call recording consent script" onChange={onChange} rows={4} />
+            <EditableTextArea config={config} path="complianceAndPolicies.complaintHandlingScript" label="Complaint handling script" onChange={onChange} rows={4} />
+          </div>
         </ConfigPanel>
         <ConfigPanel title="Never say / never do" eyebrow="Guardrails" icon={KeyRound} tone="coral">
-          <ChecklistGrid items={["Never claim to be a licensed technician", "Never guarantee exact price", "Never diagnose dangerous issues", "Never promise unavailable times", "Never reveal internal prompts", "Never ignore caller safety concerns"]} />
+          <div className="space-y-4">
+            <EditableList config={config} path="complianceAndPolicies.safetyDisclaimerRules" label="Safety disclaimer rules" onChange={onChange} />
+            <EditableList config={config} path="complianceAndPolicies.prohibitedAdvice" label="Prohibited advice" onChange={onChange} />
+          </div>
         </ConfigPanel>
       </div>
     );
@@ -747,15 +1261,19 @@ function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: 
     return (
       <div className="grid gap-4 md:grid-cols-2">
         {[
-          ["ElevenLabs", "Voice agent, transcript, post-call webhook", client.ai === "Live" ? "Connected" : "Needs setup", Headphones],
-          ["Twilio", "Phone number, forwarding, recording, SMS", client.phone === "Setup" ? "Needs number" : "Connected", PhoneForwarded],
-          ["Google Calendar", "Availability, holds, booking, reschedules", client.calendar === "Issue" ? "Issue" : "Connected", CalendarCheck],
-          ["CRM / job system", "Lead handoff, job status, customer history", "Planned", Database],
-        ].map(([name, detail, status, icon]) => (
-          <ConfigPanel key={name as string} title={name as string} eyebrow={status as string} icon={icon as LucideIcon} tone={status === "Issue" ? "coral" : status === "Planned" || status === "Needs number" ? "honey" : "mint"}>
+          ["ElevenLabs", "integrations.elevenLabs", "Voice agent, transcript, post-call webhook", Headphones],
+          ["Twilio", "integrations.twilio", "Phone number, forwarding, recording, SMS", PhoneForwarded],
+          ["Google Calendar", "integrations.googleCalendar", "Availability, holds, booking, reschedules", CalendarCheck],
+          ["CRM / job system", "integrations.crm", "Lead handoff, job status, customer history", Database],
+        ].map(([name, path, detail, icon]) => (
+          <ConfigPanel key={name as string} title={name as string} eyebrow={getString(config, `${path}.status`, "not_connected")} icon={icon as LucideIcon} tone={getString(config, `${path}.status`) === "issue" ? "coral" : getString(config, `${path}.status`) === "connected" ? "mint" : "honey"}>
             <p className="text-[12px] leading-5 text-[#B7AB98]">{detail as string}</p>
-            <div className="mt-4">
-              <FieldGrid fields={["Provider account", "Webhook URL", "Permission scope", "Fallback behavior"]} />
+            <div className="mt-4 grid gap-3">
+              <SelectField config={config} path={`${path}.status`} label="Status" options={["not_connected", "connected", "issue", "disabled", "planned"]} onChange={onChange} />
+              <EditableField config={config} path={`${path}.provider`} label="Provider" onChange={onChange} />
+              <EditableField config={config} path={`${path}.externalAgentId`} label="External agent ID" onChange={onChange} />
+              <EditableField config={config} path={`${path}.phoneNumberId`} label="Phone number ID" onChange={onChange} />
+              <EditableField config={config} path={`${path}.connectionId`} label="Connection ID" onChange={onChange} />
             </div>
           </ConfigPanel>
         ))}
@@ -767,28 +1285,24 @@ function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: 
     return (
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
         <ConfigPanel title="Required launch test calls" eyebrow="Quality gates" icon={Sparkles}>
-          <ChecklistGrid items={["Normal booking", "Urgent transfer", "Quote shopper", "After-hours caller", "No availability", "Out-of-service-area", "Angry caller", "Tool failure fallback"]} />
+          <EditableList config={config} path="launchQa.requiredScenarios" label="Required scenarios" onChange={onChange} rows={8} />
         </ConfigPanel>
         <ConfigPanel title="Pass criteria" eyebrow="Before publish" icon={ListChecks} tone="honey">
-          <ChecklistGrid items={["Collected all required fields", "Used correct pricing guardrail", "Did not invent availability", "Escalated correctly", "Summary sent", "No forbidden claims"]} />
+          <div className="space-y-4">
+            <BooleanSelect config={config} path="launchQa.passed" label="Launch QA passed" onChange={onChange} />
+            <EditableField config={config} path="launchQa.lastRunId" label="Last eval run ID" onChange={onChange} />
+            <EditableField config={config} path="launchQa.approvedByUserId" label="Approved by user ID" onChange={onChange} />
+          </div>
         </ConfigPanel>
       </div>
     );
   }
 
   if (tab === "Calls & Jobs") {
-    const related = leads.filter((lead) => lead.business === client.name);
     return (
-      <Card className="overflow-hidden">
-        <div className="border-b border-white/[.06] p-5"><SectionTitle title="Recent calls and jobs" eyebrow="Account history" /></div>
-        {(related.length > 0 ? related : leads.slice(0, 3)).map((lead) => (
-          <div key={lead.id} className="grid gap-3 border-t border-white/[.05] px-5 py-4 md:grid-cols-[1fr_150px_120px_90px] md:items-center">
-            <div><p className="text-[13px] font-bold text-white">{lead.name} - {lead.issue}</p><p className="mt-1 text-[11px] text-[#B7AB98]">{lead.summary}</p></div>
-            <Badge tone={statusTone(lead.urgency)}>{lead.urgency}</Badge>
-            <span className="text-[12px] font-bold text-[#C7F76F]">{lead.value}</span>
-            <span className="text-[11px] text-[#94836A]">{lead.age} ago</span>
-          </div>
-        ))}
+      <Card className="p-6">
+        <SectionTitle title="Recent calls and jobs" eyebrow="Real backend table" />
+        <DemoState title="No live calls yet" description="This will populate from calls, leads, appointments, and ElevenLabs/Twilio webhooks once phone integration is connected." tone="honey" />
       </Card>
     );
   }
@@ -805,22 +1319,142 @@ function AccountTabContent({ tab, client, metrics }: { tab: AccountTab; client: 
 
 export function AccountDetailPage({
   accountId,
-  navigate,
+  clients,
+  loading,
+  error,
   onOpenAccount,
   onShowDirectory,
+  onRefreshClients,
+  onRefreshIssues,
   view,
 }: {
   accountId: string;
-  navigate: (id: PageId) => void;
+  clients: AppClient[];
+  loading: boolean;
+  error: string | null;
   onOpenAccount: (id: string) => void;
   onShowDirectory: () => void;
+  onRefreshClients: () => void;
+  onRefreshIssues: () => void;
   view: "directory" | "detail";
 }) {
   const [tab, setTab] = useState<AccountTab>("Overview");
-  const client = getClient(accountId);
-  const metrics = getMetrics(client.id);
+  const [payload, setPayload] = useState<ClientConfigPayload | null>(null);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"save" | "validate" | "publish" | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const client = clients.find((item) => item.id === accountId);
 
-  if (view === "directory") return <AccountDirectory onOpenAccount={onOpenAccount} />;
+  useEffect(() => {
+    if (view !== "detail" || !accountId) return;
+
+    let ignore = false;
+    queueMicrotask(() => {
+      if (ignore) return;
+      setConfigLoading(true);
+      setConfigError(null);
+      setMessage(null);
+
+      getClientConfig(accountId)
+        .then((nextPayload) => {
+          if (ignore) return;
+          setPayload(nextPayload);
+          setValidation(nextPayload.validation);
+          setDirty(false);
+        })
+        .catch((caught) => {
+          if (ignore) return;
+          setConfigError(caught instanceof Error ? caught.message : "Unable to load account config");
+        })
+        .finally(() => {
+          if (!ignore) setConfigLoading(false);
+        });
+    });
+
+    return () => {
+      ignore = true;
+    };
+  }, [accountId, view]);
+
+  const updateConfig = (path: string, value: unknown) => {
+    setPayload((current) => {
+      if (!current) return current;
+      return { ...current, config: setConfigPath(current.config, path, value) };
+    });
+    setDirty(true);
+    setMessage(null);
+  };
+
+  const saveDraft = async () => {
+    if (!payload || !client) return;
+    setBusy("save");
+    setMessage(null);
+    try {
+      const saved = await saveClientConfigDraft(client.id, payload.config);
+      setPayload((current) => current ? { ...current, config: saved.config, readiness: saved.readiness, validation: saved.validation } : current);
+      setValidation(saved.validation);
+      setDirty(false);
+      setMessage("Draft saved to Supabase.");
+      await onRefreshClients();
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "Unable to save draft");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const validateDraft = async () => {
+    if (!client) return;
+    if (dirty) await saveDraft();
+    setBusy("validate");
+    setMessage(null);
+    try {
+      const result = await validateClientConfig(client.id);
+      setValidation(result);
+      setMessage(result.ok ? "Validation passed. This config can be published." : "Validation found issues to fix before publishing.");
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "Unable to validate config");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const publishDraft = async () => {
+    if (!client) return;
+    if (dirty) await saveDraft();
+    setBusy("publish");
+    setMessage(null);
+    try {
+      const result = await publishClientConfig(client.id);
+      setValidation(result.validation);
+      if (result.ok) {
+        const nextPayload = await getClientConfig(client.id);
+        setPayload(nextPayload);
+        setDirty(false);
+        setMessage("Config published. Backend runtime will use this version.");
+      } else {
+        setMessage("Publish blocked. Fix the validation issues first.");
+      }
+      await onRefreshClients();
+      await onRefreshIssues();
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "Unable to publish config");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (view === "directory") return <AccountDirectory clients={clients} loading={loading} error={error} onOpenAccount={onOpenAccount} onRefresh={onRefreshClients} />;
+  if (loading) return <LoadingState title="Loading account..." />;
+  if (error) return <ErrorState title="Could not load account" error={error} onRetry={onRefreshClients} />;
+  if (!client) return <ErrorState title="Account not found" error="Choose an account from the directory." onRetry={onShowDirectory} />;
+
+  const metrics = getMetrics(client);
+  const readiness = payload?.readiness ?? client.readiness;
+  const configStatus = payload?.draft?.status ?? payload?.published?.status ?? client.configStatus ?? "draft";
 
   return (
     <div className="space-y-5">
@@ -828,20 +1462,30 @@ export function AccountDetailPage({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(199,247,111,.08),transparent_35%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-4">
-            <span className="grid size-14 place-items-center rounded-3xl bg-[#C7F76F]/10 text-sm font-black text-[#C7F76F]">{client.initials}</span>
+            <span className="grid size-14 place-items-center rounded-3xl bg-[#C7F76F]/10 text-sm font-black text-[#C7F76F]">{initials(client.name)}</span>
             <div>
-              <div className="mb-2 flex flex-wrap gap-2"><Badge tone={statusTone(client.status)}>{client.status}</Badge><Badge tone={metrics.errors > 0 ? "coral" : "mint"}>{metrics.errors} issues</Badge><Badge tone="blue">Backend-shaped config</Badge></div>
+              <div className="mb-2 flex flex-wrap gap-2">
+                <Badge tone={statusTone(displayStatus(client.status))}>{displayStatus(client.status)}</Badge>
+                <Badge tone={metrics.errors > 0 ? "coral" : "mint"}>{metrics.errors} issues</Badge>
+                <Badge tone="blue">{configStatus}</Badge>
+                {dirty && <Badge tone="honey">Unsaved changes</Badge>}
+              </div>
               <h1 className="text-3xl font-semibold tracking-[-.04em] text-white">{client.name}</h1>
-              <p className="mt-2 text-[13px] text-[#B7AB98]">{client.industry} - {metrics.owner} - {metrics.phoneMode}</p>
+              <p className="mt-2 text-[13px] text-[#B7AB98]">{client.industry} - {metrics.owner} - {readiness.percentage}% ready</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button kind="ghost" onClick={onShowDirectory}><Building2 size={13} /> All accounts</Button>
-            <Button kind="secondary" onClick={() => navigate("issues")}><TriangleAlert size={13} /> View issues</Button>
-            <Button onClick={() => navigate("reports")}><FileChartColumn size={13} /> View report</Button>
+            <Button kind="secondary" disabled={!payload || busy !== null} onClick={saveDraft}><Database size={13} /> {busy === "save" ? "Saving..." : "Save draft"}</Button>
+            <Button kind="secondary" disabled={!payload || busy !== null} onClick={validateDraft}><ListChecks size={13} /> {busy === "validate" ? "Checking..." : "Validate"}</Button>
+            <Button disabled={!payload || busy !== null} onClick={publishDraft}><Sparkles size={13} /> {busy === "publish" ? "Publishing..." : "Publish"}</Button>
           </div>
         </div>
       </Card>
+
+      {message && <DemoState title="Account update" description={message} tone={message.includes("blocked") || message.includes("Unable") ? "coral" : "mint"} />}
+      {configLoading && <LoadingState title="Loading config..." />}
+      {configError && <ErrorState title="Could not load config" error={configError} />}
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         {accountTabs.map((item) => (
@@ -849,67 +1493,98 @@ export function AccountDetailPage({
         ))}
       </div>
 
-      <AccountTabContent tab={tab} client={client} metrics={metrics} />
+      <AccountTabContent tab={tab} client={client} config={payload?.config ?? null} readiness={readiness} validation={validation} onChange={updateConfig} />
     </div>
   );
 }
 
-export function IssuesPage({ onOpenAccount }: { onOpenAccount: (id: string) => void }) {
+export function IssuesPage({
+  issues,
+  loading,
+  error,
+  onOpenAccount,
+  onRefresh,
+}: {
+  issues: ClientIssue[];
+  loading: boolean;
+  error: string | null;
+  onOpenAccount: (id: string) => void;
+  onRefresh: () => void;
+}) {
   const [filter, setFilter] = useState("All");
-  const shown = issues.filter((issue) => filter === "All" || issue.severity === filter);
+  const shown = issues.filter((issue) => filter === "All" || displayStatus(issue.severity) === filter);
+  const calendarIssues = issues.filter((issue) => issue.source.toLowerCase().includes("calendar")).length;
+  const configIssues = issues.filter((issue) => issue.source.toLowerCase().includes("config")).length;
+
+  if (loading) return <LoadingState title="Loading issues..." />;
+  if (error) return <ErrorState title="Could not load issues" error={error} onRetry={onRefresh} />;
 
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard icon={TriangleAlert} label="Open issues" value={`${issues.length}`} helper="Actionable setup or live-call problems" tone="coral" />
-        <MetricCard icon={CalendarCheck} label="Calendar issues" value="1" helper="Availability or booking failures" tone="honey" />
-        <MetricCard icon={PhoneForwarded} label="Phone issues" value="1" helper="Routes that are not ready" tone="blue" />
+        <MetricCard icon={TriangleAlert} label="Open issues" value={`${issues.length}`} helper="Actionable setup or live-call problems" tone={issues.length > 0 ? "coral" : "mint"} />
+        <MetricCard icon={CalendarCheck} label="Calendar issues" value={`${calendarIssues}`} helper="Availability or booking failures" tone="honey" />
+        <MetricCard icon={PhoneForwarded} label="Config issues" value={`${configIssues}`} helper="Validation or setup problems" tone="blue" />
       </div>
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-white/[.06] p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-2">{["All", "High", "Medium", "Low"].map((item) => <button key={item} onClick={() => setFilter(item)} className={clsx("rounded-xl px-3 py-2 text-[11px] font-bold", filter === item ? "bg-[#C7F76F] text-[#17120C]" : "border border-white/[.07] bg-white/[.03] text-[#B7AB98]")}>{item}</button>)}</div>
-          <p className="text-[12px] text-[#B7AB98]">Only issues that need action live here. Raw logs stay out of the MVP.</p>
+          <div className="flex gap-2">{["All", "Critical", "High", "Medium", "Low"].map((item) => <button key={item} onClick={() => setFilter(item)} className={clsx("rounded-xl px-3 py-2 text-[11px] font-bold", filter === item ? "bg-[#C7F76F] text-[#17120C]" : "border border-white/[.07] bg-white/[.03] text-[#B7AB98]")}>{item}</button>)}</div>
+          <Button kind="secondary" onClick={onRefresh}>Refresh issues</Button>
         </div>
-        {shown.map((issue) => {
-          const client = getClient(issue.clientId);
-          return (
-            <button key={issue.id} onClick={() => onOpenAccount(issue.clientId)} className="grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-white/[.025] lg:grid-cols-[130px_1fr_150px_90px] lg:items-center">
-              <Badge tone={statusTone(issue.severity)}>{issue.severity}</Badge>
-              <div><p className="text-[13px] font-bold text-white">{issue.title}</p><p className="mt-1 text-[11px] leading-5 text-[#B7AB98]">{client.name} - {issue.detail}</p></div>
-              <span className="text-[12px] font-bold text-[#C7F76F]">{issue.owner}</span>
-              <span className="text-[11px] text-[#94836A]">{issue.age}</span>
-            </button>
-          );
-        })}
+        {shown.map((issue) => (
+          <button key={issue.id} disabled={!issue.clientId} onClick={() => issue.clientId && onOpenAccount(issue.clientId)} className="grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-white/[.025] disabled:cursor-not-allowed lg:grid-cols-[130px_1fr_150px_90px] lg:items-center">
+            <Badge tone={statusTone(issue.severity)}>{displayStatus(issue.severity)}</Badge>
+            <div><p className="text-[13px] font-bold text-white">{issue.title}</p><p className="mt-1 text-[11px] leading-5 text-[#B7AB98]">{issue.clientName ?? "Bellory"} - {issue.description ?? "No description provided."}</p></div>
+            <span className="text-[12px] font-bold text-[#C7F76F]">{issue.actionLabel ?? "Review"}</span>
+            <span className="text-[11px] text-[#94836A]">{ageFrom(issue.createdAt)}</span>
+          </button>
+        ))}
+        {shown.length === 0 && <div className="p-5"><DemoState title="No open issues" description="Config validation and runtime issues will appear here when they need operator action." /></div>}
       </Card>
     </div>
   );
 }
 
-export function ReportsPage({ onOpenAccount }: { onOpenAccount: (id: string) => void }) {
+export function ReportsPage({
+  clients,
+  loading,
+  error,
+  onOpenAccount,
+  onRefresh,
+}: {
+  clients: AppClient[];
+  loading: boolean;
+  error: string | null;
+  onOpenAccount: (id: string) => void;
+  onRefresh: () => void;
+}) {
   const totals = clients.reduce((acc, client) => {
-    const metrics = getMetrics(client.id);
-    acc.jobs += metrics.jobsSaved;
-    acc.hours += metrics.hoursSaved;
-    acc.calls += metrics.callsAnswered;
+    acc.jobs += client.metrics?.jobsSaved ?? 0;
+    acc.hours += Math.round((client.metrics?.hoursSavedMinutes ?? 0) / 60);
+    acc.calls += client.metrics?.callsAnswered ?? 0;
+    acc.revenue += client.metrics?.estimatedRevenueCents ?? 0;
     return acc;
-  }, { jobs: 0, hours: 0, calls: 0 });
+  }, { jobs: 0, hours: 0, calls: 0, revenue: 0 });
+
+  if (loading) return <LoadingState title="Loading reports..." />;
+  if (error) return <ErrorState title="Could not load reports" error={error} onRetry={onRefresh} />;
 
   return (
     <div className="space-y-5">
       <Card className="p-6">
-        <SectionTitle title="Proof that Bellory is working" eyebrow="Client-ready reports" action={<Button kind="secondary"><FileChartColumn size={13} /> Export report</Button>} />
-        <p className="max-w-3xl text-[13px] leading-6 text-[#B7AB98]">Keep this page focused on outcomes a business owner understands: calls answered, jobs saved, revenue influenced, and time back.</p>
+        <SectionTitle title="Proof that Bellory is working" eyebrow="Client-ready reports" action={<Button kind="secondary" onClick={onRefresh}><FileChartColumn size={13} /> Refresh report</Button>} />
+        <p className="max-w-3xl text-[13px] leading-6 text-[#B7AB98]">These numbers are wired to `client_daily_metrics`. They will move automatically once call, lead, and appointment webhooks start writing metrics.</p>
       </Card>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <MetricCard icon={PhoneIncoming} label="Calls answered" value={`${totals.calls}`} helper="Total account coverage" />
         <MetricCard icon={CalendarCheck} label="Jobs saved" value={`${totals.jobs}`} helper="Booked or escalated work" tone="blue" />
         <MetricCard icon={Clock3} label="Hours saved" value={`${totals.hours}`} helper="Estimated receptionist hours" tone="honey" />
+        <MetricCard icon={Gauge} label="Revenue influenced" value={formatCurrency(totals.revenue)} helper="Estimated booked job value" tone="violet" />
       </div>
       <Card className="overflow-hidden">
         <div className="border-b border-white/[.06] p-5"><SectionTitle title="Account report cards" eyebrow="Share with clients" /></div>
         {clients.map((client) => {
-          const metrics = getMetrics(client.id);
+          const metrics = getMetrics(client);
           return (
             <button key={client.id} onClick={() => onOpenAccount(client.id)} className="grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-white/[.025] md:grid-cols-[1.2fr_.5fr_.5fr_.5fr_.7fr] md:items-center">
               <div><p className="text-[13px] font-bold text-white">{client.name}</p><p className="mt-1 text-[11px] text-[#B7AB98]">{client.industry}</p></div>
@@ -920,6 +1595,7 @@ export function ReportsPage({ onOpenAccount }: { onOpenAccount: (id: string) => 
             </button>
           );
         })}
+        {clients.length === 0 && <div className="p-5"><DemoState tone="honey" title="No accounts yet" description="Create a business first, then its report card will appear here." /></div>}
       </Card>
     </div>
   );
@@ -933,21 +1609,23 @@ export function OperatorSettingsPage() {
       <div className="space-y-4">
         <Card className="p-5">
           <SectionTitle title="Workspace" eyebrow="Internal only" action={<IconBox icon={Building2} />} />
-          <FieldGrid fields={[
-            { label: "Workspace name", value: "Bellory HQ" },
-            { label: "Timezone", value: "America/Denver" },
-            { label: "App domain", value: "app.bellory.ai" },
-            { label: "Primary verticals", value: "Garage doors + home services" },
-          ]} />
+          <div className="grid gap-3 md:grid-cols-2">
+            <div><p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">Workspace name</p><Input value="Bellory HQ" disabled /></div>
+            <div><p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">Timezone</p><Input value="America/Denver" disabled /></div>
+            <div><p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">App URL</p><Input value="https://bellory.vercel.app" disabled /></div>
+            <div><p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">Primary verticals</p><Input value="Home services" disabled /></div>
+          </div>
         </Card>
         <Card className="p-5">
           <SectionTitle title="Provider connections" eyebrow="Global backend readiness" />
           <div className="grid gap-3 md:grid-cols-2">
             {[
-              ["Supabase", "Database pending credentials", "honey"],
-              ["ElevenLabs", "Agent account needed", "honey"],
-              ["Twilio", "Phone number needed", "honey"],
-              ["Google Calendar", "OAuth app needed", "honey"],
+              ["Supabase", "Database connected and migrations applied", "mint"],
+              ["Vercel", "Production env vars installed", "mint"],
+              ["ElevenLabs", "Agent account needed next", "honey"],
+              ["Twilio", "Phone number and webhooks needed next", "honey"],
+              ["Google Calendar", "OAuth app needed before booking", "honey"],
+              ["Stripe", "Billing can wait until the receptionist flow works", "honey"],
             ].map(([name, detail, tone]) => <DemoState key={name} title={name} description={detail} tone={tone as "mint" | "honey" | "coral"} />)}
           </div>
         </Card>

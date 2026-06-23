@@ -55,7 +55,7 @@ function BelloryMark({ small = false }: { small?: boolean }) {
   );
 }
 
-function SidebarContent({ active, navigate }: { active: PageId; navigate: (id: PageId) => void }) {
+function SidebarContent({ active, navigate, issueCount = 0 }: { active: PageId; navigate: (id: PageId) => void; issueCount?: number }) {
   return (
     <div className="flex h-full flex-col">
       <button onClick={() => navigate("accounts")} className="flex items-center gap-3 px-5 py-5 text-left">
@@ -77,6 +77,11 @@ function SidebarContent({ active, navigate }: { active: PageId; navigate: (id: P
                 {pages.filter((item) => item.group === group).map((item) => {
                   const Icon = item.icon;
                   const isActive = active === item.id;
+                  const count: number | undefined = item.id === "issues"
+                    ? issueCount
+                    : "count" in item && typeof item.count === "number"
+                      ? item.count
+                      : undefined;
                   return (
                     <button
                       key={item.id}
@@ -94,11 +99,11 @@ function SidebarContent({ active, navigate }: { active: PageId; navigate: (id: P
                         <span className="block text-[12px] font-bold">{item.label}</span>
                         <span className="mt-0.5 block truncate text-[9px] font-medium text-[#94836A]">{item.hint}</span>
                       </span>
-                      {"count" in item && (
+                      {count ? (
                         <span className={clsx("grid min-w-5 place-items-center rounded-md px-1.5 py-0.5 text-[9px] font-black", isActive ? "bg-[#C7F76F]/15 text-[#C7F76F]" : "bg-white/5 text-[#94836A]")}>
-                          {item.count}
+                          {count}
                         </span>
-                      )}
+                      ) : null}
                     </button>
                   );
                 })}
@@ -137,10 +142,12 @@ export function AppShell({
   active,
   onNavigate,
   children,
+  issueCount = 0,
 }: {
   active: PageId;
   onNavigate: (id: PageId) => void;
   children: ReactNode;
+  issueCount?: number;
 }) {
   const [open, setOpen] = React.useState(false);
   const page = pages.find((item) => item.id === active)!;
@@ -152,7 +159,7 @@ export function AppShell({
   return (
     <div className="min-h-screen text-[#FFF7E8]">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[244px] border-r border-white/[.06] bg-[#14110C]/95 backdrop-blur-xl md:block">
-        <SidebarContent active={active} navigate={navigate} />
+        <SidebarContent active={active} navigate={navigate} issueCount={issueCount} />
       </aside>
 
       <AnimatePresence>
@@ -174,7 +181,7 @@ export function AppShell({
               <button className="absolute left-[278px] top-4 grid size-9 place-items-center rounded-xl bg-white/10" onClick={() => setOpen(false)}>
                 <X size={17} />
               </button>
-              <SidebarContent active={active} navigate={navigate} />
+              <SidebarContent active={active} navigate={navigate} issueCount={issueCount} />
             </motion.aside>
           </motion.div>
         )}
