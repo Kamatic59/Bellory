@@ -181,36 +181,35 @@ function HumanCallCard() {
 
 function StoryPanel({ section, index }: { section: (typeof storySections)[number]; index: number }) {
   return (
-    <section id={section.id} className="relative z-10 mx-auto flex min-h-[78svh] max-w-[1180px] items-center px-4 py-16 sm:px-6 lg:px-8">
-      <motion.div
-        initial={{ opacity: 0, y: 26 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-120px" }}
-        transition={{ duration: 0.62, ease: "easeOut" }}
-        className="w-full"
-      >
-        <Card className="relative overflow-hidden p-6 sm:p-9 lg:p-12">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_10%,rgba(199,247,111,.08),transparent_34%)]" />
-          <div className="relative grid gap-8 lg:grid-cols-[1fr_.55fr] lg:items-center">
-            <div>
-              <GlowPill>{section.eyebrow}</GlowPill>
-              <h2 className="mt-6 max-w-3xl text-4xl font-semibold leading-[.95] tracking-[-.06em] text-white sm:text-6xl">
-                {section.title}
-              </h2>
-              <p className="mt-6 max-w-2xl text-base leading-8 text-[#B7AB98] sm:text-lg">{section.text}</p>
-            </div>
-            <div className="rounded-[2rem] border border-white/[.07] bg-[#15110C]/70 p-6">
-              <div className="flex items-center justify-between">
-                <IconBox icon={section.icon} tone={section.tone} />
-                <span className="text-[52px] font-black tracking-[-.08em] text-white/[.05]">0{index + 1}</span>
-              </div>
-              <p className="mt-10 text-5xl font-semibold tracking-[-.065em] text-white">{section.metric}</p>
-              <p className="mt-3 text-[12px] font-black uppercase leading-5 tracking-[.16em] text-[#94836A]">{section.metricLabel}</p>
-            </div>
+    <motion.article
+      id={section.id}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="scroll-mt-24"
+    >
+      <Card className="relative overflow-hidden p-5 sm:p-7 lg:p-9">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_10%,rgba(199,247,111,.08),transparent_34%)]" />
+        <div className="relative grid gap-5 md:grid-cols-[1fr_15rem] lg:grid-cols-[1fr_20rem] lg:items-center">
+          <div>
+            <GlowPill>{section.eyebrow}</GlowPill>
+            <h2 className="mt-5 max-w-3xl text-3xl font-semibold leading-[1] tracking-[-.055em] text-white sm:text-5xl lg:text-[3.45rem]">
+              {section.title}
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[#B7AB98] sm:text-base sm:leading-8">{section.text}</p>
           </div>
-        </Card>
-      </motion.div>
-    </section>
+          <div className="rounded-[1.5rem] border border-white/[.07] bg-[#15110C]/70 p-5 md:min-h-56">
+            <div className="flex items-center justify-between">
+              <IconBox icon={section.icon} tone={section.tone} />
+              <span className="text-[44px] font-black tracking-[-.08em] text-white/[.05]">0{index + 1}</span>
+            </div>
+            <p className="mt-8 text-4xl font-semibold tracking-[-.065em] text-white sm:text-5xl">{section.metric}</p>
+            <p className="mt-3 text-[11px] font-black uppercase leading-5 tracking-[.16em] text-[#94836A]">{section.metricLabel}</p>
+          </div>
+        </div>
+      </Card>
+    </motion.article>
   );
 }
 
@@ -399,9 +398,13 @@ export function LandingPage() {
         <HumanCallCard />
       </section>
 
-      {storySections.map((section, index) => <StoryPanel key={section.id} section={section} index={index} />)}
+      <section className="relative z-10 mx-auto max-w-[1180px] px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div className="grid gap-5 sm:gap-6">
+          {storySections.map((section, index) => <StoryPanel key={section.id} section={section} index={index} />)}
+        </div>
+      </section>
 
-      <section className="relative z-10 mx-auto grid max-w-[1180px] gap-8 px-4 py-20 sm:px-6 lg:grid-cols-[.82fr_1.18fr] lg:px-8">
+      <section className="relative z-10 mx-auto grid max-w-[1180px] gap-8 px-4 pb-20 pt-10 sm:px-6 sm:pb-20 sm:pt-14 lg:grid-cols-[.82fr_1.18fr] lg:px-8">
         <div className="flex flex-col justify-center">
           <div className="self-start"><Badge><Star size={12} /> Private launch</Badge></div>
           <h2 className="mt-5 text-4xl font-semibold tracking-[-.055em] text-white sm:text-6xl">Want Bellory to answer your phones?</h2>
