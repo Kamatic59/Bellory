@@ -6,8 +6,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Bellory - AI receptionist command center",
-  description: "Bellory's admin console for launching and managing custom AI receptionists for service businesses.",
+  title: "Bellory AI - Never miss a call",
+  description: "Bellory is a custom AI receptionist that answers calls, books appointments, follows business rules, and escalates when a human should step in.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

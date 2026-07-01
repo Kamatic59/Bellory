@@ -1,5 +1,5 @@
-import { BelloryApp } from "@/components/bellory-app";
+import { LandingPage } from "@/components/landing-page";
 
 export default function Home() {
-  return <BelloryApp />;
+  return <LandingPage />;
 }

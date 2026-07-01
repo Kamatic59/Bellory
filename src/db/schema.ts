@@ -251,6 +251,25 @@ export const leads = pgTable("leads", {
   phoneIdx: index("leads_phone_idx").on(table.phone),
 }));
 
+export const waitlistSignups = pgTable("waitlist_signups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  company: text("company"),
+  phone: text("phone"),
+  businessType: text("business_type"),
+  callVolume: text("call_volume"),
+  message: text("message"),
+  source: text("source").default("landing").notNull(),
+  status: text("status").default("new").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+  ...timestamps,
+}, (table) => ({
+  emailIdx: uniqueIndex("waitlist_signups_email_idx").on(table.email),
+  statusIdx: index("waitlist_signups_status_idx").on(table.status),
+  createdIdx: index("waitlist_signups_created_at_idx").on(table.createdAt),
+}));
+
 export const ownerNotifications = pgTable("owner_notifications", {
   id: uuid("id").primaryKey().defaultRandom(),
   clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
