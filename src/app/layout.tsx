@@ -10,16 +10,16 @@ const siteUrl = new URL(process.env.NEXT_PUBLIC_APP_URL || "https://bellory.verc
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "Bellory - AI Receptionist for Missed Calls",
+    default: "Bellory - AI Receptionist for Garage Door Companies",
     template: "%s | Bellory",
   },
-  description: "Bellory answers missed and after-hours calls, qualifies customers, books from your real availability, and routes urgent calls to a human.",
+  description: "Bellory is a done-for-you AI receptionist for garage door companies. We help catch missed and after-hours calls, qualify customers, book jobs, and transfer urgent calls based on your rules.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "Bellory - AI Receptionist for Missed Calls",
-    description: "Turn missed calls into booked jobs with a human-sounding AI receptionist for service businesses.",
+    title: "Turn missed garage door calls into booked jobs.",
+    description: "Private Bellory installs are opening for garage door companies. Done-for-you setup, call flow, testing, and support.",
     url: "/",
     siteName: "Bellory",
     images: [
@@ -34,8 +34,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Bellory - AI Receptionist for Missed Calls",
-    description: "Bellory answers missed and after-hours calls, qualifies customers, books jobs, and routes urgent calls to a human.",
+    title: "Turn missed garage door calls into booked jobs.",
+    description: "Private Bellory installs are opening for garage door companies. Done-for-you setup, call flow, testing, and support.",
     images: ["/brand/bellory-logo.png"],
   },
   robots: {

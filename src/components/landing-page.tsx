@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { track } from "@vercel/analytics";
 import { motion } from "framer-motion";
@@ -30,10 +30,10 @@ type WaitlistForm = {
   email: string;
   company: string;
   phone: string;
-  businessType: string;
+  serviceArea: string;
   callVolume: string;
-  goal: string;
-  calendarProvider: string;
+  runsAds: string;
+  bookingSystem: string;
   message: string;
   website: string;
 };
@@ -51,10 +51,10 @@ const defaultForm: WaitlistForm = {
   email: "",
   company: "",
   phone: "",
-  businessType: "Plumbing / HVAC",
+  serviceArea: "",
   callVolume: "3-10 missed calls/week",
-  goal: "Book appointments and transfer urgent calls",
-  calendarProvider: "Google Calendar",
+  runsAds: "Yes - Google Ads or LSAs",
+  bookingSystem: "Google Calendar",
   message: "",
   website: "",
 };
@@ -71,15 +71,15 @@ const callJourney = [
     icon: MessageSquareText,
     tone: "blue",
     step: "02",
-    title: "Qualifies the call",
-    text: "It checks urgency, service area, pricing rules, customer details, and calendar logic.",
+    title: "Asks garage door questions",
+    text: "Broken spring, stuck-open door, off-track door, opener issue, trapped vehicle, and urgency.",
   },
   {
     icon: CalendarCheck,
     tone: "honey",
     step: "03",
     title: "Books or transfers",
-    text: "It holds the appointment, sends a summary, or gets a real person when needed.",
+    text: "Bellory books from your rules or routes urgent calls to a real person.",
   },
 ] as const;
 
@@ -87,30 +87,33 @@ const storySections = [
   {
     id: "proof",
     eyebrow: "Problem",
-    title: "Missed calls quietly drain revenue.",
-    text: "A caller who reaches voicemail usually keeps dialing. Bellory makes sure the business answers first, even after hours, during lunch, or when the team is already on another job.",
+    title: "Garage door calls do not wait for voicemail.",
+    text: "When someone has a broken spring, a door stuck open, or a car trapped inside, they usually call the company that answers first. Bellory helps catch those missed and after-hours calls before they turn into competitor jobs.",
     metric: "$7k+",
-    metricLabel: "20 missed calls x $350 average job = $7,000 in lost monthly revenue",
+    metricLabel: "Potential monthly leakage from 20 missed $350 repair jobs",
+    metricNote: "Example only: 20 missed jobs x $350 average ticket = $7,000 in lost revenue.",
     icon: BadgeDollarSign,
     tone: "honey",
   },
   {
     id: "human-sound",
     eyebrow: "Human sound",
-    title: "It should not feel like a robot reading a script.",
-    text: "Bellory is designed to pause, clarify, handle interruptions, and escalate instead of forcing callers through a rigid phone tree.",
+    title: "It should not feel like a phone tree.",
+    text: "Bellory is designed to speak like a calm front desk person. It can pause, clarify, handle interruptions, and escalate instead of forcing callers through a rigid script.",
     metric: "24/7",
-    metricLabel: "human-like coverage without hiring overnight staff",
+    metricLabel: "Coverage for missed calls, overflow, lunch breaks, and after-hours calls",
+    metricNote: "",
     icon: Headphones,
     tone: "mint",
   },
   {
-    id: "setup",
-    eyebrow: "Configuration",
-    title: "Bellory learns how your business actually handles calls.",
-    text: "Services, prices, service areas, emergency rules, calendar availability, FAQs, and who to call when something needs a human are configured before launch.",
-    metric: "1 setup",
-    metricLabel: "custom receptionist per business, not a generic chatbot",
+    id: "done-for-you",
+    eyebrow: "Done-for-you setup",
+    title: "We set it up. You keep running the business.",
+    text: "Most garage door owners do not want another dashboard to manage. During setup, we configure Bellory around your actual business rules: services, hours, service area, booking logic, emergency routing, call summaries, and fallback contacts.",
+    metric: "1 install",
+    metricLabel: "Custom receptionist setup per garage door business",
+    metricNote: "",
     icon: ShieldCheck,
     tone: "blue",
   },
@@ -120,39 +123,39 @@ const howSteps = [
   {
     icon: ClipboardCheck,
     tone: "honey",
-    title: "We configure your business",
-    text: "Services, hours, service area, pricing rules, calendar, fallback contacts, and call handling preferences.",
+    title: "We configure it for you",
+    text: "Services, hours, service area, emergency rules, booking logic, fallback contacts, and summary preferences.",
   },
   {
     icon: PhoneCall,
     tone: "mint",
-    title: "Bellory answers calls",
-    text: "It qualifies the caller, checks urgency, follows your rules, and keeps the conversation moving.",
+    title: "Bellory answers garage door calls",
+    text: "It qualifies broken springs, stuck doors, opener issues, trapped vehicles, and after-hours emergencies.",
   },
   {
     icon: CalendarCheck,
     tone: "blue",
-    title: "You get bookings and summaries",
-    text: "Appointments go to your calendar and your team gets clean notes, urgent flags, and next actions.",
+    title: "You get the result",
+    text: "Bellory books, transfers, or summarizes based on your rules. No extra app for your team to live inside.",
   },
 ] as const;
 
 const demoTranscript = [
   {
     speaker: "Caller",
-    text: "My water heater is leaking and I need someone today.",
+    text: "My garage door spring broke and the door won't open.",
   },
   {
     speaker: "Bellory",
-    text: "I can help. Is water actively pooling right now, or is it contained?",
+    text: "I can help. Is the door stuck open, stuck closed, or completely off track?",
   },
   {
-    speaker: "Bellory checks",
-    text: "Urgency, service area, availability, pricing rules, and calendar openings.",
+    speaker: "Caller",
+    text: "Stuck closed. My car is inside.",
   },
   {
-    speaker: "Outcome",
-    text: "Booked for today, 2-4 PM. Owner receives SMS summary with issue details.",
+    speaker: "Bellory",
+    text: "Got it. I'll treat this as urgent, check the soonest availability, and route this based on the company's emergency rules.",
   },
 ] as const;
 
@@ -163,53 +166,74 @@ const beforeAfterRows = [
   ["No clean call notes", "Summary sent to the team"],
 ] as const;
 
-const serviceTypes = ["Plumbing", "HVAC", "Garage doors", "Electrical", "Roofing", "Restoration", "Landscaping", "Local service teams"];
-const businessTypes = ["Plumbing / HVAC", "Garage door", "Electrical", "Roofing", "Restoration", "Landscaping", "Other service business"];
 const callVolumes = ["1-2 missed calls/week", "3-10 missed calls/week", "10-25 missed calls/week", "25+ missed calls/week"];
-const goals = ["Book appointments and transfer urgent calls", "Book appointments only", "Qualify leads only", "Transfer urgent calls only"];
-const calendars = ["Google Calendar", "Outlook Calendar", "ServiceTitan / field software", "Manual scheduling", "Not sure yet"];
+const adOptions = ["Yes - Google Ads or LSAs", "Yes - both ads and SEO", "No paid ads right now", "Not sure"];
+const bookingSystems = ["Google Calendar", "Outlook Calendar", "ServiceTitan / field software", "Jobber / Housecall Pro", "Manual scheduling", "Not sure yet"];
 
 const trustItems = [
-  { icon: ShieldCheck, title: "Human fallback routing", text: "Urgent or uncertain calls can transfer to the right person." },
-  { icon: LockKeyhole, title: "Private setup", text: "Every account is configured for that business instead of using a generic script." },
-  { icon: FileText, title: "Call summaries", text: "Owners receive notes with caller details, urgency, outcome, and next action." },
-  { icon: AlertTriangle, title: "Consent-aware settings", text: "Recording and consent behavior can be configured by state and business rules." },
+  { icon: ShieldCheck, title: "Emergency routing", text: "Trapped vehicles, stuck-open doors, and after-hours issues can route to the right person." },
+  { icon: LockKeyhole, title: "Private install", text: "Every Bellory setup is built around one garage door company's call flow." },
+  { icon: FileText, title: "Clean summaries", text: "Your team gets issue, urgency, service area, outcome, and next action." },
+  { icon: AlertTriangle, title: "Rules before automation", text: "Bellory follows approved booking, transfer, consent, and fallback rules instead of guessing." },
 ] as const;
 
 const faqs = [
   {
-    question: "Will callers know it is AI?",
-    answer: "Bellory is designed to sound calm and natural, with pauses, clarification, and short questions. If a caller needs a person, Bellory can transfer the call.",
+    question: "Do I have to manage another app?",
+    answer: "No. Bellory is a done-for-you setup. We configure, test, and support the system with you.",
   },
   {
-    question: "Can Bellory transfer urgent calls to me?",
-    answer: "Yes. Urgent triggers, fallback contacts, and escalation rules are configured during setup so emergency calls do not get trapped in automation.",
+    question: "Is Bellory only for garage door companies?",
+    answer: "For the first private installs, yes. We are starting with garage door companies so the call flows, emergency rules, and booking logic are built for this niche before expanding.",
   },
   {
-    question: "Does it work after hours?",
-    answer: "Yes. After-hours coverage is one of the core use cases. Bellory can qualify callers, hold appointments, or route urgent issues.",
+    question: "Can Bellory handle urgent calls?",
+    answer: "Yes. Bellory can identify situations like stuck-open doors, broken springs, trapped vehicles, off-track doors, and after-hours emergencies, then book or transfer based on your rules.",
   },
   {
-    question: "Can it book directly to my calendar?",
-    answer: "That is the goal for supported calendars. During setup we configure availability, booking rules, appointment types, and fallback behavior.",
+    question: "Can it transfer calls to a real person?",
+    answer: "Yes. You decide when Bellory should transfer and who it should contact.",
+  },
+  {
+    question: "Can it book jobs?",
+    answer: "Yes, if your calendar or booking process supports it. If not, Bellory can qualify the customer and send a clean summary to your team.",
+  },
+  {
+    question: "Will it replace my office person?",
+    answer: "No. Bellory is best for missed calls, overflow, lunch breaks, after-hours calls, and busy periods.",
   },
   {
     question: "What happens if Bellory does not know the answer?",
-    answer: "It can ask a clarifying question, take a message, or route the call to a human instead of inventing an answer.",
+    answer: "It follows your approved rules and escalates to a human instead of guessing.",
   },
   {
-    question: "What businesses is this for?",
-    answer: "Bellory is currently focused on home service and local service businesses where missed calls often mean missed revenue.",
-  },
-  {
-    question: "Can I customize what it says?",
-    answer: "Yes. Services, FAQs, pricing language, emergency rules, service areas, calendar rules, and tone are configured per business.",
-  },
-  {
-    question: "When will early access open?",
-    answer: "We are onboarding in small batches so every setup can be tested before it answers real customer calls.",
+    question: "How much work is setup?",
+    answer: "You answer questions about your business. We handle the technical setup, call flow, testing, and support.",
   },
 ] as const;
+
+const noAppCards = [
+  {
+    icon: ClipboardCheck,
+    tone: "honey",
+    title: "We configure it",
+    text: "Services, hours, service area, emergency rules, booking logic, and fallback contacts.",
+  },
+  {
+    icon: Check,
+    tone: "mint",
+    title: "We test it",
+    text: "Broken spring, opener repair, off-track door, stuck-open door, new door estimate, and after-hours scenarios.",
+  },
+  {
+    icon: Headphones,
+    tone: "blue",
+    title: "We support it",
+    text: "Need a call flow changed, pricing language updated, or new service area added? We handle it with you.",
+  },
+] as const;
+
+const adminItems = ["Services", "Service areas", "Business hours", "Emergency routing", "Booking rules", "Fallback contacts", "Call summaries", "Test scenarios"];
 
 function trackLandingEvent(name: string, properties: AnalyticsProperties = {}) {
   if (typeof window === "undefined") return;
@@ -273,7 +297,7 @@ function HumanCallCard() {
                   <Image src="/brand/bellory-bell.png" alt="" width={38} height={38} className="drop-shadow-[0_10px_24px_rgba(199,247,111,.18)]" />
                 </span>
                 <div>
-                  <p className="text-[13px] font-black text-white">Incoming after-hours call</p>
+                  <p className="text-[13px] font-black text-white">Incoming garage door call</p>
                   <p className="text-[11px] text-[#BCA98B]">Handled in a calm, human voice</p>
                 </div>
               </div>
@@ -283,11 +307,11 @@ function HumanCallCard() {
             <div className="space-y-3">
               <div className="rounded-2xl border border-white/[.07] bg-white/[.035] p-3.5">
                 <p className="mb-2 text-[10px] font-black uppercase tracking-[.16em] text-[#BCA98B]">Caller</p>
-                <p className="text-[16px] font-semibold leading-6 tracking-[-.03em] text-white">&quot;My water heater is leaking. Can anyone come today?&quot;</p>
+                <p className="text-[16px] font-semibold leading-6 tracking-[-.03em] text-white">&quot;My garage door spring snapped and my car is stuck inside. Can someone come today?&quot;</p>
               </div>
               <div className="rounded-2xl border border-[#C7F76F]/12 bg-[#C7F76F]/[.04] p-3.5">
                 <p className="mb-2 text-[10px] font-black uppercase tracking-[.16em] text-[#C7F76F]">Bellory</p>
-                <p className="text-[13px] leading-6 text-[#FFF7E8]">&quot;I can help. I just need two quick details, then I will find the soonest opening or get the owner if this needs immediate attention.&quot;</p>
+                <p className="text-[13px] leading-6 text-[#FFF7E8]">&quot;I can help. I&apos;ll ask two quick questions, check the soonest availability, and flag this as urgent if it needs a human right away.&quot;</p>
               </div>
               <Waveform />
             </div>
@@ -320,19 +344,25 @@ function WhoForSection() {
   return (
     <section id="who-for" className="relative z-10 mx-auto max-w-[1180px] px-4 py-12 sm:px-6 lg:px-8">
       <Card className="overflow-hidden p-5 sm:p-7">
-        <div className="grid gap-6 lg:grid-cols-[.72fr_1fr] lg:items-center">
+        <div className="grid gap-6 lg:grid-cols-[.78fr_1fr] lg:items-center">
           <div>
-            <Badge><Building2 size={12} /> Built for service businesses</Badge>
-            <h2 className="mt-4 text-3xl font-semibold tracking-[-.055em] text-white sm:text-5xl">For teams that lose jobs when the phone is missed.</h2>
+            <Badge><Building2 size={12} /> Built for garage door companies</Badge>
+            <h2 className="mt-4 text-3xl font-semibold tracking-[-.055em] text-white sm:text-5xl">Built for garage door companies that cannot afford to miss calls.</h2>
             <p className="mt-4 text-[15px] leading-8 text-[#D8CCB8]">
-              Bellory is focused on home service and local service businesses where a missed call can turn into a missed appointment, estimate, or emergency job.
+              If a broken spring, trapped vehicle, or stuck-open door lead hits voicemail, that job can go to the next company that answers.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {serviceTypes.map((item) => (
-              <div key={item} className="rounded-2xl border border-white/[.07] bg-[#15110C]/60 p-3 text-[13px] font-bold text-[#FFF7E8]">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              ["Owner-operators", "You are on jobs, driving, quoting, or handling installs and cannot always answer."],
+              ["Small teams", "Your office person gets busy, takes lunch, leaves for the day, or misses overflow calls."],
+              ["Growing companies", "You are paying for Google leads, SEO, referrals, or ads and need more calls answered."],
+              ["After-hours repair", "Stuck-open doors, broken springs, and trapped vehicles need quick handling."],
+            ].map(([title, text]) => (
+              <div key={title} className="rounded-2xl border border-white/[.07] bg-[#15110C]/60 p-4 text-[13px] text-[#D8CCB8]">
                 <Check size={14} className="mb-3 text-[#C7F76F]" />
-                {item}
+                <p className="font-bold text-[#FFF7E8]">{title}</p>
+                <p className="mt-2 leading-6">{text}</p>
               </div>
             ))}
           </div>
@@ -347,8 +377,8 @@ function HowItWorksSection() {
     <section id="how-it-works" className="relative z-10 mx-auto max-w-[1180px] px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <SectionIntro
         eyebrow="How it works"
-        title="Set it up once. Let it handle the phone."
-        text="Bellory is not a generic chatbot. It is configured around how your business actually takes calls, books work, and decides what needs a human."
+        title="Done-for-you setup for garage door calls."
+        text="We configure the call flow with you, test common garage door scenarios, and keep supporting it so your team does not have another app to manage."
         center
       />
       <div className="mt-8 grid gap-4 md:grid-cols-3">
@@ -394,6 +424,7 @@ function StoryPanel({ section, index }: { section: (typeof storySections)[number
             </div>
             <p className="mt-8 text-4xl font-semibold tracking-[-.065em] text-white sm:text-5xl">{section.metric}</p>
             <p className="mt-3 text-[11px] font-black uppercase leading-5 tracking-[.16em] text-[#BCA98B]">{section.metricLabel}</p>
+            {section.metricNote && <p className="mt-3 text-[11px] leading-5 text-[#BCA98B]/80">{section.metricNote}</p>}
           </div>
         </div>
       </Card>
@@ -410,29 +441,34 @@ function DemoSection() {
     window.setTimeout(() => setPlaying(false), 22000);
   };
 
+  const requestInstall = () => {
+    trackLandingEvent("demo_section_cta_click", { target: "waitlist" });
+    document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <section id="demo" className="relative z-10 mx-auto max-w-[1180px] px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <SectionIntro
-        eyebrow="Call demo"
-        title="See what Bellory does during and after a real service call."
-        text="The page needs proof, so this section shows the actual decision path: caller context, urgency, service area, availability, owner fallback, and the summary your team receives."
+        eyebrow="Garage door call demo"
+        title="See how Bellory handles a broken spring call."
+        text="A realistic garage door call flow shows what Bellory asks, what it checks, and what your team receives after the call."
       />
       <div className="mt-8 grid gap-5 lg:grid-cols-[1.05fr_.95fr]">
         <Card className="overflow-hidden p-5 sm:p-7">
           <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#C7F76F]">22-second walkthrough</p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-[-.045em] text-white">Water heater emergency call</h3>
+              <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#C7F76F]">Broken spring scenario</p>
+              <h3 className="mt-2 text-2xl font-semibold tracking-[-.045em] text-white">Urgent garage door call</h3>
             </div>
             <Button onClick={playDemo} kind={playing ? "secondary" : "primary"}>
-              <Play size={14} /> {playing ? "Playing walkthrough..." : "Play call demo"}
+              <Play size={14} /> {playing ? "Playing walkthrough..." : "Play call flow"}
             </Button>
           </div>
           <Waveform active={playing} />
           <div className="mt-5 space-y-3">
             {demoTranscript.map((line, index) => (
               <div
-                key={line.speaker}
+                key={`${line.speaker}-${index}`}
                 className={`rounded-2xl border p-4 transition ${playing && index !== 0 ? "border-[#C7F76F]/24 bg-[#C7F76F]/[.045]" : "border-white/[.07] bg-[#15110C]/60"}`}
               >
                 <p className="mb-2 text-[10px] font-black uppercase tracking-[.18em] text-[#C7F76F]">{line.speaker}</p>
@@ -446,18 +482,19 @@ function DemoSection() {
           <Card className="p-5 sm:p-6">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#C7F76F]">Owner receives</p>
-                <h3 className="mt-2 text-2xl font-semibold tracking-[-.045em] text-white">New booked job</h3>
+                <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#C7F76F]">Call outcome</p>
+                <h3 className="mt-2 text-2xl font-semibold tracking-[-.045em] text-white">Same-day repair handled</h3>
               </div>
               <IconBox icon={CalendarCheck} tone="mint" />
             </div>
             <div className="space-y-3 text-sm">
               {[
-                ["Customer", "Sarah M."],
-                ["Issue", "Water heater leaking"],
-                ["Urgency", "High - water pooling near utility closet"],
-                ["Booked", "Today, 2-4 PM"],
-                ["Action", "Added to calendar + SMS summary sent"],
+                ["Issue", "Broken spring"],
+                ["Urgency", "High"],
+                ["Vehicle trapped", "Yes"],
+                ["Service needed", "Same-day repair"],
+                ["Action", "Booked or transferred based on owner rules"],
+                ["Summary", "Sent to the team"],
               ].map(([label, value]) => (
                 <div key={label} className="flex gap-3 rounded-2xl border border-white/[.06] bg-white/[.025] p-3">
                   <span className="min-w-20 text-[11px] font-black uppercase tracking-[.14em] text-[#BCA98B]">{label}</span>
@@ -479,6 +516,67 @@ function DemoSection() {
             </div>
           </Card>
         </div>
+      </div>
+      <div className="mt-6">
+        <Button onClick={requestInstall}>
+          Request a private install <ArrowRight size={14} />
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function NoAppSection() {
+  return (
+    <section id="setup" className="relative z-10 mx-auto max-w-[1180px] px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+      <SectionIntro
+        eyebrow="No extra app"
+        title="No new software for your team to learn."
+        text="Bellory is managed for you. We use the admin panel during setup to configure your call flow, but your team does not need to live inside another app. When calls come in, you get the result: a booked job, a transfer, or a clean call summary."
+        center
+      />
+      <div className="mt-8 grid gap-4 md:grid-cols-3">
+        {noAppCards.map((item) => (
+          <Card key={item.title} className="p-5">
+            <IconBox icon={item.icon} tone={item.tone} />
+            <h3 className="mt-5 text-xl font-semibold tracking-[-.04em] text-white">{item.title}</h3>
+            <p className="mt-3 text-sm leading-7 text-[#D8CCB8]">{item.text}</p>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AdminPreviewSection() {
+  return (
+    <section className="relative z-10 mx-auto max-w-[1180px] px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+      <div className="grid gap-8 lg:grid-cols-[.78fr_1fr] lg:items-center">
+        <SectionIntro
+          eyebrow="Setup panel"
+          title="Built around your garage door business rules."
+          text="During your setup review, we walk through the admin panel with you and configure Bellory around how your business already handles calls."
+        />
+        <Card className="overflow-hidden p-5">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#C7F76F]">Bellory setup review</p>
+              <h3 className="mt-2 text-2xl font-semibold tracking-[-.045em] text-white">Garage Door Call Flow</h3>
+            </div>
+            <IconBox icon={Building2} tone="mint" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {adminItems.map((item) => (
+              <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/[.07] bg-[#15110C]/65 p-3 text-sm font-bold text-[#FFF7E8]">
+                <Check size={14} className="text-[#C7F76F]" />
+                {item}
+              </div>
+            ))}
+          </div>
+          <p className="mt-5 rounded-2xl border border-[#C7F76F]/15 bg-[#C7F76F]/[.04] p-4 text-sm leading-7 text-[#D8FF9B]">
+            You do not have to manage this yourself. Bellory setup and support are handled by humans.
+          </p>
+        </Card>
       </div>
     </section>
   );
@@ -556,7 +654,7 @@ function WaitlistCard({
     setForm((current) => ({ ...current, [key]: value }));
     if (!formStarted) {
       setFormStarted(true);
-      trackLandingEvent("waitlist_form_start", { source });
+      trackLandingEvent("form_started", { source });
     }
     if (status !== "idle") {
       setStatus("idle");
@@ -567,27 +665,28 @@ function WaitlistCard({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) {
+    if (!form.name.trim() || !form.company.trim() || !form.email.trim() || !form.phone.trim() || !form.serviceArea.trim()) {
       setStatus("error");
-      setMessage("Add your name, email, and phone number so we can qualify your setup.");
+      const validationMessage = "Add your name, business name, email, phone number, and service area so we can review your install.";
+      setMessage(validationMessage);
+      trackLandingEvent("form_error", { source, error: "missing_required_fields" });
       return;
     }
 
     setStatus("saving");
     setMessage("");
-    trackLandingEvent("waitlist_form_submit", { source, businessType: form.businessType, callVolume: form.callVolume });
 
     try {
       const response = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, source }),
+        body: JSON.stringify({ ...form, businessType: "Garage door company", source }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || data?.ok === false) throw new Error(data?.error || "Could not join waitlist");
       setStatus("success");
-      setMessage("You're in. We will review your fit and reach out with the next available setup window.");
-      trackLandingEvent("waitlist_form_complete", { source, businessType: form.businessType, callVolume: form.callVolume });
+      setMessage("Request received. We will review your company and reach out if your install is a fit for the next private batch.");
+      trackLandingEvent("form_submitted", { source, callVolume: form.callVolume, runsAds: form.runsAds, bookingSystem: form.bookingSystem });
       setForm(defaultForm);
       setShowDetails(false);
       setFormStarted(false);
@@ -596,7 +695,7 @@ function WaitlistCard({
       setStatus("error");
       const errorMessage = error instanceof Error ? error.message : "Something went wrong. Try again.";
       setMessage(errorMessage);
-      trackLandingEvent("waitlist_form_error", { source, error: errorMessage });
+      trackLandingEvent("form_error", { source, error: errorMessage });
     }
   };
 
@@ -605,13 +704,13 @@ function WaitlistCard({
       <Card className="relative overflow-hidden p-5 sm:p-7">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(199,247,111,.11),transparent_34%)]" />
         <form onSubmit={submit} className="relative">
-          <SectionTitle title="Request early access" eyebrow="Private waitlist" action={<IconBox icon={Sparkles} tone="honey" />} />
+          <SectionTitle title="Request a private Bellory install" eyebrow="Private garage door installs" action={<IconBox icon={Sparkles} tone="honey" />} />
           <p className="mb-5 text-[13px] leading-6 text-[#D8CCB8]">
-            We are onboarding a small number of service businesses at a time so every Bellory setup is tested before it answers real calls.
+            We are opening garage door installs in small batches so each business gets configured, tested, and supported correctly. Tell us the basics and we will review if your company is a good fit.
           </p>
 
           <div className="rounded-2xl border border-[#C7F76F]/12 bg-[#C7F76F]/[.035] p-3 text-[12px] leading-5 text-[#D8FF9B]">
-            Early access requests are reviewed manually. No spam, no public launch blast.
+            No spam. We only use this to contact you about Bellory garage door installs.
           </div>
 
           <input
@@ -627,30 +726,40 @@ function WaitlistCard({
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             <div>
               <FieldLabel>Name</FieldLabel>
-              <Input value={form.name} onChange={update("name")} placeholder="Your name" ariaLabel="Name" name="name" autoComplete="name" required />
+              <Input value={form.name} onChange={update("name")} placeholder="Your name" ariaLabel="Name" name="name" autoComplete="name" required className="py-3.5" />
+            </div>
+            <div>
+              <FieldLabel>Business name</FieldLabel>
+              <Input value={form.company} onChange={update("company")} placeholder="Company name" ariaLabel="Business name" name="company" autoComplete="organization" required className="py-3.5" />
             </div>
             <div>
               <FieldLabel>Work email</FieldLabel>
-              <Input value={form.email} onChange={update("email")} placeholder="you@company.com" type="email" ariaLabel="Work email" name="email" autoComplete="email" required />
+              <Input value={form.email} onChange={update("email")} placeholder="you@company.com" type="email" ariaLabel="Work email" name="email" autoComplete="email" required className="py-3.5" />
             </div>
             <div>
               <FieldLabel>Phone number</FieldLabel>
-              <Input value={form.phone} onChange={update("phone")} placeholder="Best number" type="tel" ariaLabel="Phone number" name="phone" autoComplete="tel" required />
+              <Input value={form.phone} onChange={update("phone")} placeholder="Best number" type="tel" ariaLabel="Phone number" name="phone" autoComplete="tel" required className="py-3.5" />
             </div>
             <div>
-              <FieldLabel optional>Business name</FieldLabel>
-              <Input value={form.company} onChange={update("company")} placeholder="Business name" ariaLabel="Business name" name="company" autoComplete="organization" />
+              <FieldLabel>City / service area</FieldLabel>
+              <Input value={form.serviceArea} onChange={update("serviceArea")} placeholder="Denver metro, North Dallas, etc." ariaLabel="City or service area" name="serviceArea" autoComplete="address-level2" required className="py-3.5" />
             </div>
             <div>
-              <FieldLabel>Business type</FieldLabel>
-              <Select value={form.businessType} onChange={update("businessType")} ariaLabel="Business type" name="businessType">
-                {businessTypes.map((item) => <option key={item}>{item}</option>)}
+              <FieldLabel>Approx. missed calls per week</FieldLabel>
+              <Select value={form.callVolume} onChange={update("callVolume")} ariaLabel="Approximate missed calls per week" name="callVolume" className="py-3.5">
+                {callVolumes.map((item) => <option key={item}>{item}</option>)}
               </Select>
             </div>
             <div>
-              <FieldLabel>Missed calls</FieldLabel>
-              <Select value={form.callVolume} onChange={update("callVolume")} ariaLabel="Approximate missed calls per week" name="callVolume">
-                {callVolumes.map((item) => <option key={item}>{item}</option>)}
+              <FieldLabel>Do you run Google Ads or Local Services Ads?</FieldLabel>
+              <Select value={form.runsAds} onChange={update("runsAds")} ariaLabel="Do you run Google Ads or Local Services Ads?" name="runsAds" className="py-3.5">
+                {adOptions.map((item) => <option key={item}>{item}</option>)}
+              </Select>
+            </div>
+            <div>
+              <FieldLabel>What calendar or booking system do you use?</FieldLabel>
+              <Select value={form.bookingSystem} onChange={update("bookingSystem")} ariaLabel="Calendar or booking system" name="bookingSystem" className="py-3.5">
+                {bookingSystems.map((item) => <option key={item}>{item}</option>)}
               </Select>
             </div>
           </div>
@@ -661,7 +770,7 @@ function WaitlistCard({
             onClick={() => {
               setShowDetails((current) => {
                 const next = !current;
-                if (next) trackLandingEvent("waitlist_optional_details_opened", { source });
+                if (next) trackLandingEvent("optional_setup_details_opened", { source });
                 return next;
               });
             }}
@@ -678,27 +787,15 @@ function WaitlistCard({
               className="overflow-hidden"
             >
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div>
-                  <FieldLabel optional>What should Bellory do?</FieldLabel>
-                  <Select value={form.goal} onChange={update("goal")} ariaLabel="Bellory goal" name="goal">
-                    {goals.map((item) => <option key={item}>{item}</option>)}
-                  </Select>
-                </div>
-                <div>
-                  <FieldLabel optional>Calendar</FieldLabel>
-                  <Select value={form.calendarProvider} onChange={update("calendarProvider")} ariaLabel="Calendar provider" name="calendarProvider">
-                    {calendars.map((item) => <option key={item}>{item}</option>)}
-                  </Select>
-                </div>
                 <div className="md:col-span-2">
-                  <FieldLabel optional>Setup details</FieldLabel>
+                  <FieldLabel optional>Optional setup details</FieldLabel>
                   <textarea
                     value={form.message}
                     onChange={(event) => update("message")(event.target.value)}
                     rows={4}
                     name="message"
                     aria-label="Setup details"
-                    placeholder="Example: We miss after-hours emergencies, need calls booked into Google Calendar, and want urgent water leaks transferred to the owner."
+                    placeholder="Tell us what you want Bellory to help with first: missed calls, after-hours calls, overflow, booking, emergency transfers, or call summaries."
                     className="w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-sm leading-6 text-white outline-none transition placeholder:text-[#BCA98B] focus:border-[#C7F76F]/40 focus-visible:ring-2 focus-visible:ring-[#C7F76F]/20"
                   />
                 </div>
@@ -707,9 +804,9 @@ function WaitlistCard({
           )}
 
           <Button disabled={status === "saving"} type="submit" className="mt-5 w-full py-3">
-            {status === "saving" ? "Requesting..." : "Request my invite"} <ArrowRight size={14} />
+            {status === "saving" ? "Requesting install..." : "Request my private install"} <ArrowRight size={14} />
           </Button>
-          <p className="mt-3 text-center text-[11px] leading-5 text-[#BCA98B]">We will only use this to contact you about Bellory setup and early access.</p>
+          <p className="mt-3 text-center text-[11px] leading-5 text-[#BCA98B]">No spam. We only use this to contact you about Bellory garage door installs.</p>
           {message && <p aria-live="polite" className={status === "error" ? "mt-3 text-center text-[12px] text-[#F08B72]" : "mt-3 text-center text-[12px] text-[#C7F76F]"}>{message}</p>}
         </form>
       </Card>
@@ -730,13 +827,13 @@ function LeadModal({ open, onClose }: { open: boolean; onClose: () => void }) {
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="Request early access"
+        aria-label="Request private Bellory install"
       >
         <button
           type="button"
           onClick={onClose}
           className="absolute -right-2 -top-2 z-10 grid size-10 place-items-center rounded-full border border-white/10 bg-[#15110C] text-[#FFF7E8] shadow-xl transition hover:bg-white/[.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/35"
-          aria-label="Close early access form"
+          aria-label="Close private install form"
         >
           <X size={18} />
         </button>
@@ -750,7 +847,7 @@ function StickyMobileCTA({ onRequest, onDemo }: { onRequest: () => void; onDemo:
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[.08] bg-[#12100C]/90 p-3 backdrop-blur-xl md:hidden">
       <div className="mx-auto grid max-w-md grid-cols-[1fr_auto] gap-2">
-        <Button onClick={onRequest} className="py-3">Request early access</Button>
+        <Button onClick={onRequest} className="py-3">Request private install</Button>
         <Button kind="secondary" onClick={onDemo} className="px-3 py-3" ariaLabel="Hear demo">
           <Headphones size={16} />
         </Button>
@@ -761,14 +858,35 @@ function StickyMobileCTA({ onRequest, onDemo }: { onRequest: () => void; onDemo:
 
 export function LandingPage() {
   const [leadModalOpen, setLeadModalOpen] = useState(false);
+  const scrollDepthTracked = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const thresholds = [25, 50, 75, 100];
+    const handleScroll = () => {
+      const documentHeight = document.documentElement.scrollHeight;
+      if (documentHeight <= window.innerHeight) return;
+
+      const depth = Math.min(100, Math.round(((window.scrollY + window.innerHeight) / documentHeight) * 100));
+      thresholds.forEach((threshold) => {
+        if (depth >= threshold && !scrollDepthTracked.current.has(threshold)) {
+          scrollDepthTracked.current.add(threshold);
+          trackLandingEvent("scroll_depth", { depth: threshold });
+        }
+      });
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const scrollToSection = (id: string, eventName: string) => {
     trackLandingEvent(eventName, { target: id });
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const openLeadModal = (location: string) => {
-    trackLandingEvent("request_access_click", { location });
+  const openLeadModal = (location: string, eventName = "request_private_install_click") => {
+    trackLandingEvent(eventName, { location });
     setLeadModalOpen(true);
   };
 
@@ -791,30 +909,30 @@ export function LandingPage() {
         <nav className="hidden items-center gap-6 text-[12px] font-bold text-[#D8CCB8] md:flex">
           <a href="#how-it-works" className="hover:text-white">How it works</a>
           <a href="#demo" className="hover:text-white">Demo</a>
+          <a href="#setup" className="hover:text-white">Setup</a>
           <a href="#faq" className="hover:text-white">FAQ</a>
         </nav>
-        <Button onClick={() => openLeadModal("header")}>Request access</Button>
+        <Button onClick={() => openLeadModal("header", "header_cta_click")}>Request private install</Button>
       </header>
 
       <section className="relative z-10 mx-auto flex min-h-[calc(100svh-86px)] max-w-[1180px] flex-col justify-center px-4 pb-12 pt-4 sm:px-6 lg:px-8">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }} className="mx-auto max-w-5xl text-center">
-          <Badge><span className="pulse-ring size-1.5 rounded-full bg-[#C7F76F]" /> Human-sounding AI receptionist</Badge>
+          <Badge><span className="pulse-ring size-1.5 rounded-full bg-[#C7F76F]" /> Private installs for garage door companies</Badge>
           <h1 className="text-balance mx-auto mt-4 max-w-5xl text-5xl font-semibold leading-[.9] tracking-[-.075em] text-white sm:text-7xl lg:text-[5.7rem]">
-            Turn missed calls into booked jobs.
+            Turn missed garage door calls into booked jobs.
           </h1>
           <p className="mx-auto mt-4 max-w-3xl text-lg leading-8 text-[#D8CCB8]">
-            Bellory answers missed and after-hours calls, qualifies the customer, books from your real availability, and transfers urgent calls to a human when needed.
+            Bellory is a done-for-you AI receptionist for garage door companies. We configure it around your services, schedule, service area, emergency rules, and fallback contacts so you do not have to manage another app.
           </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <Button onClick={() => openLeadModal("hero")} className="px-5 py-3 text-sm">Request early access <ArrowRight size={15} /></Button>
-            <Button kind="secondary" onClick={() => scrollToSection("demo", "hear_demo_click")} className="px-5 py-3 text-sm">Hear Bellory answer a call</Button>
+            <Button onClick={() => openLeadModal("hero", "hero_cta_click")} className="px-5 py-3 text-sm">Request private install <ArrowRight size={15} /></Button>
+            <Button kind="secondary" onClick={() => scrollToSection("how-it-works", "secondary_cta_click")} className="px-5 py-3 text-sm">See how Bellory works</Button>
           </div>
         </motion.div>
 
         <HumanCallCard />
       </section>
 
-      <WhoForSection />
       <HowItWorksSection />
 
       <section className="relative z-10 mx-auto max-w-[1180px] px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
@@ -824,16 +942,19 @@ export function LandingPage() {
       </section>
 
       <DemoSection />
+      <NoAppSection />
+      <AdminPreviewSection />
+      <WhoForSection />
       <TrustSection />
       <FAQSection />
 
       <section className="relative z-10 mx-auto grid max-w-[1180px] gap-8 px-4 pb-20 pt-10 sm:px-6 sm:pb-20 sm:pt-14 lg:grid-cols-[.82fr_1.18fr] lg:px-8">
         <div className="flex flex-col justify-center">
-          <div className="self-start"><Badge><Star size={12} /> Private launch</Badge></div>
-          <h2 className="mt-5 text-4xl font-semibold tracking-[-.055em] text-white sm:text-6xl">Want Bellory to answer your phones?</h2>
-          <p className="mt-5 max-w-xl text-[15px] leading-8 text-[#D8CCB8]">We are opening installs in small batches so every business gets configured correctly: voice, phone, pricing, calendar, fallbacks, and launch QA.</p>
+          <div className="self-start"><Badge><Star size={12} /> Private install review</Badge></div>
+          <h2 className="mt-5 text-4xl font-semibold tracking-[-.055em] text-white sm:text-6xl">Want Bellory to catch your next missed repair call?</h2>
+          <p className="mt-5 max-w-xl text-[15px] leading-8 text-[#D8CCB8]">We are opening garage door installs in small batches so each business gets configured, tested, and supported correctly before Bellory answers real callers.</p>
           <div className="mt-8 grid gap-3">
-            {["Human-sounding receptionist", "Calendar-aware booking", "Custom business rules", "Human fallback routing"].map((item) => (
+            {["Done-for-you setup", "Garage door call flow", "Calendar or booking logic", "Emergency fallback routing"].map((item) => (
               <div key={item} className="flex items-center gap-2 text-[13px] font-bold text-[#FFF7E8]"><Check size={15} className="text-[#C7F76F]" /> {item}</div>
             ))}
           </div>
@@ -843,17 +964,17 @@ export function LandingPage() {
 
       <footer className="relative z-10 border-t border-white/[.06] px-4 py-8 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-[1180px] flex-col gap-4 text-[12px] text-[#BCA98B] md:flex-row md:items-center md:justify-between">
-          <p>Bellory AI - custom AI receptionists for service businesses that cannot afford to miss the phone.</p>
+          <p>Bellory - done-for-you AI receptionist installs for garage door companies.</p>
           <div className="flex flex-wrap gap-4">
             <a href="/privacy" className="font-bold text-[#FFF7E8]">Privacy</a>
             <a href="/terms" className="font-bold text-[#FFF7E8]">Terms</a>
             <a href="/contact" className="font-bold text-[#FFF7E8]">Contact</a>
-            <a href="#waitlist" className="font-bold text-[#C7F76F]">Request access</a>
+            <a href="#waitlist" className="font-bold text-[#C7F76F]">Request private install</a>
           </div>
         </div>
       </footer>
 
-      <StickyMobileCTA onRequest={() => openLeadModal("sticky_mobile")} onDemo={() => scrollToSection("demo", "sticky_demo_click")} />
+      <StickyMobileCTA onRequest={() => openLeadModal("sticky_mobile", "mobile_sticky_cta_click")} onDemo={() => scrollToSection("demo", "sticky_demo_click")} />
       <LeadModal open={leadModalOpen} onClose={() => setLeadModalOpen(false)} />
     </main>
   );

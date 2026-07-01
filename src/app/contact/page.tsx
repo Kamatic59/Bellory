@@ -4,7 +4,7 @@ import { LegalPage, LegalSection } from "@/components/legal-page";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Contact Bellory about early access or an AI receptionist setup.",
+  description: "Contact Bellory about a private garage door AI receptionist install.",
 };
 
 export default function ContactPage() {
@@ -12,12 +12,12 @@ export default function ContactPage() {
     <LegalPage
       eyebrow="Contact"
       title="Contact Bellory"
-      description="The fastest way to reach Bellory during early access is to request an install review from the landing page."
+      description="The fastest way to reach Bellory during private garage door installs is to request an install review from the landing page."
     >
-      <LegalSection title="Early access and demos">
-        <p>Use the waitlist form to tell us what kind of service business you run, how many calls you miss, and what you want Bellory to handle.</p>
+      <LegalSection title="Private installs and demos">
+        <p>Use the request form to tell us where your garage door company serves, how many calls you miss, what booking system you use, and what you want Bellory to handle first.</p>
         <p>
-          <Link href="/#waitlist" className="font-bold text-[#C7F76F]">Request early access</Link>
+          <Link href="/#waitlist" className="font-bold text-[#C7F76F]">Request private install</Link>
         </p>
       </LegalSection>
       <LegalSection title="Existing setup conversations">
