@@ -43,14 +43,13 @@ function BelloryMark({ small = false }: { small?: boolean }) {
     >
       <div className="absolute inset-0 rounded-full bg-[#C7F76F]/20 blur-lg" />
       <Image
-        src="/brand/bellory-mark.png"
+        src="/brand/bellory-bell.png"
         alt="Bellory"
         width={96}
         height={96}
         priority={!small}
         className="relative size-full object-contain drop-shadow-[0_12px_28px_rgba(199,247,111,.18)]"
       />
-      {!small && <span className="absolute -right-1 top-2 size-2.5 rounded-full border-2 border-[#1B1712] bg-[#E05F45]" />}
     </div>
   );
 }

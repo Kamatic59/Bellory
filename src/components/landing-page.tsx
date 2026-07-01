@@ -231,7 +231,7 @@ export function LandingPage() {
 
       <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
         <a href="#" className="flex items-center gap-3">
-          <Image src="/brand/bellory-mark.png" alt="Bellory" width={46} height={46} className="drop-shadow-[0_12px_28px_rgba(199,247,111,.18)]" priority />
+          <Image src="/brand/bellory-bell.png" alt="Bellory" width={46} height={46} className="drop-shadow-[0_12px_28px_rgba(199,247,111,.18)]" priority />
           <div>
             <p className="text-[20px] font-black tracking-[-.045em] text-white">Bellory<span className="text-[#C7F76F]">.</span></p>
             <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#94836A]">AI receptionist</p>
