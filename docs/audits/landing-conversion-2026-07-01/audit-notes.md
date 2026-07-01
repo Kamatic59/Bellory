@@ -23,6 +23,9 @@ Date: 2026-07-01
 - `11-wide-hero-after.png`
 - `12-desktop-waitlist-expanded-after.png`
 - `13-mobile-waitlist-expanded-after.png`
+- `14-production-desktop-hero.png`
+- `15-production-desktop-waitlist.png`
+- `16-production-mobile-hero.png`
 
 ## Findings
 
@@ -48,6 +51,7 @@ Date: 2026-07-01
 - Tablet hero: 768px capture reviewed.
 - Mobile hero and waitlist: 390px captures reviewed.
 - Collapsed and expanded waitlist form states reviewed on desktop and mobile.
+- Production deployment smoke screenshots reviewed on desktop and mobile.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run build`: passed.
