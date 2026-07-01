@@ -37,7 +37,7 @@ export function Button({ children, onClick, kind = "primary", className = "", di
     ghost: "text-[#B7AB98] hover:bg-white/5 hover:text-white",
     danger: "border border-[#E05F45]/20 bg-[#E05F45]/10 text-[#F08B72] hover:bg-[#E05F45]/15",
   };
-  return <button type={type} disabled={disabled} onClick={onClick} className={clsx("inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-bold transition disabled:cursor-not-allowed disabled:opacity-50", styles[kind], className)}>{children}</button>;
+  return <button type={type} disabled={disabled} onClick={onClick} className={clsx("inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#12100C] disabled:cursor-not-allowed disabled:opacity-50", styles[kind], className)}>{children}</button>;
 }
 
 export function IconBox({ icon: Icon, tone = "mint" }: { icon: LucideIcon; tone?: "mint" | "honey" | "coral" | "blue" | "violet" }) {
@@ -72,6 +72,10 @@ export function Input({
   className = "",
   type = "text",
   disabled = false,
+  required = false,
+  ariaLabel,
+  name,
+  autoComplete,
 }: {
   placeholder?: string;
   value?: string;
@@ -80,6 +84,10 @@ export function Input({
   className?: string;
   type?: string;
   disabled?: boolean;
+  required?: boolean;
+  ariaLabel?: string;
+  name?: string;
+  autoComplete?: string;
 }) {
   const controlProps = onChange
     ? { value: value ?? "", onChange: (event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value) }
@@ -89,17 +97,35 @@ export function Input({
     <input
       type={type}
       disabled={disabled}
+      required={required}
+      aria-label={ariaLabel}
+      name={name}
+      autoComplete={autoComplete}
       placeholder={placeholder}
       {...controlProps}
-      className={clsx("w-full rounded-xl border border-white/[.08] bg-[#15110C]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40 disabled:cursor-not-allowed disabled:opacity-55", className)}
+      className={clsx("w-full rounded-xl border border-white/[.08] bg-[#15110C]/70 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40 focus-visible:ring-2 focus-visible:ring-[#C7F76F]/20 disabled:cursor-not-allowed disabled:opacity-55", className)}
     />
   );
 }
 
-export function Select({ children, className = "", value, onChange }: { children: ReactNode; className?: string; value?: string; onChange?: (value: string) => void }) {
+export function Select({
+  children,
+  className = "",
+  value,
+  onChange,
+  ariaLabel,
+  name,
+}: {
+  children: ReactNode;
+  className?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+  ariaLabel?: string;
+  name?: string;
+}) {
   const controlProps = onChange ? { value: value ?? "", onChange: (event: ChangeEvent<HTMLSelectElement>) => onChange(event.target.value) } : {};
 
-  return <select {...controlProps} className={clsx("w-full rounded-xl border border-white/[.08] bg-[#15110C] px-3.5 py-3 text-sm text-white outline-none focus:border-[#C7F76F]/40", className)}>{children}</select>;
+  return <select {...controlProps} aria-label={ariaLabel} name={name} className={clsx("w-full rounded-xl border border-white/[.08] bg-[#15110C] px-3.5 py-3 text-sm text-white outline-none transition focus:border-[#C7F76F]/40 focus-visible:ring-2 focus-visible:ring-[#C7F76F]/20", className)}>{children}</select>;
 }
 
 export function Modal({ open, title, children, onClose }: { open: boolean; title: string; children: ReactNode; onClose: () => void }) {
