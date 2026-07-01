@@ -30,14 +30,30 @@ export function Badge({ children, tone = "mint" }: { children: ReactNode; tone?:
   return <span className={clsx("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold leading-none", tones[tone])}>{children}</span>;
 }
 
-export function Button({ children, onClick, kind = "primary", className = "", disabled = false, type = "button" }: { children: ReactNode; onClick?: () => void; kind?: "primary" | "secondary" | "ghost" | "danger"; className?: string; disabled?: boolean; type?: "button" | "submit" | "reset" }) {
+export function Button({
+  children,
+  onClick,
+  kind = "primary",
+  className = "",
+  disabled = false,
+  type = "button",
+  ariaLabel,
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  kind?: "primary" | "secondary" | "ghost" | "danger";
+  className?: string;
+  disabled?: boolean;
+  type?: "button" | "submit" | "reset";
+  ariaLabel?: string;
+}) {
   const styles = {
     primary: "bg-[#C7F76F] text-[#17120C] shadow-[0_8px_24px_rgba(199,247,111,.13)] hover:bg-[#D8FF9B]",
     secondary: "border border-white/10 bg-white/[.055] text-white hover:bg-white/[.09]",
     ghost: "text-[#B7AB98] hover:bg-white/5 hover:text-white",
     danger: "border border-[#E05F45]/20 bg-[#E05F45]/10 text-[#F08B72] hover:bg-[#E05F45]/15",
   };
-  return <button type={type} disabled={disabled} onClick={onClick} className={clsx("inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#12100C] disabled:cursor-not-allowed disabled:opacity-50", styles[kind], className)}>{children}</button>;
+  return <button type={type} disabled={disabled} aria-label={ariaLabel} onClick={onClick} className={clsx("inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#12100C] disabled:cursor-not-allowed disabled:opacity-50", styles[kind], className)}>{children}</button>;
 }
 
 export function IconBox({ icon: Icon, tone = "mint" }: { icon: LucideIcon; tone?: "mint" | "honey" | "coral" | "blue" | "violet" }) {

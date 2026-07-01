@@ -18,6 +18,7 @@
 
 html {
   background: var(--ink);
+  scroll-behavior: smooth;
 }
 
 body {
@@ -116,6 +117,6 @@ button {
 
 @media (max-width: 767px) {
   body {
-    padding-bottom: 74px;
+    padding-bottom: 82px;
   }
 }
