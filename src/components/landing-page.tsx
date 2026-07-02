@@ -46,6 +46,9 @@ type AnalyticsWindow = Window & {
 };
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
+type AudioContextConstructor = new () => AudioContext;
+type AudioWindow = Window & { webkitAudioContext?: AudioContextConstructor };
+type PhoneAudioGraph = { context: AudioContext; source: MediaElementAudioSourceNode };
 
 const defaultForm: WaitlistForm = {
   name: "",
@@ -235,7 +238,7 @@ const noAppCards = [
 ] as const;
 
 const adminItems = ["Services", "Service areas", "Business hours", "Emergency routing", "Booking rules", "Fallback contacts", "Call summaries", "Test scenarios"];
-const demoAudioSrc = "/audio/bellory-garage-door-demo.wav";
+const demoAudioSrc = "/audio/bellory-garage-door-demo.mp3";
 
 function trackLandingEvent(name: string, properties: AnalyticsProperties = {}) {
   if (typeof window === "undefined") return;
@@ -436,9 +439,49 @@ function StoryPanel({ section, index }: { section: (typeof storySections)[number
 
 function DemoSection() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioGraphRef = useRef<PhoneAudioGraph | null>(null);
   const [audioStatus, setAudioStatus] = useState<"idle" | "loading" | "playing" | "error">("idle");
   const [audioMessage, setAudioMessage] = useState("");
   const playing = audioStatus === "playing";
+
+  const ensurePhoneAudioGraph = async () => {
+    const audio = audioRef.current;
+    if (!audio || typeof window === "undefined") return;
+
+    const AudioContextClass = window.AudioContext || (window as AudioWindow).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    if (!audioGraphRef.current) {
+      const context = new AudioContextClass();
+      const source = context.createMediaElementSource(audio);
+      const highpass = context.createBiquadFilter();
+      const lowpass = context.createBiquadFilter();
+      const compressor = context.createDynamicsCompressor();
+      const gain = context.createGain();
+
+      highpass.type = "highpass";
+      highpass.frequency.value = 320;
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = 3400;
+      compressor.threshold.value = -24;
+      compressor.knee.value = 18;
+      compressor.ratio.value = 5;
+      compressor.attack.value = 0.004;
+      compressor.release.value = 0.16;
+      gain.gain.value = 0.96;
+
+      source.connect(highpass);
+      highpass.connect(lowpass);
+      lowpass.connect(compressor);
+      compressor.connect(gain);
+      gain.connect(context.destination);
+      audioGraphRef.current = { context, source };
+    }
+
+    if (audioGraphRef.current.context.state === "suspended") {
+      await audioGraphRef.current.context.resume();
+    }
+  };
 
   const playDemo = async () => {
     const audio = audioRef.current;
@@ -455,6 +498,7 @@ function DemoSection() {
     trackLandingEvent("demo_play_click", { location: "demo_section" });
 
     try {
+      await ensurePhoneAudioGraph();
       audio.currentTime = 0;
       await audio.play();
     } catch (error) {
@@ -497,6 +541,7 @@ function DemoSection() {
             controls
             className="mt-4 w-full rounded-xl border border-white/[.07] bg-[#15110C]/70"
             onPlay={() => {
+              void ensurePhoneAudioGraph();
               setAudioStatus("playing");
               setAudioMessage("");
             }}
@@ -512,7 +557,7 @@ function DemoSection() {
             }}
           />
           <p className="mt-3 text-[11px] leading-5 text-[#BCA98B]">
-            Test sample for the website player. Final private installs use the configured Bellory voice for that business.
+            Human-style phone sample. Final private installs use the configured Bellory voice for that business.
           </p>
           {audioMessage && <p className="mt-2 text-[12px] leading-5 text-[#F08B72]">{audioMessage}</p>}
           <div className="mt-5 space-y-3">
