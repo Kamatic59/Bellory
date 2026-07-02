@@ -17,6 +17,7 @@ import {
   LockKeyhole,
   MessageSquareText,
   PhoneCall,
+  Pause,
   Play,
   ShieldCheck,
   Sparkles,
@@ -234,6 +235,7 @@ const noAppCards = [
 ] as const;
 
 const adminItems = ["Services", "Service areas", "Business hours", "Emergency routing", "Booking rules", "Fallback contacts", "Call summaries", "Test scenarios"];
+const demoAudioSrc = "/audio/bellory-garage-door-demo.wav";
 
 function trackLandingEvent(name: string, properties: AnalyticsProperties = {}) {
   if (typeof window === "undefined") return;
@@ -433,12 +435,34 @@ function StoryPanel({ section, index }: { section: (typeof storySections)[number
 }
 
 function DemoSection() {
-  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioStatus, setAudioStatus] = useState<"idle" | "loading" | "playing" | "error">("idle");
+  const [audioMessage, setAudioMessage] = useState("");
+  const playing = audioStatus === "playing";
 
-  const playDemo = () => {
+  const playDemo = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (playing) {
+      audio.pause();
+      trackLandingEvent("demo_audio_pause", { location: "demo_section" });
+      return;
+    }
+
+    setAudioStatus("loading");
+    setAudioMessage("");
     trackLandingEvent("demo_play_click", { location: "demo_section" });
-    setPlaying(true);
-    window.setTimeout(() => setPlaying(false), 22000);
+
+    try {
+      audio.currentTime = 0;
+      await audio.play();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Audio playback failed.";
+      setAudioStatus("error");
+      setAudioMessage("The demo audio could not play. Try the audio controls below or check your browser sound settings.");
+      trackLandingEvent("demo_audio_error", { location: "demo_section", error: errorMessage });
+    }
   };
 
   const requestInstall = () => {
@@ -460,11 +484,37 @@ function DemoSection() {
               <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#C7F76F]">Broken spring scenario</p>
               <h3 className="mt-2 text-2xl font-semibold tracking-[-.045em] text-white">Urgent garage door call</h3>
             </div>
-            <Button onClick={playDemo} kind={playing ? "secondary" : "primary"}>
-              <Play size={14} /> {playing ? "Playing walkthrough..." : "Play call flow"}
+            <Button onClick={playDemo} kind={playing ? "secondary" : "primary"} disabled={audioStatus === "loading"}>
+              {playing ? <Pause size={14} /> : <Play size={14} />}
+              {audioStatus === "loading" ? "Loading audio..." : playing ? "Pause demo" : "Play call flow"}
             </Button>
           </div>
           <Waveform active={playing} />
+          <audio
+            ref={audioRef}
+            src={demoAudioSrc}
+            preload="metadata"
+            controls
+            className="mt-4 w-full rounded-xl border border-white/[.07] bg-[#15110C]/70"
+            onPlay={() => {
+              setAudioStatus("playing");
+              setAudioMessage("");
+            }}
+            onPause={() => setAudioStatus("idle")}
+            onEnded={() => {
+              setAudioStatus("idle");
+              audioRef.current?.load();
+            }}
+            onError={() => {
+              setAudioStatus("error");
+              setAudioMessage("The demo audio could not load. Please refresh and try again.");
+              trackLandingEvent("demo_audio_error", { location: "demo_section", error: "audio_element_error" });
+            }}
+          />
+          <p className="mt-3 text-[11px] leading-5 text-[#BCA98B]">
+            Test sample for the website player. Final private installs use the configured Bellory voice for that business.
+          </p>
+          {audioMessage && <p className="mt-2 text-[12px] leading-5 text-[#F08B72]">{audioMessage}</p>}
           <div className="mt-5 space-y-3">
             {demoTranscript.map((line, index) => (
               <div
