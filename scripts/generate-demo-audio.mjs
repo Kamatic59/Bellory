@@ -21,7 +21,7 @@ const voiceId = process.env.ELEVENLABS_DEMO_VOICE_ID || process.env.ELEVENLABS_D
 const callerVoiceId = process.env.ELEVENLABS_CALLER_VOICE_ID;
 const modelId = process.env.ELEVENLABS_DEMO_MODEL_ID || (callerVoiceId ? "eleven_v3" : "eleven_multilingual_v2");
 const outputFormat = process.env.ELEVENLABS_DEMO_OUTPUT_FORMAT || "mp3_44100_128";
-const outputPath = path.join(process.cwd(), "public", "audio", "bellory-garage-door-demo-v2.mp3");
+const outputPath = path.join(process.cwd(), "public", "audio", "bellory-garage-door-demo-v3.mp3");
 
 const demoDialogue = [
   { role: "Bellory", voiceId, text: "Thanks for calling Canyon Garage Doors, this is Bellory. How can I help?" },

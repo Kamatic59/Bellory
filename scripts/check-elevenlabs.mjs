@@ -39,14 +39,20 @@ async function eleven(pathname) {
   return response.json();
 }
 
-async function checkVoice(label, voiceId) {
+async function checkVoice(label, voiceId, { optional = false } = {}) {
   if (!voiceId) {
     console.log(`MISSING ${label}: add a voice ID when you have picked one`);
     return;
   }
 
-  const voice = await eleven(`/voices/${voiceId}`);
-  console.log(`OK ${label}: ${voice.name || voice.voice_id || voiceId}`);
+  try {
+    const voice = await eleven(`/voices/${voiceId}`);
+    console.log(`OK ${label}: ${voice.name || voice.voice_id || voiceId}`);
+  } catch (error) {
+    if (!optional) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`WARN ${label}: could not verify optional voice (${message})`);
+  }
 }
 
 const user = await eleven("/user");
@@ -57,7 +63,7 @@ console.log(`Tier: ${subscription.tier || subscription.status || "unknown"}`);
 console.log(`Characters: ${subscription.character_count ?? "unknown"} / ${subscription.character_limit ?? "unknown"}`);
 
 await checkVoice("Bellory demo/default voice", demoVoiceId);
-await checkVoice("Caller demo voice", callerVoiceId);
+await checkVoice("Caller demo voice", callerVoiceId, { optional: true });
 
 if (agentId) {
   console.log(`OK default agent ID present: ${agentId}`);
