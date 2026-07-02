@@ -20,7 +20,7 @@ const apiKey = process.env.ELEVENLABS_API_KEY;
 const voiceId = process.env.ELEVENLABS_DEMO_VOICE_ID || process.env.ELEVENLABS_DEFAULT_VOICE_ID;
 const modelId = process.env.ELEVENLABS_DEMO_MODEL_ID || "eleven_multilingual_v2";
 const outputFormat = process.env.ELEVENLABS_DEMO_OUTPUT_FORMAT || "mp3_22050_32";
-const outputPath = path.join(process.cwd(), "public", "audio", "bellory-garage-door-demo.mp3");
+const outputPath = path.join(process.cwd(), "public", "audio", "bellory-garage-door-demo-v2.mp3");
 
 const demoScript = process.env.BELLORY_DEMO_SCRIPT || [
   "Hi, this is Bellory with Canyon Garage Doors.",

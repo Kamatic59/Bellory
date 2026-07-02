@@ -242,7 +242,7 @@ const noAppCards = [
 ] as const;
 
 const adminItems = ["Services", "Service areas", "Business hours", "Emergency routing", "Booking rules", "Fallback contacts", "Call summaries", "Test scenarios"];
-const demoAudioSrc = "/audio/bellory-garage-door-demo.mp3";
+const demoAudioSrc = "/audio/bellory-garage-door-demo-v2.mp3";
 
 function trackLandingEvent(name: string, properties: AnalyticsProperties = {}) {
   if (typeof window === "undefined") return;
