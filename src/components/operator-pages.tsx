@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   Clock3,
   Database,
+  FileText,
   FileChartColumn,
   Gauge,
   Headphones,
@@ -1032,6 +1033,10 @@ function AccountTabContent({
   readiness,
   validation,
   onChange,
+  onDownloadKnowledgeBase,
+  knowledgeBaseBusy,
+  knowledgeBaseDisabled,
+  knowledgeBaseNeedsSave,
 }: {
   tab: AccountTab;
   client: AppClient;
@@ -1039,6 +1044,10 @@ function AccountTabContent({
   readiness: Readiness;
   validation: ValidationResult | null;
   onChange: (path: string, value: unknown) => void;
+  onDownloadKnowledgeBase: () => void;
+  knowledgeBaseBusy: boolean;
+  knowledgeBaseDisabled: boolean;
+  knowledgeBaseNeedsSave: boolean;
 }) {
   const metrics = getMetrics(client);
 
@@ -1219,16 +1228,40 @@ function AccountTabContent({
 
   if (tab === "Knowledge Base") {
     return (
-      <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
-        <ConfigPanel title="FAQs and knowledge" eyebrow="AI memory" icon={Brain}>
-          <JsonEditor config={config} path="receptionistBrain.faqs" label="FAQs JSON" onChange={onChange} />
-          <div className="mt-4">
-            <EditableList config={config} path="receptionistBrain.wordsToAvoid" label="Words to avoid" onChange={onChange} rows={4} />
+      <div className="space-y-4">
+        <ConfigPanel
+          title="ElevenLabs knowledge document"
+          eyebrow="Agent upload"
+          icon={FileText}
+          tone="honey"
+          action={
+            <Button kind="secondary" disabled={knowledgeBaseDisabled} onClick={onDownloadKnowledgeBase}>
+              <FileText size={13} /> {knowledgeBaseBusy ? "Creating..." : "Download KB doc"}
+            </Button>
+          }
+        >
+          <p className="max-w-3xl text-[13px] leading-6 text-[#B7AB98]">
+            Bellory turns this account setup into a clean Markdown knowledge base for the ElevenLabs agent. Upload the downloaded file in ElevenLabs under Knowledge Base - Add document, then run a test call and ask questions about pricing, urgency, hours, service area, and booking rules.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <DemoState title="1. Finish setup" description="Services, pricing, intake, hours, fallback, and compliance become the source facts." tone="honey" />
+            <DemoState title="2. Download document" description="The generated file uses plain sections and bullets so the agent can retrieve it cleanly." />
+            <DemoState title="3. Upload and test" description="Attach the file to the matching ElevenLabs agent, then test realistic caller scenarios." />
           </div>
+          {knowledgeBaseNeedsSave && <p className="mt-3 text-[11px] font-semibold text-[#F6C66A]">Unsaved edits will be saved before Bellory creates the document.</p>}
+          {!config && <p className="mt-3 text-[11px] font-semibold text-[#F08B72]">Load or create an account configuration before exporting a knowledge document.</p>}
         </ConfigPanel>
-        <ConfigPanel title="Forbidden claims" eyebrow="Guardrails" icon={Database} tone="blue">
-          <EditableList config={config} path="receptionistBrain.forbiddenClaims" label="Forbidden claims" onChange={onChange} rows={8} />
-        </ConfigPanel>
+        <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
+          <ConfigPanel title="FAQs and knowledge" eyebrow="AI memory" icon={Brain}>
+            <JsonEditor config={config} path="receptionistBrain.faqs" label="FAQs JSON" onChange={onChange} />
+            <div className="mt-4">
+              <EditableList config={config} path="receptionistBrain.wordsToAvoid" label="Words to avoid" onChange={onChange} rows={4} />
+            </div>
+          </ConfigPanel>
+          <ConfigPanel title="Forbidden claims" eyebrow="Guardrails" icon={Database} tone="blue">
+            <EditableList config={config} path="receptionistBrain.forbiddenClaims" label="Forbidden claims" onChange={onChange} rows={8} />
+          </ConfigPanel>
+        </div>
       </div>
     );
   }
@@ -1342,7 +1375,7 @@ export function AccountDetailPage({
   const [payload, setPayload] = useState<ClientConfigPayload | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"save" | "validate" | "publish" | null>(null);
+  const [busy, setBusy] = useState<"save" | "validate" | "publish" | "export" | null>(null);
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
@@ -1389,7 +1422,7 @@ export function AccountDetailPage({
   };
 
   const saveDraft = async () => {
-    if (!payload || !client) return;
+    if (!payload || !client) return false;
     setBusy("save");
     setMessage(null);
     try {
@@ -1399,8 +1432,10 @@ export function AccountDetailPage({
       setDirty(false);
       setMessage("Draft saved to Supabase.");
       await onRefreshClients();
+      return true;
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "Unable to save draft");
+      return false;
     } finally {
       setBusy(null);
     }
@@ -1408,7 +1443,7 @@ export function AccountDetailPage({
 
   const validateDraft = async () => {
     if (!client) return;
-    if (dirty) await saveDraft();
+    if (dirty && !(await saveDraft())) return;
     setBusy("validate");
     setMessage(null);
     try {
@@ -1424,7 +1459,7 @@ export function AccountDetailPage({
 
   const publishDraft = async () => {
     if (!client) return;
-    if (dirty) await saveDraft();
+    if (dirty && !(await saveDraft())) return;
     setBusy("publish");
     setMessage(null);
     try {
@@ -1442,6 +1477,25 @@ export function AccountDetailPage({
       await onRefreshIssues();
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "Unable to publish config");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const downloadKnowledgeBase = async () => {
+    if (!client || !payload || busy !== null) return;
+    if (dirty && !(await saveDraft())) return;
+
+    setBusy("export");
+    setMessage(null);
+    try {
+      const anchor = document.createElement("a");
+      anchor.href = `/api/clients/${client.id}/knowledge-base`;
+      anchor.download = "";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setMessage("Knowledge base document created. Upload it to the matching ElevenLabs agent under Knowledge Base - Add document.");
     } finally {
       setBusy(null);
     }
@@ -1477,6 +1531,7 @@ export function AccountDetailPage({
           <div className="flex flex-wrap gap-2">
             <Button kind="ghost" onClick={onShowDirectory}><Building2 size={13} /> All accounts</Button>
             <Button kind="secondary" disabled={!payload || busy !== null} onClick={saveDraft}><Database size={13} /> {busy === "save" ? "Saving..." : "Save draft"}</Button>
+            <Button kind="secondary" disabled={!payload || busy !== null} onClick={downloadKnowledgeBase}><FileText size={13} /> {busy === "export" ? "Creating..." : "KB doc"}</Button>
             <Button kind="secondary" disabled={!payload || busy !== null} onClick={validateDraft}><ListChecks size={13} /> {busy === "validate" ? "Checking..." : "Validate"}</Button>
             <Button disabled={!payload || busy !== null} onClick={publishDraft}><Sparkles size={13} /> {busy === "publish" ? "Publishing..." : "Publish"}</Button>
           </div>
@@ -1493,7 +1548,18 @@ export function AccountDetailPage({
         ))}
       </div>
 
-      <AccountTabContent tab={tab} client={client} config={payload?.config ?? null} readiness={readiness} validation={validation} onChange={updateConfig} />
+      <AccountTabContent
+        tab={tab}
+        client={client}
+        config={payload?.config ?? null}
+        readiness={readiness}
+        validation={validation}
+        onChange={updateConfig}
+        onDownloadKnowledgeBase={downloadKnowledgeBase}
+        knowledgeBaseBusy={busy === "export"}
+        knowledgeBaseDisabled={!payload || busy !== null}
+        knowledgeBaseNeedsSave={dirty}
+      />
     </div>
   );
 }
