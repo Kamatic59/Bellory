@@ -45,6 +45,7 @@ import {
   type Readiness,
   type ValidationResult,
 } from "@/lib/client-api";
+import { buildDefaultAgentSystemPrompt } from "@/lib/config/agent-system-prompt";
 import { PageId } from "./app-shell";
 import { Badge, Button, Card, DemoState, EmptyCheck, IconBox, Input, Progress, SectionTitle, Select, Toggle } from "./ui";
 
@@ -55,7 +56,7 @@ const setupSteps = [
   "Business identity",
   "Locations & hours",
   "Phone routing",
-  "AI voice",
+  "Agent identity & prompt",
   "Receptionist brain",
   "Services & pricing",
   "Qualification rules",
@@ -69,7 +70,7 @@ const setupSteps = [
 const accountTabs = [
   "Overview",
   "Business Brain",
-  "AI Voice",
+  "Agent & Prompt",
   "Call Flow",
   "Services & Pricing",
   "Calendar & Dispatch",
@@ -115,11 +116,11 @@ const onboardingDetails: Record<SetupStep, StepDetail> = {
     checklist: ["Twilio number or forward target selected", "Recording rule approved", "Caller ID planned", "Route failover configured"],
     backend: "phone_numbers, client_config_versions.phoneRouting",
   },
-  "AI voice": {
-    title: "Tune the human-sounding receptionist.",
-    description: "Set provider, voice, pacing, interruption handling, greeting, personality, and disclosure rules.",
-    fields: ["Voice provider", "Voice / agent ID", "Greeting script", "Speaking pace", "Interruption style", "Disclosure phrase"],
-    checklist: ["Voice provider selected", "Greeting approved", "Natural pauses configured", "Disclosure language approved"],
+  "Agent identity & prompt": {
+    title: "Name the receptionist and build the agent prompt.",
+    description: "Each customer gets their own ElevenLabs agent with a receptionist name, greeting, voice behavior, disclosure line, and editable system prompt.",
+    fields: ["Receptionist name", "ElevenLabs agent display name", "Voice / agent ID", "Greeting script", "System prompt", "Disclosure phrase"],
+    checklist: ["Receptionist name approved", "System prompt generated", "Greeting matches the business", "Disclosure language approved"],
     backend: "voice_agents, client_config_versions.aiVoice",
   },
   "Receptionist brain": {
@@ -184,7 +185,7 @@ const sectionLabels: Record<string, string> = {
   businessIdentity: "Business identity",
   locationsAndHours: "Locations & hours",
   phoneRouting: "Phone routing",
-  aiVoice: "AI voice",
+  aiVoice: "Agent & prompt",
   receptionistBrain: "Receptionist brain",
   servicesAndPricing: "Services & pricing",
   qualificationRules: "Qualification rules",
@@ -316,6 +317,9 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
   const publicName = form.publicName || form.name;
   const ownerName = form.primaryContactName || "Business owner";
   const ownerPhone = form.primaryContactPhone || "+18015550100";
+  const receptionistName = form.receptionistName.trim() || "Sam";
+  const agentDisplayName = form.agentDisplayName.trim() || `${receptionistName} - ${publicName}`;
+  const systemPrompt = form.systemPrompt.trim() || buildDefaultAgentSystemPrompt({ receptionistName, businessName: publicName });
 
   return {
     businessIdentity: {
@@ -342,12 +346,16 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
       spamHandling: form.spamHandling,
     },
     aiVoice: {
-      greetingScript: form.greetingScript || `Thanks for calling ${publicName}. This is Bellory at the front desk. How can I help today?`,
+      provider: "elevenlabs",
+      receptionistName,
+      agentDisplayName,
+      greetingScript: form.greetingScript || `Thanks for calling ${publicName}. This is ${receptionistName} at the front desk. How can I help today?`,
       speakingPace: form.speakingPace,
       interruptionStyle: form.interruptionStyle,
       backgroundAmbience: form.backgroundAmbience,
-      disclosurePhrase: form.disclosurePhrase,
+      disclosurePhrase: form.disclosurePhrase || `Yes, I'm ${receptionistName}, the AI receptionist for ${publicName}. I can help get your information over, check scheduling, or forward you to someone if needed.`,
       behaviorInstructions: form.behaviorInstructions,
+      systemPrompt,
     },
     calendarAndDispatch: {
       bookingMode: form.bookingChoice === "approval" ? "owner_approval" : form.bookingChoice === "lead" ? "lead_only" : "direct",
@@ -642,12 +650,15 @@ type SetupForm = {
   missedCallFallback: string;
   spamHandling: string;
   voiceChoice: string;
+  receptionistName: string;
+  agentDisplayName: string;
   greetingScript: string;
   speakingPace: string;
   interruptionStyle: string;
   backgroundAmbience: string;
   disclosurePhrase: string;
   behaviorInstructions: string;
+  systemPrompt: string;
   businessSummary: string;
   brandTone: string;
   bookingChoice: string;
@@ -677,12 +688,15 @@ const defaultSetupForm: SetupForm = {
   missedCallFallback: "Collect caller details and send the owner an SMS summary.",
   spamHandling: "Politely end obvious spam calls and mark the lead as spam.",
   voiceChoice: "elevenlabs",
+  receptionistName: "Sam",
+  agentDisplayName: "",
   greetingScript: "",
   speakingPace: "Variable, natural, and concise.",
   interruptionStyle: "Allow callers to interrupt and acknowledge before continuing.",
   backgroundAmbience: "None unless explicitly approved.",
-  disclosurePhrase: "I am Bellory, the receptionist for this business.",
+  disclosurePhrase: "",
   behaviorInstructions: "Sound human, calm, and helpful. Ask one question at a time. Use tools before confirming booking details. Never invent pricing or availability.",
+  systemPrompt: "",
   businessSummary: "",
   brandTone: "warm, brief, professional, local",
   bookingChoice: "direct",
@@ -794,12 +808,12 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
           </div>
         )}
 
-        {current === "AI voice" && (
+        {current === "Agent identity & prompt" && (
           <div className="mb-5">
             <ChoiceGrid selected={form.voiceChoice} onSelect={update("voiceChoice")} options={[
               { id: "elevenlabs", title: "ElevenLabs agent", description: "Use the most human voice profile and live call agent config." },
-              { id: "brand", title: "Custom brand voice", description: "Prepare for cloned or custom voice once approved." },
-              { id: "fallback", title: "Fallback voice", description: "Choose a safe secondary voice if the primary provider fails." },
+              { id: "template", title: "Copy Bellory template", description: "Start from the Bellory base agent, then customize the name and prompt." },
+              { id: "custom", title: "Custom client agent", description: "Use a dedicated agent when the customer needs deeper behavior changes." },
             ]} />
           </div>
         )}
@@ -852,8 +866,10 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
               <SetupField label="Spam handling" value={form.spamHandling} onChange={update("spamHandling")} />
             </>
           )}
-          {current === "AI voice" && (
+          {current === "Agent identity & prompt" && (
             <>
+              <SetupField label="Receptionist name" value={form.receptionistName} onChange={update("receptionistName")} />
+              <SetupField label="ElevenLabs agent display name" value={form.agentDisplayName} onChange={update("agentDisplayName")} />
               <SetupField label="Speaking pace" value={form.speakingPace} onChange={update("speakingPace")} />
               <SetupField label="Interruption style" value={form.interruptionStyle} onChange={update("interruptionStyle")} />
               <SetupField label="Background ambience" value={form.backgroundAmbience} onChange={update("backgroundAmbience")} />
@@ -875,10 +891,37 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
 
         <div className="mt-4 grid gap-4">
           {current === "Business identity" && <SetupTextarea label="Business summary" value={form.businessSummary} onChange={update("businessSummary")} />}
-          {current === "AI voice" && (
+          {current === "Agent identity & prompt" && (
             <>
               <SetupTextarea label="Greeting script" value={form.greetingScript} onChange={update("greetingScript")} rows={3} />
               <SetupTextarea label="Behavior instructions" value={form.behaviorInstructions} onChange={update("behaviorInstructions")} />
+              <div>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#94836A]">System prompt</p>
+                  <Button
+                    kind="secondary"
+                    onClick={() => setForm((currentForm) => {
+                      const businessName = currentForm.publicName || currentForm.name || "the business";
+                      const receptionistName = currentForm.receptionistName || "Sam";
+                      return {
+                        ...currentForm,
+                        agentDisplayName: currentForm.agentDisplayName || `${receptionistName} - ${businessName}`,
+                        disclosurePhrase: currentForm.disclosurePhrase || `Yes, I'm ${receptionistName}, the AI receptionist for ${businessName}. I can help get your information over, check scheduling, or forward you to someone if needed.`,
+                        systemPrompt: buildDefaultAgentSystemPrompt({ receptionistName, businessName }),
+                      };
+                    })}
+                  >
+                    Generate prompt
+                  </Button>
+                </div>
+                <textarea
+                  rows={14}
+                  value={form.systemPrompt || buildDefaultAgentSystemPrompt({ receptionistName: form.receptionistName, businessName: form.publicName || form.name || "the business" })}
+                  onChange={(event) => update("systemPrompt")(event.target.value)}
+                  className="font-mono w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-xs leading-5 text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40"
+                />
+                <p className="mt-1.5 text-[10px] leading-4 text-[#94836A]">This is the exact system prompt to paste into the ElevenLabs agent for this business.</p>
+              </div>
             </>
           )}
           {current === "Urgency & escalation" && (
@@ -891,7 +934,7 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
           {current === "Launch QA" && <SetupTextarea label="Required launch scenarios, one per line" value={form.launchScenarios} onChange={update("launchScenarios")} rows={6} />}
         </div>
 
-        {!(["Business identity", "Locations & hours", "Phone routing", "AI voice", "Calendar & dispatch", "Urgency & escalation", "Compliance & policies", "Launch QA"] as SetupStep[]).includes(current) && (
+        {!(["Business identity", "Locations & hours", "Phone routing", "Agent identity & prompt", "Calendar & dispatch", "Urgency & escalation", "Compliance & policies", "Launch QA"] as SetupStep[]).includes(current) && (
           <div className="grid gap-3 md:grid-cols-2">
             {detail.fields.map((field) => <EmptyCheck key={field} text={field} />)}
           </div>
@@ -1111,13 +1154,28 @@ function AccountTabContent({
     );
   }
 
-  if (tab === "AI Voice") {
+  if (tab === "Agent & Prompt") {
+    const receptionistName = getString(config, "aiVoice.receptionistName", "Sam");
+    const businessName = getString(config, "businessIdentity.publicName", client.name);
+    const regeneratePrompt = () => {
+      onChange("aiVoice.agentDisplayName", getString(config, "aiVoice.agentDisplayName") || `${receptionistName} - ${businessName}`);
+      onChange("aiVoice.disclosurePhrase", getString(config, "aiVoice.disclosurePhrase") || `Yes, I'm ${receptionistName}, the AI receptionist for ${businessName}. I can help get your information over, check scheduling, or forward you to someone if needed.`);
+      onChange("aiVoice.systemPrompt", buildDefaultAgentSystemPrompt({ receptionistName, businessName }));
+    };
+
     return (
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
-        <ConfigPanel title="Voice and personality" eyebrow="ElevenLabs agent profile" icon={Headphones}>
+        <ConfigPanel
+          title="Agent identity and system prompt"
+          eyebrow="ElevenLabs agent profile"
+          icon={Headphones}
+          action={<Button kind="secondary" onClick={regeneratePrompt}><FileText size={13} /> Generate prompt</Button>}
+        >
           <div className="grid gap-3 md:grid-cols-2">
             <SelectField config={config} path="aiVoice.provider" label="Voice provider" options={["elevenlabs"]} onChange={onChange} />
             <EditableField config={config} path="aiVoice.providerAccountId" label="Provider account ID" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.receptionistName" label="Receptionist name" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.agentDisplayName" label="ElevenLabs agent display name" onChange={onChange} />
             <EditableField config={config} path="aiVoice.externalAgentId" label="External agent ID" onChange={onChange} />
             <EditableField config={config} path="aiVoice.externalVoiceId" label="External voice ID" onChange={onChange} />
             <EditableField config={config} path="aiVoice.speakingPace" label="Speaking pace" onChange={onChange} />
@@ -1128,10 +1186,14 @@ function AccountTabContent({
           <div className="mt-4 grid gap-4">
             <EditableTextArea config={config} path="aiVoice.greetingScript" label="Greeting script" onChange={onChange} rows={3} />
             <EditableTextArea config={config} path="aiVoice.behaviorInstructions" label="Behavior instructions" onChange={onChange} />
+            <EditableTextArea config={config} path="aiVoice.systemPrompt" label="System prompt for ElevenLabs" onChange={onChange} rows={18} />
           </div>
         </ConfigPanel>
-        <ConfigPanel title="Human-likeness controls" eyebrow="Voice QA" icon={SlidersHorizontal} tone="violet">
-          <ChecklistGrid items={["Variable speech speed", "Natural filler words allowed", "Breath/pause behavior in voice provider", "No robotic long monologues", "Can be interrupted", "Keeps answers brief", "Repeats critical details", "Escalates when unsure"]} />
+        <ConfigPanel title="Agent setup order" eyebrow="Step-by-step" icon={SlidersHorizontal} tone="violet">
+          <ChecklistGrid items={["Name the receptionist", "Generate the system prompt", "Paste prompt into ElevenLabs", "Upload the KB doc", "Assign voice and phone number", "Configure tools", "Run launch QA calls", "Publish only after test calls pass"]} />
+          <div className="mt-4">
+            <DemoState title="Prompt vs knowledge base" description="The system prompt controls behavior and the KB document holds business facts. Keep both updated for every client agent." tone="honey" />
+          </div>
         </ConfigPanel>
       </div>
     );

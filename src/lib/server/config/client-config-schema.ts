@@ -50,12 +50,15 @@ const aiVoiceSchema = z.object({
   providerAccountId: optionalString,
   externalAgentId: optionalString,
   externalVoiceId: optionalString,
+  receptionistName: nonEmptyString,
+  agentDisplayName: nonEmptyString,
   greetingScript: nonEmptyString,
   speakingPace: nonEmptyString,
   interruptionStyle: nonEmptyString,
   backgroundAmbience: optionalString,
   disclosurePhrase: nonEmptyString,
   behaviorInstructions: nonEmptyString,
+  systemPrompt: nonEmptyString,
 });
 
 const receptionistBrainSchema = z.object({

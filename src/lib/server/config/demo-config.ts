@@ -1,6 +1,9 @@
 import { BelloryClientConfig } from "./client-config-schema";
+import { buildDefaultAgentSystemPrompt } from "@/lib/config/agent-system-prompt";
 
 export function createDemoClientConfig(clientName = "Demo Client"): BelloryClientConfig {
+  const receptionistName = "Sam";
+
   return {
     businessIdentity: {
       legalName: clientName,
@@ -33,12 +36,15 @@ export function createDemoClientConfig(clientName = "Demo Client"): BelloryClien
     },
     aiVoice: {
       provider: "elevenlabs",
-      greetingScript: `Thanks for calling ${clientName}. This is Bellory at the front desk. How can I help today?`,
+      receptionistName,
+      agentDisplayName: `${receptionistName} - ${clientName}`,
+      greetingScript: `Thanks for calling ${clientName}. This is ${receptionistName} at the front desk. How can I help today?`,
       speakingPace: "Variable, natural, and concise.",
       interruptionStyle: "Allow callers to interrupt and acknowledge before continuing.",
       backgroundAmbience: "None unless explicitly approved.",
-      disclosurePhrase: "I am Bellory, the receptionist for this business.",
+      disclosurePhrase: `Yes, I'm ${receptionistName}, the AI receptionist for ${clientName}. I can help get your information over, check scheduling, or forward you to someone if needed.`,
       behaviorInstructions: "Sound human, calm, and helpful. Ask one question at a time. Use tools before confirming booking details. Never invent pricing or availability.",
+      systemPrompt: buildDefaultAgentSystemPrompt({ receptionistName, businessName: clientName }),
     },
     receptionistBrain: {
       callerIntents: ["book_appointment", "ask_price", "urgent_help", "reschedule", "general_question"],

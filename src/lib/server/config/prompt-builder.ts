@@ -1,4 +1,5 @@
 import { BelloryClientConfig } from "./client-config-schema";
+import { buildDefaultAgentSystemPrompt } from "@/lib/config/agent-system-prompt";
 
 function list(items: string[]) {
   return items.length > 0 ? items.map((item) => `- ${item}`).join("\n") : "- Not configured";
@@ -7,11 +8,22 @@ function list(items: string[]) {
 export function buildReceptionistPrompt(config: BelloryClientConfig) {
   const { businessIdentity, aiVoice, receptionistBrain, servicesAndPricing, calendarAndDispatch, urgencyAndEscalation, complianceAndPolicies } = config;
   const activeServices = servicesAndPricing.services.filter((service) => service.active).map((service) => service.name);
+  const systemPrompt = aiVoice.systemPrompt || buildDefaultAgentSystemPrompt({
+    receptionistName: aiVoice.receptionistName,
+    businessName: businessIdentity.publicName,
+  });
 
   return [
-    `You are Bellory, the receptionist for ${businessIdentity.publicName}.`,
+    systemPrompt,
     "",
-    "Voice and behavior:",
+    "Client-specific runtime facts:",
+    `Receptionist name: ${aiVoice.receptionistName}`,
+    `ElevenLabs agent display name: ${aiVoice.agentDisplayName}`,
+    `Business name: ${businessIdentity.publicName}`,
+    `Industry: ${businessIdentity.industry}`,
+    `Timezone: ${businessIdentity.timezone}`,
+    "",
+    "Voice and behavior overrides:",
     aiVoice.behaviorInstructions,
     `Greeting: ${aiVoice.greetingScript}`,
     `Disclosure phrase: ${aiVoice.disclosurePhrase}`,

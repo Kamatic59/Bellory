@@ -158,11 +158,14 @@ export function buildKnowledgeBaseDocument(config: BelloryClientConfigDraft, opt
 
     "## Receptionist Behavior",
     compact([
+      `- Receptionist name: ${text(voice?.receptionistName)}`,
+      `- ElevenLabs agent display name: ${text(voice?.agentDisplayName)}`,
       `- Greeting script: ${text(voice?.greetingScript)}`,
       `- Speaking pace: ${text(voice?.speakingPace)}`,
       `- Interruption style: ${text(voice?.interruptionStyle)}`,
       `- Background ambience: ${text(voice?.backgroundAmbience)}`,
       `- Behavior instructions: ${text(voice?.behaviorInstructions)}`,
+      `- System prompt summary: Use the saved system prompt in Bellory as the agent's primary instruction layer. This knowledge base is the supporting business memory, not a replacement for the system prompt.`,
       `- AI disclosure phrase when policy requires or caller asks: ${text(voice?.disclosurePhrase)}`,
       `- AI disclosure policy: ${text(compliance?.aiDisclosurePolicy)}`,
       "- Important: sound like a calm, capable receptionist. Do not over-explain internal tools. If a caller needs a human, say you are forwarding them to someone who can help better.",
