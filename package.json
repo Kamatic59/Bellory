@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "audio:demo": "node scripts/generate-demo-audio.mjs",
+    "elevenlabs:check": "node scripts/check-elevenlabs.mjs",
     "setup:check": "node scripts/check-setup.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
