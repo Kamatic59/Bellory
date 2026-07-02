@@ -146,20 +146,24 @@ const howSteps = [
 
 const demoTranscript = [
   {
-    speaker: "Caller",
-    text: "My garage door spring broke and the door won't open.",
-  },
-  {
     speaker: "Bellory",
-    text: "I can help. Is the door stuck open, stuck closed, or completely off track?",
+    text: "Thanks for calling Canyon Garage Doors, this is Bellory. How can I help?",
   },
   {
     speaker: "Caller",
-    text: "Stuck closed. My car is inside.",
+    text: "My garage door spring broke and the door won't open. My car is stuck inside.",
   },
   {
     speaker: "Bellory",
-    text: "Got it. I'll treat this as urgent, check the soonest availability, and route this based on the company's emergency rules.",
+    text: "I can help with that. Is the door stuck fully closed, or is it off track too?",
+  },
+  {
+    speaker: "Caller",
+    text: "It looks closed. I don't think it's off track.",
+  },
+  {
+    speaker: "Bellory",
+    text: "Got it. Because your car is trapped, I'll treat this as urgent. Let me check the soonest opening, and if I can't get this placed right away, I'll forward you to someone who can help better.",
   },
 ] as const;
 

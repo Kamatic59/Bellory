@@ -24,10 +24,12 @@ const outputPath = path.join(process.cwd(), "public", "audio", "bellory-garage-d
 
 const demoScript = process.env.BELLORY_DEMO_SCRIPT || [
   "Hi, this is Bellory with Canyon Garage Doors.",
+  "How can I help?",
   "I can help with that.",
-  "Is the door stuck open, stuck closed, or completely off track?",
-  "Okay, got it.",
-  "Since your car is trapped inside, I'll flag this as urgent, check the soonest same-day opening, and route this based on the company's emergency rules.",
+  "Is the door stuck fully closed, or is it off track too?",
+  "Got it.",
+  "Because your car is trapped, I'll treat this as urgent.",
+  "Let me check the soonest opening, and if I can't get this placed right away, I'll forward you to someone who can help better.",
 ].join(" ");
 
 if (!apiKey) {
