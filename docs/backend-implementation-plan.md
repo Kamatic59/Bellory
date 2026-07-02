@@ -342,15 +342,34 @@ Required endpoints/actions:
 
 ## Voice Runtime Plan
 
-Primary MVP runtime:
+Primary MVP runtime is Agent-first. ElevenLabs handles the real-time phone conversation and Twilio media path; Bellory handles configuration, tools, storage, and reporting.
 
 - ElevenLabs Conversational AI for live voice agent.
 - Twilio phone numbers connected through ElevenLabs native phone integration.
 - Bellory Vercel API routes as webhook tools.
 - Google Calendar API for availability and booking.
 - Inngest for post-call processing and retries.
+- See `docs/elevenlabs-agent-architecture.md` for the detailed architecture and implementation order.
 
-Live call flow:
+Agent-first live call flow:
+
+1. Caller dials client number.
+2. ElevenLabs receives the call through the native Twilio integration.
+3. ElevenLabs starts the client's assigned agent with the published config.
+4. The agent uses Bellory webhook tools:
+   - `bellory_get_client_context`
+   - `bellory_check_service_area`
+   - `bellory_classify_urgency`
+   - `bellory_check_availability`
+   - `bellory_book_appointment`
+   - `bellory_save_lead`
+   - `bellory_send_owner_alert`
+5. If a human should take over, the agent uses ElevenLabs' transfer-to-number system tool with natural caller language.
+6. Bellory logs every webhook tool call to `agent_tool_calls`.
+7. Post-call webhook stores call summary, transcript, analysis, outcome, lead, appointment, transfer, and issues.
+8. Inngest jobs normalize the call, update reports, send notifications, and flag low-confidence calls.
+
+Superseded placeholder flow:
 
 1. Caller dials client number.
 2. Twilio routes to ElevenLabs agent.

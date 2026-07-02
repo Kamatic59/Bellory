@@ -149,9 +149,10 @@ Official docs:
 Purpose:
 
 - Human-sounding AI receptionist voice.
-- Phone agent runtime.
+- Phone agent runtime through ElevenLabs Agents.
 - Voice selection and realism bake-off.
 - Post-call analysis webhooks.
+- Native Twilio connection for inbound calls.
 
 Action:
 
@@ -159,7 +160,8 @@ Action:
 - Choose a paid plan that supports Conversational AI/agents and enough phone minutes for testing.
 - Create one Bellory sandbox agent.
 - Pick 3-5 candidate voices for testing.
-- Configure webhook tools after Vercel deployment is live.
+- Import/connect the Twilio phone number in ElevenLabs.
+- Configure Bellory webhook tools after Vercel deployment is live.
 - Configure post-call webhook:
   - `https://<your-vercel-domain>/api/webhooks/elevenlabs/post-call`
 
@@ -169,6 +171,8 @@ Needed environment variables:
 - `ELEVENLABS_WEBHOOK_SECRET`
 - `ELEVENLABS_DEFAULT_AGENT_ID`
 - `ELEVENLABS_DEFAULT_VOICE_ID`
+- `ELEVENLABS_DEMO_VOICE_ID`
+- `ELEVENLABS_CALLER_VOICE_ID`
 
 Official docs:
 
@@ -181,9 +185,9 @@ Official docs:
 
 Purpose:
 
-- Phone numbers.
-- Carrier/telephony infrastructure.
+- Phone numbers and carrier/telephony infrastructure.
 - Number ownership for clients.
+- Connected to Bellory through ElevenLabs native Twilio integration for the MVP.
 
 Action:
 
@@ -192,14 +196,13 @@ Action:
 - Add billing.
 - Complete any required business/brand verification if prompted.
 - Connect the Twilio number through ElevenLabs' native Twilio integration.
+- Do not build custom Twilio media streaming in Bellory for the MVP.
 
 Needed environment variables:
 
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_API_KEY_SID`
-- `TWILIO_API_KEY_SECRET`
-- `TWILIO_WEBHOOK_SECRET`
+- Not required in Bellory Vercel env for native ElevenLabs integration.
+- Keep Twilio SID/token in ElevenLabs when importing the phone number.
+- Add Bellory Twilio env vars later only if we use ElevenLabs register-call, custom Twilio routing, or direct outbound call control.
 
 What to buy:
 
