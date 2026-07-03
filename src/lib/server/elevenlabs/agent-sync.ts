@@ -185,6 +185,20 @@ function buildToolDefinitions(clientId: string, baseUrl: string): WebhookToolCon
   ];
 }
 
+const SPEECH_STYLE_SECTION = `
+
+# Speech Style — sound like a person on the phone
+- Keep turns short: one or two sentences, then let the caller talk.
+- Use contractions and everyday words. Say "I'll get that set up" not "I will proceed to schedule that".
+- Vary your acknowledgments: "Got it." "Okay." "Sure." "Perfect." Never use the same one twice in a row.
+- Before checking something that takes a moment, say a short natural line like "One sec, let me check that for you." Then give the answer.
+- Say times and numbers like a person: "eight tomorrow morning", not "eight zero zero AM". Read phone numbers back in groups of three and four.
+- If the caller sounds stressed, acknowledge it once, briefly and sincerely, then help: "Oh no — okay, let's get someone out to you."
+- If the caller interrupts, stop immediately and respond to what they said.
+- Never recite lists. Offer one option, and only mention another if the first does not work.
+- Do not repeat the caller's words back verbatim, do not over-apologize, and never announce what you are doing internally.
+- One question at a time, always.`;
+
 const TOOL_PROMPT_SECTION = `
 
 # Your Tools
@@ -253,7 +267,8 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
         first_message: config.aiVoice.greetingScript,
         language: "en",
         prompt: {
-          prompt: `${config.aiVoice.systemPrompt}${TOOL_PROMPT_SECTION}`,
+          prompt: `${config.aiVoice.systemPrompt}${SPEECH_STYLE_SECTION}${TOOL_PROMPT_SECTION}`,
+          llm: "gemini-2.5-flash",
           tool_ids: toolIds,
         },
         dynamic_variables: {
@@ -263,7 +278,20 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
           },
         },
       },
-      ...(voiceId ? { tts: { voice_id: voiceId } } : {}),
+      ...(voiceId
+        ? {
+          tts: {
+            voice_id: voiceId,
+            // Turbo trades a little latency for noticeably more natural
+            // delivery; lower stability lets intonation vary like a person.
+            // English agents require the v2 models (v2_5 is multilingual-only).
+            model_id: "eleven_turbo_v2",
+            stability: 0.45,
+            similarity_boost: 0.85,
+            speed: 1.0,
+          },
+        }
+        : {}),
     },
   };
 }
