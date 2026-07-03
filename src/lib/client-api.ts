@@ -192,6 +192,53 @@ export async function getCalendarStatus(clientId: string) {
   return { connected: data.connected, status: data.status, email: data.email, updatedAt: data.updatedAt };
 }
 
+export type TwilioNumberOption = {
+  phoneNumber: string;
+  friendlyName: string;
+  locality: string | null;
+  region: string | null;
+  voice: boolean;
+  sms: boolean;
+};
+
+export type ClientPhoneState = {
+  configured: boolean;
+  current: { e164: string; status: string; updatedAt: string } | null;
+  ownedUnassigned: TwilioNumberOption[];
+  ownedError: string | null;
+};
+
+export async function getClientPhoneState(clientId: string) {
+  const data = await requestJson<{ ok: true } & ClientPhoneState>(`/api/clients/${clientId}/phone`);
+  return { configured: data.configured, current: data.current, ownedUnassigned: data.ownedUnassigned, ownedError: data.ownedError };
+}
+
+export async function searchPhoneNumbers(clientId: string, areaCode: string) {
+  const data = await requestJson<{ ok: true; numbers: TwilioNumberOption[] }>(
+    `/api/clients/${clientId}/phone/search?areaCode=${encodeURIComponent(areaCode)}`,
+  );
+  return data.numbers;
+}
+
+export async function connectPhoneNumber(clientId: string, phoneNumber: string, purchase: boolean) {
+  return requestJson<{ ok: true; e164: string }>(`/api/clients/${clientId}/phone`, {
+    method: "POST",
+    body: JSON.stringify({ phoneNumber, purchase }),
+  });
+}
+
+export type VoiceOption = {
+  voiceId: string;
+  name: string;
+  description: string;
+  previewUrl: string | null;
+};
+
+export async function listVoices(clientId: string) {
+  const data = await requestJson<{ ok: true; voices: VoiceOption[] }>(`/api/clients/${clientId}/voices`);
+  return data.voices;
+}
+
 export type AgentSyncResponse = {
   ok: true;
   agentId: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Brain,
@@ -19,8 +19,10 @@ import {
   ListChecks,
   MapPinned,
   MessageSquareText,
+  Pause,
   PhoneForwarded,
   PhoneIncoming,
+  Play,
   Route,
   Search,
   ShieldCheck,
@@ -33,16 +35,23 @@ import {
 } from "lucide-react";
 import type { BelloryClientConfigDraft } from "@/lib/server/config/client-config-schema";
 import {
+  connectPhoneNumber,
   getCalendarStatus,
   getClientActivity,
   getClientConfig,
+  getClientPhoneState,
+  listVoices,
   publishClientConfig,
   saveClientConfigDraft,
+  searchPhoneNumbers,
   syncElevenLabsAgent,
   validateClientConfig,
   type AppClient,
   type CalendarStatus,
   type ClientActivity,
+  type ClientPhoneState,
+  type TwilioNumberOption,
+  type VoiceOption,
   type ClientIssue,
   type ClientMetrics,
   type ClientConfigPayload,
@@ -1129,6 +1138,213 @@ function ValidationPanel({ validation }: { validation: ValidationResult | null }
   );
 }
 
+function PhoneNumberPanel({ clientId, agentSynced }: { clientId: string; agentSynced: boolean }) {
+  const [state, setState] = useState<ClientPhoneState | null>(null);
+  const [areaCode, setAreaCode] = useState("");
+  const [results, setResults] = useState<TwilioNumberOption[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    getClientPhoneState(clientId)
+      .then(setState)
+      .catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load phone state"));
+  };
+
+  useEffect(() => {
+    let ignore = false;
+    queueMicrotask(() => { if (!ignore) load(); });
+    return () => { ignore = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
+
+  const [searched, setSearched] = useState(false);
+
+  const search = async () => {
+    if (areaCode && !/^\d{3}$/.test(areaCode)) { setError("Area code must be 3 digits, or leave it blank for any."); return; }
+    setBusy("search");
+    setError(null);
+    try {
+      setResults(await searchPhoneNumbers(clientId, areaCode));
+      setSearched(true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Search failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const connect = async (phoneNumber: string, purchase: boolean) => {
+    setBusy(phoneNumber);
+    setError(null);
+    setMessage(null);
+    try {
+      await connectPhoneNumber(clientId, phoneNumber, purchase);
+      setMessage(`${phoneNumber} is connected and assigned to this client's agent. Callers can dial it now.`);
+      setResults([]);
+      setConfirming(null);
+      load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Connect failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <ConfigPanel title="Phone number" eyebrow="Twilio line answered by the agent" icon={PhoneIncoming} tone={state?.current ? "mint" : "honey"}>
+      <div className="flex flex-wrap items-center gap-3">
+        {state?.current ? (
+          <>
+            <Badge tone={state.current.status === "connected" ? "mint" : "honey"}>{displayStatus(state.current.status)}</Badge>
+            <span className="font-mono-ui text-[15px] font-bold text-white">{state.current.e164}</span>
+          </>
+        ) : (
+          <p className="text-[12px] leading-5 text-[#94836A]">
+            {!agentSynced
+              ? "Sync the ElevenLabs agent first (Agent & Prompt tab), then connect a number here."
+              : "No number connected yet. Pick an owned number or search for a new one below."}
+          </p>
+        )}
+      </div>
+      {error && <p className="mt-3 text-[12px] text-[#F08B72]">{error}</p>}
+      {message && <p className="mt-3 text-[12px] text-[#C7F76F]">{message}</p>}
+
+      {state && agentSynced && (
+        <div className="mt-5 space-y-4">
+          {state.ownedUnassigned.length > 0 && (
+            <div>
+              <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Owned, unassigned Twilio numbers</p>
+              <div className="grid gap-2">
+                {state.ownedUnassigned.map((number) => (
+                  <div key={number.phoneNumber} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[.07] bg-white/[.02] p-3">
+                    <div>
+                      <span className="font-mono-ui text-[13px] font-bold text-white">{number.phoneNumber}</span>
+                      <span className="ml-3 text-[11px] text-[#94836A]">{[number.locality, number.region].filter(Boolean).join(", ") || "Toll-free / national"}</span>
+                    </div>
+                    <Button kind="secondary" disabled={busy !== null} onClick={() => connect(number.phoneNumber, false)}>
+                      {busy === number.phoneNumber ? "Connecting..." : "Connect"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Buy a new local number</p>
+            <div className="flex gap-2">
+              <Input value={areaCode} onChange={setAreaCode} placeholder="Area code (optional)" className="max-w-[180px]" ariaLabel="Area code" />
+              <Button kind="secondary" disabled={busy !== null} onClick={search}>{busy === "search" ? "Searching..." : "Search"}</Button>
+            </div>
+            {searched && results.length === 0 && (
+              <p className="mt-2 text-[11px] text-[#F6C66A]">No numbers available for that area code right now — try a nearby one, or leave it blank to search everywhere.</p>
+            )}
+            {results.length > 0 && (
+              <div className="mt-3 grid gap-2">
+                {results.map((number) => (
+                  <div key={number.phoneNumber} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[.07] bg-white/[.02] p-3">
+                    <div>
+                      <span className="font-mono-ui text-[13px] font-bold text-white">{number.phoneNumber}</span>
+                      <span className="ml-3 text-[11px] text-[#94836A]">{[number.locality, number.region].filter(Boolean).join(", ")}</span>
+                    </div>
+                    {confirming === number.phoneNumber ? (
+                      <Button disabled={busy !== null} onClick={() => connect(number.phoneNumber, true)}>
+                        {busy === number.phoneNumber ? "Buying..." : "Confirm purchase (~$1.15/mo)"}
+                      </Button>
+                    ) : (
+                      <Button kind="secondary" disabled={busy !== null} onClick={() => setConfirming(number.phoneNumber)}>Buy & connect</Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {state.ownedError && <p className="text-[11px] text-[#F6C66A]">{state.ownedError}</p>}
+        </div>
+      )}
+    </ConfigPanel>
+  );
+}
+
+function VoicePicker({ clientId, currentVoiceId, onChange }: { clientId: string; currentVoiceId: string; onChange: (path: string, value: unknown) => void }) {
+  const [voices, setVoices] = useState<VoiceOption[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    queueMicrotask(() => {
+      listVoices(clientId)
+        .then((next) => { if (!ignore) setVoices(next); })
+        .catch((caught) => { if (!ignore) setError(caught instanceof Error ? caught.message : "Unable to load voices"); });
+    });
+    return () => { ignore = true; };
+  }, [clientId]);
+
+  const selected = voices.find((voice) => voice.voiceId === currentVoiceId);
+
+  const preview = () => {
+    if (!selected?.previewUrl) return;
+    if (playing === selected.voiceId) {
+      audioRef.current?.pause();
+      setPlaying(null);
+      return;
+    }
+    if (!audioRef.current) audioRef.current = new Audio();
+    audioRef.current.src = selected.previewUrl;
+    audioRef.current.onended = () => setPlaying(null);
+    void audioRef.current.play();
+    setPlaying(selected.voiceId);
+  };
+
+  return (
+    <div>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Voice</p>
+      <div className="flex gap-2">
+        <Select value={currentVoiceId} onChange={(value) => onChange("aiVoice.externalVoiceId", value)} ariaLabel="Agent voice">
+          <option value="">Workspace default voice</option>
+          {voices.map((voice) => (
+            <option key={voice.voiceId} value={voice.voiceId}>{voice.name}{voice.description ? ` — ${voice.description}` : ""}</option>
+          ))}
+        </Select>
+        <Button kind="secondary" disabled={!selected?.previewUrl} onClick={preview} ariaLabel="Preview voice">
+          {playing ? <Pause size={13} /> : <Play size={13} />}
+        </Button>
+      </div>
+      <p className="mt-1.5 text-[10px] leading-4 text-[#94836A]">Save and re-sync the agent after changing the voice.</p>
+      {error && <p className="mt-1 text-[11px] text-[#F08B72]">{error}</p>}
+    </div>
+  );
+}
+
+const AGENT_ID_PATTERN = /^[a-zA-Z0-9_]+$/;
+
+function TestCallPanel({ agentId }: { agentId: string }) {
+  useEffect(() => {
+    if (document.querySelector("script[data-elevenlabs-widget]")) return;
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/@elevenlabs/convai-widget-embed";
+    script.async = true;
+    script.setAttribute("data-elevenlabs-widget", "true");
+    document.body.appendChild(script);
+  }, []);
+
+  if (!AGENT_ID_PATTERN.test(agentId)) return null;
+
+  return (
+    <ConfigPanel title="Talk to this receptionist" eyebrow="Browser test call" icon={Headphones} tone="mint">
+      <p className="mb-4 max-w-2xl text-[12px] leading-5 text-[#94836A]">
+        Start a live voice conversation with this client&rsquo;s agent right here — same prompt, tools, and knowledge as the phone line. Tool calls and leads land in the real backend, so use test details.
+      </p>
+      <div dangerouslySetInnerHTML={{ __html: `<elevenlabs-convai agent-id="${agentId}"></elevenlabs-convai>` }} />
+    </ConfigPanel>
+  );
+}
+
 function CalendarConnectionCard({ clientId }: { clientId: string }) {
   const [status, setStatus] = useState<CalendarStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1410,7 +1626,7 @@ function AccountTabContent({
             <EditableField config={config} path="aiVoice.receptionistName" label="Receptionist name" onChange={onChange} />
             <EditableField config={config} path="aiVoice.agentDisplayName" label="ElevenLabs agent display name" onChange={onChange} />
             <EditableField config={config} path="aiVoice.externalAgentId" label="External agent ID" onChange={onChange} />
-            <EditableField config={config} path="aiVoice.externalVoiceId" label="External voice ID" onChange={onChange} />
+            <VoicePicker clientId={client.id} currentVoiceId={getString(config, "aiVoice.externalVoiceId")} onChange={onChange} />
             <EditableField config={config} path="aiVoice.speakingPace" label="Speaking pace" onChange={onChange} />
             <EditableField config={config} path="aiVoice.interruptionStyle" label="Interruption style" onChange={onChange} />
             <EditableField config={config} path="aiVoice.backgroundAmbience" label="Background ambience" onChange={onChange} />
@@ -1434,6 +1650,8 @@ function AccountTabContent({
 
   if (tab === "Call Flow") {
     return (
+      <div className="space-y-4">
+      <PhoneNumberPanel clientId={client.id} agentSynced={Boolean(getString(config, "aiVoice.externalAgentId"))} />
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
         <ConfigPanel title="Phone route and call behavior" eyebrow="Runtime flow" icon={MessageSquareText}>
           <div className="grid gap-3 md:grid-cols-2">
@@ -1451,6 +1669,7 @@ function AccountTabContent({
         <ConfigPanel title="Conversation stages" eyebrow="What the AI must do" icon={PhoneForwarded} tone="blue">
           <ChecklistGrid items={["Answer with approved greeting", "Classify caller intent", "Collect required intake fields", "Check service area", "Determine urgency", "Use calendar/pricing tools", "Confirm next step", "Send owner/client summary"]} />
         </ConfigPanel>
+      </div>
       </div>
     );
   }
@@ -1613,7 +1832,16 @@ function AccountTabContent({
   }
 
   if (tab === "Testing") {
+    const externalAgentId = getString(config, "aiVoice.externalAgentId");
     return (
+      <div className="space-y-4">
+      {externalAgentId ? (
+        <TestCallPanel agentId={externalAgentId} />
+      ) : (
+        <Card className="p-5">
+          <DemoState tone="honey" title="No agent to test yet" description="Sync the ElevenLabs agent from the Agent & Prompt tab, then test calls right here in the browser." />
+        </Card>
+      )}
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
         <ConfigPanel title="Required launch test calls" eyebrow="Quality gates" icon={Sparkles}>
           <EditableList config={config} path="launchQa.requiredScenarios" label="Required scenarios" onChange={onChange} rows={8} />
@@ -1625,6 +1853,7 @@ function AccountTabContent({
             <EditableField config={config} path="launchQa.approvedByUserId" label="Approved by user ID" onChange={onChange} />
           </div>
         </ConfigPanel>
+      </div>
       </div>
     );
   }

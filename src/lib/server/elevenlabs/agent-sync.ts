@@ -3,6 +3,7 @@ import { getDb } from "@/db/client";
 import { clientConfigVersions, clients, voiceAgents } from "@/db/schema";
 import type { BelloryClientConfig } from "@/lib/server/config/client-config-schema";
 import { validateClientConfigForPublish } from "@/lib/server/config/config-validation";
+import { buildKnowledgeBaseDocument } from "@/lib/server/config/knowledge-base-builder";
 import { saveClientConfigDraft } from "@/lib/server/clients/client-config-store";
 import { getOptionalEnv, getRequiredEnv } from "@/lib/server/env";
 
@@ -255,7 +256,32 @@ async function upsertTools(definitions: WebhookToolConfig[], storedToolIds: Reco
   return toolIds;
 }
 
-function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: string[]) {
+type KnowledgeBaseRef = { id: string; name: string } | null;
+
+/** Uploads the generated KB document as an ElevenLabs text document. */
+async function uploadKnowledgeBase(config: BelloryClientConfig): Promise<KnowledgeBaseRef> {
+  const name = `Bellory KB — ${config.businessIdentity.publicName}`;
+  const text = buildKnowledgeBaseDocument(config, { clientName: config.businessIdentity.publicName });
+
+  const created = await elevenLabs<{ id?: string }>("/convai/knowledge-base/text", {
+    method: "POST",
+    body: JSON.stringify({ name, text }),
+  });
+  if (created.status >= 400 || !created.body?.id) {
+    console.error("elevenlabs sync: knowledge base upload failed", created.status, JSON.stringify(created.body).slice(0, 200));
+    return null;
+  }
+  return { id: created.body.id, name };
+}
+
+async function deleteKnowledgeBaseDoc(id: string) {
+  const deleted = await elevenLabs(`/convai/knowledge-base/${id}`, { method: "DELETE" });
+  if (deleted.status >= 400) {
+    console.warn("elevenlabs sync: could not delete old knowledge base doc", id, deleted.status);
+  }
+}
+
+function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: string[], knowledgeBase: KnowledgeBaseRef) {
   const voiceId = config.aiVoice.externalVoiceId
     || getOptionalEnv("ELEVENLABS_DEMO_VOICE_ID")
     || getOptionalEnv("ELEVENLABS_DEFAULT_VOICE_ID");
@@ -270,6 +296,7 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
           prompt: `${config.aiVoice.systemPrompt}${SPEECH_STYLE_SECTION}${TOOL_PROMPT_SECTION}`,
           llm: "gemini-2.5-flash",
           tool_ids: toolIds,
+          ...(knowledgeBase ? { knowledge_base: [{ type: "text", id: knowledgeBase.id, name: knowledgeBase.name }] } : {}),
         },
         dynamic_variables: {
           dynamic_variable_placeholders: {
@@ -333,9 +360,11 @@ export async function syncClientAgent(clientId: string): Promise<AgentSyncResult
     .orderBy(desc(voiceAgents.createdAt))
     .limit(1);
 
-  const storedToolIds = (existingAgentRow?.metadata as { toolIds?: Record<string, string> } | undefined)?.toolIds ?? {};
+  const agentMetadata = existingAgentRow?.metadata as { toolIds?: Record<string, string>; knowledgeBaseId?: string } | undefined;
+  const storedToolIds = agentMetadata?.toolIds ?? {};
   const toolIds = await upsertTools(buildToolDefinitions(clientId, baseUrl), storedToolIds);
-  const agentBody = buildAgentBody(clientId, config, Object.values(toolIds));
+  const knowledgeBase = await uploadKnowledgeBase(config);
+  const agentBody = buildAgentBody(clientId, config, Object.values(toolIds), knowledgeBase);
 
   const knownAgentId = config.aiVoice.externalAgentId || existingAgentRow?.externalAgentId || null;
   let agentId = knownAgentId;
@@ -365,13 +394,23 @@ export async function syncClientAgent(clientId: string): Promise<AgentSyncResult
     createdAgent = true;
   }
 
+  // The agent now references the fresh KB doc, so the previous one can go.
+  if (agentMetadata?.knowledgeBaseId && knowledgeBase && agentMetadata.knowledgeBaseId !== knowledgeBase.id) {
+    await deleteKnowledgeBaseDoc(agentMetadata.knowledgeBaseId);
+  }
+
   const agentRowValues = {
     provider: "elevenlabs",
     externalAgentId: agentId,
     externalVoiceId: config.aiVoice.externalVoiceId || null,
     displayName: config.aiVoice.agentDisplayName,
     status: "connected" as const,
-    metadata: { toolIds, syncedAt: new Date().toISOString(), configVersionId: candidate.id },
+    metadata: {
+      toolIds,
+      knowledgeBaseId: knowledgeBase?.id ?? agentMetadata?.knowledgeBaseId ?? null,
+      syncedAt: new Date().toISOString(),
+      configVersionId: candidate.id,
+    },
   };
 
   if (existingAgentRow) {
