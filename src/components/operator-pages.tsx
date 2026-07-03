@@ -386,14 +386,29 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
 function MetricCard({ label, value, helper, icon, tone = "mint" }: { label: string; value: string; helper: string; icon: LucideIcon; tone?: Tone }) {
   return (
     <Card hover className="p-5">
-      <div className="mb-5 flex items-start justify-between">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <p className="font-mono-ui pt-1 text-[10px] font-semibold uppercase tracking-[.16em] text-[#94836A]">{label}</p>
         <IconBox icon={icon} tone={tone} />
-        <span className="rounded-full bg-white/[.04] px-2 py-1 text-[10px] font-bold text-[#94836A]">Live data</span>
       </div>
-      <p className="text-3xl font-semibold tracking-[-.04em] text-white">{value}</p>
-      <p className="mt-1 text-[12px] font-semibold text-[#FFF7E8]">{label}</p>
-      <p className="mt-2 text-[11px] leading-5 text-[#94836A]">{helper}</p>
+      <p className="font-mono-ui text-[30px] font-semibold leading-none tracking-[-.03em] text-white">{value}</p>
+      <p className="mt-2.5 text-[11px] leading-5 text-[#94836A]">{helper}</p>
     </Card>
+  );
+}
+
+function FilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={clsx(
+        "font-mono-ui rounded-lg px-3 py-2 text-[10px] font-semibold uppercase tracking-[.1em] transition-colors",
+        active
+          ? "bg-[#C7F76F] text-[#14110B] shadow-[0_4px_14px_rgba(199,247,111,.18)]"
+          : "border border-white/[.08] bg-white/[.02] text-[#94836A] hover:border-white/[.16] hover:text-white",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -409,7 +424,19 @@ function ConfigPanel({ title, eyebrow, icon, tone = "mint", children, action }: 
 function LoadingState({ title = "Loading live data..." }: { title?: string }) {
   return (
     <Card className="p-6">
-      <DemoState title={title} description="Bellory is reading the Supabase-backed API." tone="honey" />
+      <div className="flex items-center gap-3">
+        <span className="flex items-center gap-1">
+          <span className="typing-dot size-1.5 rounded-full bg-[#C7F76F]" />
+          <span className="typing-dot size-1.5 rounded-full bg-[#C7F76F]" />
+          <span className="typing-dot size-1.5 rounded-full bg-[#C7F76F]" />
+        </span>
+        <p className="text-[13px] font-semibold text-[#C6B9A6]">{title}</p>
+      </div>
+      <div className="mt-5 space-y-3">
+        {[82, 64, 71].map((width, index) => (
+          <div key={index} className="h-9 animate-pulse rounded-xl bg-white/[.03]" style={{ width: `${width}%` }} />
+        ))}
+      </div>
     </Card>
   );
 }
@@ -431,9 +458,12 @@ function ChoiceGrid({ selected, onSelect, options }: { selected: string; onSelec
   return (
     <div className="grid gap-3 md:grid-cols-3">
       {options.map((option) => (
-        <button key={option.id} onClick={() => onSelect(option.id)} className={clsx("rounded-2xl border p-4 text-left transition", selected === option.id ? "border-[#C7F76F]/25 bg-[#C7F76F]/[.055]" : "border-white/[.07] bg-white/[.025] hover:bg-white/[.045]")}>
-          <p className="text-[13px] font-bold text-white">{option.title}</p>
-          <p className="mt-2 text-[11px] leading-5 text-[#B7AB98]">{option.description}</p>
+        <button key={option.id} onClick={() => onSelect(option.id)} className={clsx("relative rounded-xl border p-4 text-left transition", selected === option.id ? "border-[#C7F76F]/[.35] bg-[#C7F76F]/[.05] shadow-[0_0_0_1px_rgba(199,247,111,.14),0_8px_24px_rgba(0,0,0,.2)]" : "border-white/[.07] bg-white/[.02] hover:border-white/[.14] hover:bg-white/[.04]")}>
+          {selected === option.id && (
+            <span className="absolute right-3 top-3 grid size-4 place-items-center rounded-full bg-[#C7F76F] text-[#14110B]"><Check size={10} strokeWidth={3.5} /></span>
+          )}
+          <p className="pr-6 text-[13px] font-bold tracking-[-.01em] text-white">{option.title}</p>
+          <p className="mt-2 text-[11px] leading-5 text-[#94836A]">{option.description}</p>
         </button>
       ))}
     </div>
@@ -457,22 +487,22 @@ function AccountRow({ client, onOpen }: { client: AppClient; onOpen: () => void 
   const status = displayStatus(client.status);
 
   return (
-    <button onClick={onOpen} className="grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-white/[.025] lg:grid-cols-[1.35fr_.65fr_.75fr_.7fr_.65fr_90px] lg:items-center">
+    <button onClick={onOpen} className="group grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-[#C7F76F]/[.02] lg:grid-cols-[1.35fr_.65fr_.75fr_.7fr_.65fr_90px] lg:items-center">
       <div className="flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-2xl bg-[#C7F76F]/10 text-[11px] font-black text-[#C7F76F]">{initials(client.name)}</span>
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#C7F76F]/[.08] text-[11px] font-black text-[#C7F76F] shadow-[inset_0_0_0_1px_rgba(199,247,111,.1)]">{initials(client.name)}</span>
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-bold text-white">{client.name}</p>
-          <p className="mt-1 text-[11px] text-[#B7AB98]">{client.industry} - {metrics.owner}</p>
+          <p className="truncate text-[13px] font-bold tracking-[-.01em] text-white">{client.name}</p>
+          <p className="mt-0.5 truncate text-[11px] text-[#94836A]">{client.industry} · {metrics.owner}</p>
         </div>
       </div>
       <span><Badge tone={statusTone(status)}>{status}</Badge></span>
       <div>
-        <p className="text-[12px] font-semibold text-white">{metrics.setupProgress}% ready</p>
+        <p className="font-mono-ui mb-1.5 text-[11px] font-semibold text-white">{metrics.setupProgress}%</p>
         <Progress value={metrics.setupProgress} tone={metrics.setupProgress > 90 ? "mint" : metrics.setupProgress > 70 ? "honey" : "coral"} />
       </div>
-      <p className="text-[12px] text-[#C6B9A6]">{metrics.jobsSaved} jobs saved</p>
-      <p className={clsx("text-[12px] font-bold", metrics.errors > 0 ? "text-[#F08B72]" : "text-[#C7F76F]")}>{metrics.errors} issues</p>
-      <span className="justify-self-start text-[11px] font-bold text-[#C7F76F] lg:justify-self-end">Open -&gt;</span>
+      <p className="font-mono-ui text-[12px] text-[#C6B9A6]">{metrics.jobsSaved}</p>
+      <p className={clsx("font-mono-ui text-[12px] font-bold", metrics.errors > 0 ? "text-[#F08B72]" : "text-[#94C759]")}>{metrics.errors}</p>
+      <span className="justify-self-start text-[11px] font-bold text-[#C7F76F] transition group-hover:translate-x-0.5 lg:justify-self-end">Open →</span>
     </button>
   );
 }
@@ -516,12 +546,12 @@ export function AccountsPage({
   return (
     <div className="space-y-5">
       <Card className="relative overflow-hidden p-6 sm:p-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(199,247,111,.095),transparent_32%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_10%,rgba(199,247,111,.08),transparent_34%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <Badge><span className="size-1.5 rounded-full bg-[#C7F76F]" /> Live Supabase accounts</Badge>
-            <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-.045em] text-white sm:text-5xl">Find a business, launch a receptionist, or fix what is broken.</h1>
-            <p className="mt-4 max-w-2xl text-[14px] leading-6 text-[#B7AB98]">This page now reads real client records, readiness, issues, and metrics from the backend.</p>
+            <Badge><span className="size-1.5 rounded-full bg-[#C7F76F]" /> Live accounts</Badge>
+            <h1 className="font-display mt-4 max-w-3xl text-3xl font-medium tracking-[-.02em] text-white sm:text-[2.6rem] sm:leading-[1.05]">Every receptionist, at a glance.</h1>
+            <p className="mt-3 max-w-2xl text-[13px] leading-6 text-[#94836A]">Find a business, launch a receptionist, or fix what is stuck — readiness, issues, and metrics update live from the backend.</p>
           </div>
           <Button onClick={() => navigate("setup")} className="w-fit"><ClipboardCheck size={14} /> Set up new business</Button>
         </div>
@@ -538,15 +568,18 @@ export function AccountsPage({
         <div className="flex flex-col gap-3 border-b border-white/[.06] p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-2">
             {["All", "Live", "Setup", "Pilot", "Needs Attention", "Paused", "Draft"].map((item) => (
-              <button key={item} onClick={() => setFilter(item)} className={clsx("rounded-xl px-3 py-2 text-[11px] font-bold transition", filter === item ? "bg-[#C7F76F] text-[#17120C]" : "border border-white/[.07] bg-white/[.03] text-[#B7AB98] hover:text-white")}>{item}</button>
+              <FilterPill key={item} label={item} active={filter === item} onClick={() => setFilter(item)} />
             ))}
           </div>
           <div className="relative w-full lg:w-[330px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94836A]" />
+            <Search size={14} className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[#94836A]" />
             <Input value={query} onChange={setQuery} placeholder="Search businesses..." className="pl-9" />
           </div>
         </div>
         <div>
+          <div className="font-mono-ui hidden gap-3 border-t border-white/[.05] bg-white/[.015] px-5 py-2.5 text-[9px] font-semibold uppercase tracking-[.18em] text-[#6E5F49] lg:grid lg:grid-cols-[1.35fr_.65fr_.75fr_.7fr_.65fr_90px]">
+            <span>Business</span><span>Status</span><span>Readiness</span><span>Jobs saved</span><span>Issues</span><span />
+          </div>
           {shown.map((client) => <AccountRow key={client.id} client={client} onOpen={() => onOpenAccount(client.id)} />)}
           {shown.length === 0 && <div className="p-5"><DemoState tone="honey" title="No businesses match" description="Create a real business record from New Business Setup, or clear the filter." /></div>}
         </div>
@@ -560,36 +593,43 @@ function AccountDirectoryCard({ client, onOpen }: { client: AppClient; onOpen: (
   const status = displayStatus(client.status);
 
   return (
-    <button onClick={onOpen} className="group flex h-full flex-col rounded-[1.35rem] border border-white/[.075] bg-white/[.028] p-5 text-left transition hover:-translate-y-0.5 hover:border-[#C7F76F]/25 hover:bg-[#C7F76F]/[.035] hover:shadow-[0_18px_50px_rgba(0,0,0,.22)]">
+    <button onClick={onOpen} className="glass group flex h-full flex-col rounded-[20px] p-5 text-left transition-all hover:-translate-y-0.5 hover:border-[#C7F76F]/[.22] hover:shadow-[0_22px_54px_rgba(0,0,0,.28)]">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#C7F76F]/10 text-[12px] font-black text-[#C7F76F] shadow-[inset_0_0_0_1px_rgba(199,247,111,.08)]">{initials(client.name)}</span>
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#C7F76F]/[.08] text-[12px] font-black text-[#C7F76F] shadow-[inset_0_0_0_1px_rgba(199,247,111,.1)]">{initials(client.name)}</span>
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold tracking-tight text-white">{client.name}</p>
-            <p className="mt-1 text-[11px] text-[#B7AB98]">{client.industry}</p>
+            <p className="truncate text-[15px] font-bold tracking-[-.015em] text-white">{client.name}</p>
+            <p className="mt-0.5 text-[11px] text-[#94836A]">{client.industry}</p>
           </div>
         </div>
         <Badge tone={statusTone(status)}>{status}</Badge>
       </div>
-      <div className="grid gap-2 text-[11px] text-[#B7AB98]">
-        <div className="flex justify-between gap-3"><span>Owner</span><span className="font-semibold text-white">{metrics.owner}</span></div>
-        <div className="flex justify-between gap-3"><span>Plan</span><span className="font-semibold text-white">{displayPlan(client.plan)}</span></div>
-        <div className="flex justify-between gap-3"><span>Config</span><span className="font-semibold text-white">{client.configStatus || "draft"}</span></div>
-        <div className="flex justify-between gap-3"><span>Version</span><span className="font-semibold text-white">{client.configVersion ?? "new"}</span></div>
+      <div className="grid gap-0 text-[11px] text-[#94836A]">
+        {([
+          ["Owner", metrics.owner],
+          ["Plan", displayPlan(client.plan)],
+          ["Config", client.configStatus || "draft"],
+          ["Version", String(client.configVersion ?? "new")],
+        ] as const).map(([label, value], index) => (
+          <div key={label} className={clsx("flex items-baseline justify-between gap-3 py-1.5", index > 0 && "border-t border-white/[.04]")}>
+            <span className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.16em]">{label}</span>
+            <span className="truncate font-semibold text-[#EFE1C8]">{value}</span>
+          </div>
+        ))}
       </div>
       <div className="my-5">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#94836A]">Setup readiness</span>
-          <span className="text-[11px] font-black text-[#C7F76F]">{metrics.setupProgress}%</span>
+          <span className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.16em] text-[#94836A]">Readiness</span>
+          <span className="font-mono-ui text-[11px] font-bold text-[#C7F76F]">{metrics.setupProgress}%</span>
         </div>
         <Progress value={metrics.setupProgress} tone={metrics.setupProgress > 90 ? "mint" : metrics.setupProgress > 70 ? "honey" : "coral"} />
       </div>
       <div className="mt-auto grid grid-cols-3 gap-2 border-t border-white/[.06] pt-4">
-        <div><p className="text-[16px] font-semibold tracking-tight text-white">{metrics.jobsSaved}</p><p className="text-[9px] uppercase tracking-wider text-[#94836A]">Jobs</p></div>
-        <div><p className="text-[16px] font-semibold tracking-tight text-white">{metrics.hoursSaved}</p><p className="text-[9px] uppercase tracking-wider text-[#94836A]">Hours</p></div>
-        <div><p className={clsx("text-[16px] font-semibold tracking-tight", metrics.errors > 0 ? "text-[#F08B72]" : "text-[#C7F76F]")}>{metrics.errors}</p><p className="text-[9px] uppercase tracking-wider text-[#94836A]">Issues</p></div>
+        <div><p className="font-mono-ui text-[16px] font-semibold tracking-tight text-white">{metrics.jobsSaved}</p><p className="font-mono-ui mt-0.5 text-[8px] uppercase tracking-[.16em] text-[#6E5F49]">Jobs</p></div>
+        <div><p className="font-mono-ui text-[16px] font-semibold tracking-tight text-white">{metrics.hoursSaved}</p><p className="font-mono-ui mt-0.5 text-[8px] uppercase tracking-[.16em] text-[#6E5F49]">Hours</p></div>
+        <div><p className={clsx("font-mono-ui text-[16px] font-semibold tracking-tight", metrics.errors > 0 ? "text-[#F08B72]" : "text-[#94C759]")}>{metrics.errors}</p><p className="font-mono-ui mt-0.5 text-[8px] uppercase tracking-[.16em] text-[#6E5F49]">Issues</p></div>
       </div>
-      <span className="mt-5 inline-flex items-center gap-1 text-[11px] font-black text-[#C7F76F]">Configure account <ArrowRight size={12} className="transition group-hover:translate-x-0.5" /></span>
+      <span className="mt-5 inline-flex items-center gap-1 text-[11px] font-bold text-[#C7F76F]">Configure account <ArrowRight size={12} className="transition group-hover:translate-x-0.5" /></span>
     </button>
   );
 }
@@ -614,18 +654,18 @@ function AccountDirectory({ clients, loading, error, onOpenAccount, onRefresh }:
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <Badge><Building2 size={12} /> Configured accounts</Badge>
-            <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-.045em] text-white sm:text-5xl">Choose a business to configure its receptionist.</h1>
-            <p className="mt-4 max-w-2xl text-[14px] leading-6 text-[#B7AB98]">Each card opens live settings for one client: voice, business brain, quote rules, calendar, routing, fallbacks, compliance, integrations, and testing.</p>
+            <h1 className="font-display mt-4 max-w-3xl text-3xl font-medium tracking-[-.02em] text-white sm:text-[2.6rem] sm:leading-[1.05]">Choose a business to configure.</h1>
+            <p className="mt-3 max-w-2xl text-[13px] leading-6 text-[#94836A]">Each card opens live settings for one client: voice, business brain, quote rules, calendar, routing, fallbacks, compliance, integrations, and testing.</p>
           </div>
           <div className="relative w-full lg:w-[330px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94836A]" />
+            <Search size={14} className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[#94836A]" />
             <Input value={query} onChange={setQuery} placeholder="Search account cards..." className="pl-9" />
           </div>
         </div>
       </Card>
       <div className="flex flex-wrap gap-2">
         {["All", "Live", "Setup", "Pilot", "Needs Attention", "Paused", "Draft"].map((item) => (
-          <button key={item} onClick={() => setFilter(item)} className={clsx("rounded-xl px-3 py-2 text-[11px] font-bold transition", filter === item ? "bg-[#C7F76F] text-[#17120C]" : "border border-white/[.07] bg-white/[.03] text-[#B7AB98] hover:text-white")}>{item}</button>
+          <FilterPill key={item} label={item} active={filter === item} onClick={() => setFilter(item)} />
         ))}
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{shown.map((client) => <AccountDirectoryCard key={client.id} client={client} onOpen={() => onOpenAccount(client.id)} />)}</div>
@@ -713,7 +753,7 @@ const defaultSetupForm: SetupForm = {
 function SetupField({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
   return (
     <div>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
       <Input value={value} onChange={onChange} placeholder={`Enter ${label.toLowerCase()}...`} type={type} />
     </div>
   );
@@ -722,12 +762,12 @@ function SetupField({ label, value, onChange, type = "text" }: { label: string; 
 function SetupTextarea({ label, value, onChange, rows = 5 }: { label: string; value: string; onChange: (value: string) => void; rows?: number }) {
   return (
     <div>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
       <textarea
         rows={rows}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-sm leading-6 text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40"
+        className="w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#6E5F49] hover:border-white/[.14] focus:border-[#C7F76F]/45"
       />
     </div>
   );
@@ -771,17 +811,32 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
 
   return (
     <div className="grid gap-4 xl:grid-cols-[330px_1fr]">
-      <Card className="p-4">
-        <div className="mb-5 rounded-2xl bg-gradient-to-br from-[#C7F76F]/10 to-transparent p-4">
-          <div className="flex items-center justify-between"><Badge tone="honey">Live draft setup</Badge><span className="text-sm font-bold">{complete}%</span></div>
-          <p className="mt-4 text-base font-semibold text-white">New business onboarding</p>
-          <p className="mt-1 text-[11px] text-[#B7AB98]">Creates a real client and first config draft in Supabase.</p>
+      <Card className="p-4 xl:sticky xl:top-[84px] xl:self-start">
+        <div className="mb-5 rounded-xl bg-gradient-to-br from-[#C7F76F]/[.08] to-transparent p-4">
+          <div className="flex items-center justify-between">
+            <Badge tone="honey">Live draft</Badge>
+            <span className="font-mono-ui text-sm font-bold text-[#C7F76F]">{complete}%</span>
+          </div>
+          <p className="mt-3.5 text-[15px] font-bold tracking-[-.01em] text-white">New business onboarding</p>
+          <p className="mt-1 text-[11px] leading-4 text-[#94836A]">Creates a real client and first config draft in Supabase.</p>
           <div className="mt-4"><Progress value={complete} /></div>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           {setupSteps.map((item, index) => (
-            <button key={item} onClick={() => setStep(index)} className={clsx("flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[11px] font-semibold transition", step === index ? "bg-[#C7F76F]/10 text-[#C7F76F]" : "text-[#B7AB98] hover:bg-white/[.03]")}>
-              <span className={clsx("grid size-5 place-items-center rounded-full text-[8px]", index < step ? "bg-[#C7F76F] text-[#17120C]" : step === index ? "border border-[#C7F76F]/30" : "bg-white/5")}>{index < step ? <Check size={11} /> : index + 1}</span>
+            <button
+              key={item}
+              onClick={() => setStep(index)}
+              className={clsx(
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[12px] font-semibold tracking-[-.01em] transition-colors",
+                step === index ? "bg-[#C7F76F]/[.08] text-[#D8FF9B]" : index < step ? "text-[#C6B9A6] hover:bg-white/[.03]" : "text-[#94836A] hover:bg-white/[.03] hover:text-[#C6B9A6]",
+              )}
+            >
+              <span className={clsx(
+                "font-mono-ui grid size-5 shrink-0 place-items-center rounded-full text-[8px] font-bold",
+                index < step ? "bg-[#C7F76F] text-[#14110B]" : step === index ? "border border-[#C7F76F]/40 text-[#C7F76F]" : "bg-white/[.05] text-[#6E5F49]",
+              )}>
+                {index < step ? <Check size={10} strokeWidth={3} /> : index + 1}
+              </span>
               {item}
             </button>
           ))}
@@ -791,9 +846,9 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
       <Card className="p-5 sm:p-7">
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-[.18em] text-[#C7F76F]">Step {step + 1} of {setupSteps.length}</p>
-            <h2 className="text-2xl font-semibold tracking-tight text-white">{detail.title}</h2>
-            <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[#B7AB98]">{detail.description}</p>
+            <p className="font-mono-ui mb-2.5 text-[10px] font-semibold uppercase tracking-[.2em] text-[#94C759]">Step {String(step + 1).padStart(2, "0")} / {setupSteps.length}</p>
+            <h2 className="font-display text-2xl font-medium tracking-[-.015em] text-white sm:text-3xl">{detail.title}</h2>
+            <p className="mt-2.5 max-w-3xl text-[13px] leading-6 text-[#94836A]">{detail.description}</p>
           </div>
           <IconBox icon={step === setupSteps.length - 1 ? Sparkles : ClipboardCheck} tone={step === setupSteps.length - 1 ? "honey" : "mint"} />
         </div>
@@ -897,7 +952,7 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
               <SetupTextarea label="Behavior instructions" value={form.behaviorInstructions} onChange={update("behaviorInstructions")} />
               <div>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#94836A]">System prompt</p>
+                  <p className="font-mono-ui text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">System prompt</p>
                   <Button
                     kind="secondary"
                     onClick={() => setForm((currentForm) => {
@@ -918,7 +973,7 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
                   rows={14}
                   value={form.systemPrompt || buildDefaultAgentSystemPrompt({ receptionistName: form.receptionistName, businessName: form.publicName || form.name || "the business" })}
                   onChange={(event) => update("systemPrompt")(event.target.value)}
-                  className="font-mono w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-xs leading-5 text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40"
+                  className="font-mono-ui w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-xs leading-5 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#6E5F49] hover:border-white/[.14] focus:border-[#C7F76F]/45"
                 />
                 <p className="mt-1.5 text-[10px] leading-4 text-[#94836A]">This is the exact system prompt to paste into the ElevenLabs agent for this business.</p>
               </div>
@@ -961,7 +1016,7 @@ function EditableField({ config, path, label, onChange, type = "text", helper }:
 
   return (
     <div>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
       <Input value={value} type={type} onChange={(next) => onChange(path, type === "number" ? Number(next) || 0 : next)} />
       {helper && <p className="mt-1.5 text-[10px] leading-4 text-[#94836A]">{helper}</p>}
     </div>
@@ -971,12 +1026,12 @@ function EditableField({ config, path, label, onChange, type = "text", helper }:
 function EditableTextArea({ config, path, label, onChange, rows = 5 }: { config: BelloryClientConfigDraft | null; path: string; label: string; onChange: (path: string, value: unknown) => void; rows?: number }) {
   return (
     <div>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
       <textarea
         rows={rows}
         value={getString(config, path)}
         onChange={(event) => onChange(path, event.target.value)}
-        className="w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-sm leading-6 text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40"
+        className="w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#6E5F49] hover:border-white/[.14] focus:border-[#C7F76F]/45"
       />
     </div>
   );
@@ -985,12 +1040,12 @@ function EditableTextArea({ config, path, label, onChange, rows = 5 }: { config:
 function EditableList({ config, path, label, onChange, rows = 5 }: { config: BelloryClientConfigDraft | null; path: string; label: string; onChange: (path: string, value: unknown) => void; rows?: number }) {
   return (
     <div>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
       <textarea
         rows={rows}
         value={getStringArray(config, path).join("\n")}
         onChange={(event) => onChange(path, splitLines(event.target.value))}
-        className="w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-sm leading-6 text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40"
+        className="w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#6E5F49] hover:border-white/[.14] focus:border-[#C7F76F]/45"
       />
       <p className="mt-1.5 text-[10px] leading-4 text-[#94836A]">One item per line.</p>
     </div>
@@ -1000,7 +1055,7 @@ function EditableList({ config, path, label, onChange, rows = 5 }: { config: Bel
 function SelectField({ config, path, label, options, onChange }: { config: BelloryClientConfigDraft | null; path: string; label: string; options: string[]; onChange: (path: string, value: unknown) => void }) {
   return (
     <div>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
       <Select value={getString(config, path)} onChange={(value) => onChange(path, value)}>
         {options.map((option) => <option key={option} value={option}>{option}</option>)}
       </Select>
@@ -1011,7 +1066,7 @@ function SelectField({ config, path, label, options, onChange }: { config: Bello
 function BooleanSelect({ config, path, label, onChange }: { config: BelloryClientConfigDraft | null; path: string; label: string; onChange: (path: string, value: unknown) => void }) {
   return (
     <div>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
       <Select value={getString(config, path, "false")} onChange={(value) => onChange(path, value === "true")}>
         <option value="false">false</option>
         <option value="true">true</option>
@@ -1040,7 +1095,7 @@ function JsonEditor({ config, path, label, onChange }: { config: BelloryClientCo
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-[#94836A]">{label}</p>
+        <p className="font-mono-ui text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
         <Button kind="ghost" onClick={apply}>Apply JSON</Button>
       </div>
       <textarea
@@ -1048,7 +1103,7 @@ function JsonEditor({ config, path, label, onChange }: { config: BelloryClientCo
         value={text}
         onChange={(event) => setDraftText(event.target.value)}
         onBlur={apply}
-        className="font-mono w-full rounded-2xl border border-white/[.08] bg-[#15110C]/70 p-4 text-xs leading-5 text-white outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/40"
+        className="font-mono-ui w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-xs leading-5 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#6E5F49] hover:border-white/[.14] focus:border-[#C7F76F]/45"
       />
       {error && <p className="mt-1.5 text-[11px] text-[#F08B72]">{error}</p>}
     </div>
@@ -1578,16 +1633,16 @@ export function AccountDetailPage({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(199,247,111,.08),transparent_35%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-4">
-            <span className="grid size-14 place-items-center rounded-3xl bg-[#C7F76F]/10 text-sm font-black text-[#C7F76F]">{initials(client.name)}</span>
+            <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-[#C7F76F]/[.08] text-sm font-black text-[#C7F76F] shadow-[inset_0_0_0_1px_rgba(199,247,111,.12)]">{initials(client.name)}</span>
             <div>
-              <div className="mb-2 flex flex-wrap gap-2">
+              <div className="mb-2.5 flex flex-wrap gap-2">
                 <Badge tone={statusTone(displayStatus(client.status))}>{displayStatus(client.status)}</Badge>
                 <Badge tone={metrics.errors > 0 ? "coral" : "mint"}>{metrics.errors} issues</Badge>
                 <Badge tone="blue">{configStatus}</Badge>
                 {dirty && <Badge tone="honey">Unsaved changes</Badge>}
               </div>
-              <h1 className="text-3xl font-semibold tracking-[-.04em] text-white">{client.name}</h1>
-              <p className="mt-2 text-[13px] text-[#B7AB98]">{client.industry} - {metrics.owner} - {readiness.percentage}% ready</p>
+              <h1 className="font-display text-3xl font-medium tracking-[-.02em] text-white sm:text-4xl">{client.name}</h1>
+              <p className="font-mono-ui mt-2 text-[11px] uppercase tracking-[.1em] text-[#94836A]">{client.industry} · {metrics.owner} · {readiness.percentage}% ready</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1604,10 +1659,22 @@ export function AccountDetailPage({
       {configLoading && <LoadingState title="Loading config..." />}
       {configError && <ErrorState title="Could not load config" error={configError} />}
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {accountTabs.map((item) => (
-          <button key={item} onClick={() => setTab(item)} className={clsx("whitespace-nowrap rounded-xl px-3 py-2 text-[11px] font-bold", tab === item ? "bg-[#C7F76F] text-[#17120C]" : "border border-white/[.07] bg-white/[.03] text-[#B7AB98]")}>{item}</button>
-        ))}
+      <div className="border-b border-white/[.07]">
+        <div className="flex gap-1 overflow-x-auto">
+          {accountTabs.map((item) => (
+            <button
+              key={item}
+              onClick={() => setTab(item)}
+              className={clsx(
+                "relative whitespace-nowrap px-3.5 pb-3 pt-1.5 text-[12px] font-semibold tracking-[-.01em] transition-colors",
+                tab === item ? "text-[#D8FF9B]" : "text-[#94836A] hover:text-[#EFE1C8]",
+              )}
+            >
+              {item}
+              {tab === item && <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[#C7F76F] shadow-[0_0_10px_rgba(199,247,111,.6)]" />}
+            </button>
+          ))}
+        </div>
       </div>
 
       <AccountTabContent
@@ -1656,15 +1723,15 @@ export function IssuesPage({
       </div>
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-white/[.06] p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-2">{["All", "Critical", "High", "Medium", "Low"].map((item) => <button key={item} onClick={() => setFilter(item)} className={clsx("rounded-xl px-3 py-2 text-[11px] font-bold", filter === item ? "bg-[#C7F76F] text-[#17120C]" : "border border-white/[.07] bg-white/[.03] text-[#B7AB98]")}>{item}</button>)}</div>
+          <div className="flex flex-wrap gap-2">{["All", "Critical", "High", "Medium", "Low"].map((item) => <FilterPill key={item} label={item} active={filter === item} onClick={() => setFilter(item)} />)}</div>
           <Button kind="secondary" onClick={onRefresh}>Refresh issues</Button>
         </div>
         {shown.map((issue) => (
           <button key={issue.id} disabled={!issue.clientId} onClick={() => issue.clientId && onOpenAccount(issue.clientId)} className="grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-white/[.025] disabled:cursor-not-allowed lg:grid-cols-[130px_1fr_150px_90px] lg:items-center">
             <Badge tone={statusTone(issue.severity)}>{displayStatus(issue.severity)}</Badge>
-            <div><p className="text-[13px] font-bold text-white">{issue.title}</p><p className="mt-1 text-[11px] leading-5 text-[#B7AB98]">{issue.clientName ?? "Bellory"} - {issue.description ?? "No description provided."}</p></div>
-            <span className="text-[12px] font-bold text-[#C7F76F]">{issue.actionLabel ?? "Review"}</span>
-            <span className="text-[11px] text-[#94836A]">{ageFrom(issue.createdAt)}</span>
+            <div><p className="text-[13px] font-bold tracking-[-.01em] text-white">{issue.title}</p><p className="mt-1 text-[11px] leading-5 text-[#94836A]">{issue.clientName ?? "Bellory"} · {issue.description ?? "No description provided."}</p></div>
+            <span className="text-[12px] font-bold text-[#C7F76F]">{issue.actionLabel ?? "Review"} →</span>
+            <span className="font-mono-ui text-[11px] text-[#6E5F49]">{ageFrom(issue.createdAt)}</span>
           </button>
         ))}
         {shown.length === 0 && <div className="p-5"><DemoState title="No open issues" description="Config validation and runtime issues will appear here when they need operator action." /></div>}
@@ -1701,7 +1768,7 @@ export function ReportsPage({
     <div className="space-y-5">
       <Card className="p-6">
         <SectionTitle title="Proof that Bellory is working" eyebrow="Client-ready reports" action={<Button kind="secondary" onClick={onRefresh}><FileChartColumn size={13} /> Refresh report</Button>} />
-        <p className="max-w-3xl text-[13px] leading-6 text-[#B7AB98]">These numbers are wired to `client_daily_metrics`. They will move automatically once call, lead, and appointment webhooks start writing metrics.</p>
+        <p className="max-w-3xl text-[13px] leading-6 text-[#94836A]">These numbers are wired to live daily metrics. They will move automatically once call, lead, and appointment webhooks start writing data.</p>
       </Card>
       <div className="grid gap-4 sm:grid-cols-4">
         <MetricCard icon={PhoneIncoming} label="Calls answered" value={`${totals.calls}`} helper="Total account coverage" />
@@ -1715,11 +1782,11 @@ export function ReportsPage({
           const metrics = getMetrics(client);
           return (
             <button key={client.id} onClick={() => onOpenAccount(client.id)} className="grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-white/[.025] md:grid-cols-[1.2fr_.5fr_.5fr_.5fr_.7fr] md:items-center">
-              <div><p className="text-[13px] font-bold text-white">{client.name}</p><p className="mt-1 text-[11px] text-[#B7AB98]">{client.industry}</p></div>
-              <span className="text-[13px] font-bold text-[#C7F76F]">{metrics.jobsSaved} jobs</span>
-              <span className="text-[13px] font-bold text-white">{metrics.hoursSaved} hrs</span>
-              <span className="text-[13px] font-bold text-[#F6C66A]">{metrics.revenueSaved}</span>
-              <span className="text-[11px] font-bold text-[#C7F76F]">Open report -&gt;</span>
+              <div><p className="text-[13px] font-bold tracking-[-.01em] text-white">{client.name}</p><p className="mt-1 text-[11px] text-[#94836A]">{client.industry}</p></div>
+              <span className="font-mono-ui text-[13px] font-bold text-[#C7F76F]">{metrics.jobsSaved} jobs</span>
+              <span className="font-mono-ui text-[13px] font-bold text-white">{metrics.hoursSaved} hrs</span>
+              <span className="font-mono-ui text-[13px] font-bold text-[#F6C66A]">{metrics.revenueSaved}</span>
+              <span className="text-[11px] font-bold text-[#C7F76F]">Open report →</span>
             </button>
           );
         })}
@@ -1738,10 +1805,10 @@ export function OperatorSettingsPage() {
         <Card className="p-5">
           <SectionTitle title="Workspace" eyebrow="Internal only" action={<IconBox icon={Building2} />} />
           <div className="grid gap-3 md:grid-cols-2">
-            <div><p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">Workspace name</p><Input value="Bellory HQ" disabled /></div>
-            <div><p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">Timezone</p><Input value="America/Denver" disabled /></div>
-            <div><p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">App URL</p><Input value="https://bellory.vercel.app" disabled /></div>
-            <div><p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#94836A]">Primary verticals</p><Input value="Home services" disabled /></div>
+            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Workspace name</p><Input value="Bellory HQ" disabled /></div>
+            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Timezone</p><Input value="America/Denver" disabled /></div>
+            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">App URL</p><Input value="https://bellory.vercel.app" disabled /></div>
+            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Primary verticals</p><Input value="Home services" disabled /></div>
           </div>
         </Card>
         <Card className="p-5">
