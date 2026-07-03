@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import type { BelloryClientConfigDraft } from "@/lib/server/config/client-config-schema";
 import {
+  getCalendarStatus,
   getClientActivity,
   getClientConfig,
   publishClientConfig,
@@ -40,6 +41,7 @@ import {
   syncElevenLabsAgent,
   validateClientConfig,
   type AppClient,
+  type CalendarStatus,
   type ClientActivity,
   type ClientIssue,
   type ClientMetrics,
@@ -1127,6 +1129,51 @@ function ValidationPanel({ validation }: { validation: ValidationResult | null }
   );
 }
 
+function CalendarConnectionCard({ clientId }: { clientId: string }) {
+  const [status, setStatus] = useState<CalendarStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    queueMicrotask(() => {
+      getCalendarStatus(clientId)
+        .then((next) => { if (!ignore) setStatus(next); })
+        .catch((caught) => { if (!ignore) setError(caught instanceof Error ? caught.message : "Unable to load calendar status"); });
+    });
+    return () => { ignore = true; };
+  }, [clientId]);
+
+  const tone: StatusTone = status?.connected ? "mint" : status?.status === "issue" ? "coral" : "honey";
+  const label = status?.connected ? "Connected" : status?.status === "issue" ? "Needs Reconnect" : "Not Connected";
+
+  return (
+    <ConfigPanel title="Google Calendar connection" eyebrow="Real availability and booking" icon={CalendarCheck} tone={status?.connected ? "mint" : "honey"}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Badge tone={tone}>{label}</Badge>
+            {status?.email && <span className="font-mono-ui text-[11px] text-[#94836A]">{status.email}</span>}
+          </div>
+          <p className="mt-2 max-w-xl text-[12px] leading-5 text-[#94836A]">
+            {status?.connected
+              ? "Availability checks exclude real busy time, and confirmed bookings create calendar events."
+              : status?.status === "issue"
+                ? "Google rejected the stored credentials. Reconnect to restore real availability; rules-only mode is active meanwhile."
+                : "Until a calendar is connected, availability comes from business-hours rules only."}
+          </p>
+          {error && <p className="mt-2 text-[11px] text-[#F08B72]">{error}</p>}
+        </div>
+        <a
+          href={`/api/google/oauth/start?clientId=${clientId}`}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#C7F76F] px-3.5 py-2.5 text-[13px] font-bold text-[#14110B] transition hover:bg-[#D8FF9B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/45"
+        >
+          <CalendarCheck size={14} /> {status?.connected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
+        </a>
+      </div>
+    </ConfigPanel>
+  );
+}
+
 function activityTone(status: string): StatusTone {
   const value = status.toLowerCase();
   if (["booked", "completed", "success", "new"].includes(value)) return "mint";
@@ -1436,6 +1483,8 @@ function AccountTabContent({
 
   if (tab === "Calendar & Dispatch") {
     return (
+      <div className="space-y-4">
+      <CalendarConnectionCard clientId={client.id} />
       <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
         <ConfigPanel title="Booking rules" eyebrow="Calendar and dispatch" icon={CalendarCheck}>
           <div className="grid gap-3 md:grid-cols-2">
@@ -1452,6 +1501,7 @@ function AccountTabContent({
         <ConfigPanel title="Dispatch intelligence" eyebrow="Job assignment" icon={MapPinned} tone="honey">
           <EditableList config={config} path="calendarAndDispatch.technicianRoutingRules" label="Technician routing rules" onChange={onChange} rows={7} />
         </ConfigPanel>
+      </div>
       </div>
     );
   }

@@ -180,6 +180,18 @@ export async function getClientActivity(clientId: string) {
   return { calls: data.calls, leads: data.leads, appointments: data.appointments };
 }
 
+export type CalendarStatus = {
+  connected: boolean;
+  status: string;
+  email: string | null;
+  updatedAt: string | null;
+};
+
+export async function getCalendarStatus(clientId: string) {
+  const data = await requestJson<{ ok: true } & CalendarStatus>(`/api/clients/${clientId}/calendar/status`);
+  return { connected: data.connected, status: data.status, email: data.email, updatedAt: data.updatedAt };
+}
+
 export type AgentSyncResponse = {
   ok: true;
   agentId: string;

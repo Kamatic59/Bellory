@@ -3,6 +3,12 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { appointments, leads, ownerNotifications } from "@/db/schema";
 import type { BelloryClientConfig } from "@/lib/server/config/client-config-schema";
+import {
+  createCalendarEvent,
+  fetchBusyIntervals,
+  getActiveCalendarConnection,
+  type CalendarConnection,
+} from "@/lib/server/google/calendar";
 import type { AgentToolContext, AgentToolHandler, AgentToolResult } from "./runtime";
 
 /* ------------------------------ input helpers ----------------------------- */
@@ -107,9 +113,15 @@ function appointmentDurationMinutes(config: BelloryClientConfig, requestedType?:
   return types[0]?.durationMinutes ?? 60;
 }
 
-async function loadConflicts(clientId: string, windowStart: Date, windowEnd: Date) {
+async function loadConflicts(
+  clientId: string,
+  windowStart: Date,
+  windowEnd: Date,
+  config: BelloryClientConfig,
+  connection?: CalendarConnection | null,
+) {
   const db = getDb();
-  return db
+  const conflicts: Array<{ startsAt: Date; endsAt: Date }> = await db
     .select({ startsAt: appointments.startsAt, endsAt: appointments.endsAt })
     .from(appointments)
     .where(and(
@@ -118,6 +130,15 @@ async function loadConflicts(clientId: string, windowStart: Date, windowEnd: Dat
       lt(appointments.startsAt, windowEnd),
       gt(appointments.endsAt, windowStart),
     ));
+
+  // With a connected Google Calendar, real busy time also blocks slots. A
+  // failed lookup falls back to rules-only rather than breaking the call.
+  if (connection && config.calendarAndDispatch.provider === "google") {
+    const busy = await fetchBusyIntervals(connection, windowStart, windowEnd);
+    if (busy) conflicts.push(...busy);
+  }
+
+  return conflicts;
 }
 
 async function generateAvailability(
@@ -142,7 +163,8 @@ async function generateAvailability(
 
   const windowStart = zonedTimeToUtc(days[0], "00:00", timeZone) ?? new Date();
   const windowEnd = zonedTimeToUtc(addDays(days[days.length - 1], 1), "00:00", timeZone) ?? new Date(Date.now() + 8 * 86_400_000);
-  const conflicts = await loadConflicts(client.id, windowStart, windowEnd);
+  const connection = await getActiveCalendarConnection(client.id);
+  const conflicts = await loadConflicts(client.id, windowStart, windowEnd, config, connection);
 
   const holidays = new Set(config.locationsAndHours.holidays.map((holiday) => holiday.date));
   const slots: Slot[] = [];
@@ -382,7 +404,8 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
   const durationMinutes = appointmentDurationMinutes(config, input.data.appointmentType);
   const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
 
-  const conflicts = await loadConflicts(client.id, startsAt, endsAt);
+  const connection = await getActiveCalendarConnection(client.id);
+  const conflicts = await loadConflicts(client.id, startsAt, endsAt, config, connection);
   if (conflicts.length > 0) {
     return {
       ok: true,
@@ -398,6 +421,7 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
   const db = getDb();
   const [appointment] = await db.insert(appointments).values({
     clientId: client.id,
+    calendarConnectionId: connection?.id ?? null,
     callerName: input.data.callerName,
     callerPhone: input.data.callerPhone ? normalizePhone(input.data.callerPhone) : null,
     serviceSummary: input.data.serviceSummary ?? input.data.issue,
@@ -413,6 +437,29 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
       ...(kind === "hold" ? { holdExpiresAt: new Date(Date.now() + 30 * 60_000).toISOString() } : {}),
     },
   }).returning();
+
+  // Confirmed bookings land on the real calendar when one is connected.
+  if (status === "booked" && connection) {
+    const summaryLine = input.data.serviceSummary ?? input.data.issue ?? "Service appointment";
+    const event = await createCalendarEvent(connection, {
+      summary: `${summaryLine} — ${input.data.callerName ?? "caller"} (Bellory)`,
+      description: [
+        input.data.callerName ? `Caller: ${input.data.callerName}` : null,
+        input.data.callerPhone ? `Phone: ${normalizePhone(input.data.callerPhone)}` : null,
+        input.data.issue ? `Issue: ${input.data.issue}` : null,
+        "Booked by the Bellory receptionist.",
+      ].filter(Boolean).join("\n"),
+      startsAt,
+      endsAt,
+      timeZone: config.businessIdentity.timezone,
+    });
+
+    await db.update(appointments)
+      .set(event
+        ? { externalEventId: event.eventId, metadata: { ...appointment.metadata, htmlLink: event.htmlLink }, updatedAt: new Date() }
+        : { metadata: { ...appointment.metadata, calendarSyncError: true }, updatedAt: new Date() })
+      .where(eq(appointments.id, appointment.id));
+  }
 
   const spoken = spokenSlot(startsAt, config.businessIdentity.timezone);
   const messages: Record<string, string> = {
