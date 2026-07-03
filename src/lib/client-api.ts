@@ -135,6 +135,51 @@ export async function publishClientConfig(clientId: string) {
     | { ok: false; validation: ValidationResult };
 }
 
+export type ClientCall = {
+  id: string;
+  callerPhone: string | null;
+  callerName: string | null;
+  status: string;
+  outcome: string | null;
+  summary: string | null;
+  durationSeconds: number | null;
+  startedAt: string | null;
+  createdAt: string;
+};
+
+export type ClientLead = {
+  id: string;
+  name: string | null;
+  phone: string;
+  issue: string | null;
+  urgency: string;
+  status: string;
+  summary: string | null;
+  createdAt: string;
+};
+
+export type ClientAppointment = {
+  id: string;
+  callerName: string | null;
+  callerPhone: string | null;
+  serviceSummary: string | null;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  createdAt: string;
+};
+
+export type ClientActivity = {
+  calls: ClientCall[];
+  leads: ClientLead[];
+  appointments: ClientAppointment[];
+};
+
+export async function getClientActivity(clientId: string) {
+  const data = await requestJson<{ ok: true } & ClientActivity>(`/api/clients/${clientId}/activity`);
+  return { calls: data.calls, leads: data.leads, appointments: data.appointments };
+}
+
 export async function listIssues() {
   const data = await requestJson<{ ok: true; issues: ClientIssue[] }>("/api/issues");
   return data.issues;

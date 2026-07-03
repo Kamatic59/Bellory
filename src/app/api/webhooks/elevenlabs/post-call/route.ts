@@ -1,17 +1,29 @@
-import { verifyAgentToolRequest } from "@/lib/server/agent-tool-auth";
-import { readAgentToolPayload } from "@/lib/server/agent-tool-responses";
+import { processPostCallWebhook, verifyElevenLabsSignature } from "@/lib/server/webhooks/elevenlabs-post-call";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const authError = verifyAgentToolRequest(request);
-  if (authError) return authError;
+  const rawBody = await request.text();
 
-  const payload = await readAgentToolPayload(request);
+  const signature = verifyElevenLabsSignature(rawBody, request.headers.get("elevenlabs-signature"));
+  if (!signature.ok) {
+    return Response.json({ ok: false, error: signature.reason }, { status: 401 });
+  }
 
-  return Response.json({
-    ok: true,
-    message: "ElevenLabs post-call webhook received by Bellory.",
-    receivedKeys: Object.keys(payload),
-  });
+  let payload: unknown;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return Response.json({ ok: false, error: "Invalid JSON payload" }, { status: 400 });
+  }
+
+  try {
+    const outcome = await processPostCallWebhook(payload);
+    // Always return 200 for processed-but-unmatched payloads so ElevenLabs
+    // does not retry a webhook that will never match.
+    return Response.json(outcome, { status: 200 });
+  } catch (error) {
+    console.error("elevenlabs post-call: processing failed", error);
+    return Response.json({ ok: false, error: "Processing failed" }, { status: 500 });
+  }
 }

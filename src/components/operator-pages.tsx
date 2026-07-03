@@ -33,11 +33,13 @@ import {
 } from "lucide-react";
 import type { BelloryClientConfigDraft } from "@/lib/server/config/client-config-schema";
 import {
+  getClientActivity,
   getClientConfig,
   publishClientConfig,
   saveClientConfigDraft,
   validateClientConfig,
   type AppClient,
+  type ClientActivity,
   type ClientIssue,
   type ClientMetrics,
   type ClientConfigPayload,
@@ -1124,6 +1126,123 @@ function ValidationPanel({ validation }: { validation: ValidationResult | null }
   );
 }
 
+function activityTone(status: string): StatusTone {
+  const value = status.toLowerCase();
+  if (["booked", "completed", "success", "new"].includes(value)) return "mint";
+  if (["failed", "lost", "spam", "high", "failure"].includes(value)) return "coral";
+  if (["needs_approval", "held", "needs_owner", "qualifying", "medium", "transferred", "in_progress"].includes(value)) return "honey";
+  return "muted";
+}
+
+function formatActivityTime(iso: string | null) {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+}
+
+function formatDuration(seconds: number | null) {
+  if (!seconds || seconds <= 0) return "—";
+  const minutes = Math.floor(seconds / 60);
+  return minutes > 0 ? `${minutes}m ${seconds % 60}s` : `${seconds}s`;
+}
+
+function ClientActivityPanel({ clientId }: { clientId: string }) {
+  const [activity, setActivity] = useState<ClientActivity | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    getClientActivity(clientId)
+      .then(setActivity)
+      .catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load activity"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    let ignore = false;
+    queueMicrotask(() => {
+      if (ignore) return;
+      load();
+    });
+    return () => {
+      ignore = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
+
+  if (loading) return <LoadingState title="Loading calls, leads, and appointments..." />;
+  if (error) return <ErrorState title="Could not load activity" error={error} onRetry={load} />;
+  if (!activity) return null;
+
+  return (
+    <div className="space-y-4">
+      <Card className="overflow-hidden">
+        <div className="border-b border-white/[.06] p-5">
+          <SectionTitle
+            title="Recent calls"
+            eyebrow="From the ElevenLabs post-call webhook"
+            action={<Button kind="secondary" onClick={load}><PhoneIncoming size={13} /> Refresh</Button>}
+          />
+        </div>
+        {activity.calls.map((call) => (
+          <div key={call.id} className="grid gap-3 border-t border-white/[.05] px-5 py-4 lg:grid-cols-[130px_1fr_110px_90px_110px] lg:items-center">
+            <span className="font-mono-ui text-[11px] text-[#94836A]">{formatActivityTime(call.startedAt ?? call.createdAt)}</span>
+            <div className="min-w-0">
+              <p className="truncate text-[13px] font-bold tracking-[-.01em] text-white">{call.callerName || call.callerPhone || "Unknown caller"}</p>
+              <p className="mt-1 truncate text-[11px] leading-5 text-[#94836A]">{call.summary || "No summary yet."}</p>
+            </div>
+            <span><Badge tone={activityTone(call.status)}>{displayStatus(call.status)}</Badge></span>
+            <span className="font-mono-ui text-[12px] text-[#C6B9A6]">{formatDuration(call.durationSeconds)}</span>
+            <span className="font-mono-ui truncate text-[11px] text-[#94836A]">{call.outcome ? displayStatus(call.outcome) : "—"}</span>
+          </div>
+        ))}
+        {activity.calls.length === 0 && (
+          <div className="p-5">
+            <DemoState tone="honey" title="No calls yet" description="Calls appear here after the ElevenLabs post-call webhook delivers the first conversation for this client." />
+          </div>
+        )}
+      </Card>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card className="overflow-hidden">
+          <div className="border-b border-white/[.06] p-5"><SectionTitle title="Appointments" eyebrow="Booked and pending" /></div>
+          {activity.appointments.map((appointment) => (
+            <div key={appointment.id} className="grid gap-2 border-t border-white/[.05] px-5 py-4 sm:grid-cols-[150px_1fr_130px] sm:items-center">
+              <span className="font-mono-ui text-[11px] text-[#94836A]">{formatActivityTime(appointment.startsAt)}</span>
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-bold tracking-[-.01em] text-white">{appointment.callerName || appointment.callerPhone || "Unknown caller"}</p>
+                <p className="mt-1 truncate text-[11px] text-[#94836A]">{appointment.serviceSummary || "No service summary."}</p>
+              </div>
+              <span className="sm:justify-self-end"><Badge tone={activityTone(appointment.status)}>{displayStatus(appointment.status)}</Badge></span>
+            </div>
+          ))}
+          {activity.appointments.length === 0 && (
+            <div className="p-5"><DemoState tone="honey" title="No appointments yet" description="Appointments created by the booking tools will appear here." /></div>
+          )}
+        </Card>
+
+        <Card className="overflow-hidden">
+          <div className="border-b border-white/[.06] p-5"><SectionTitle title="Leads" eyebrow="Captured by the receptionist" /></div>
+          {activity.leads.map((lead) => (
+            <div key={lead.id} className="grid gap-2 border-t border-white/[.05] px-5 py-4 sm:grid-cols-[1fr_90px_110px] sm:items-center">
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-bold tracking-[-.01em] text-white">{lead.name || lead.phone}</p>
+                <p className="mt-1 truncate text-[11px] text-[#94836A]">{lead.issue || lead.summary || lead.phone}</p>
+              </div>
+              <span><Badge tone={activityTone(lead.urgency)}>{displayStatus(lead.urgency)}</Badge></span>
+              <span className="sm:justify-self-end"><Badge tone={activityTone(lead.status)}>{displayStatus(lead.status)}</Badge></span>
+            </div>
+          ))}
+          {activity.leads.length === 0 && (
+            <div className="p-5"><DemoState tone="honey" title="No leads yet" description="Leads saved by the receptionist during calls will appear here." /></div>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 function AccountTabContent({
   tab,
   client,
@@ -1449,12 +1568,7 @@ function AccountTabContent({
   }
 
   if (tab === "Calls & Jobs") {
-    return (
-      <Card className="p-6">
-        <SectionTitle title="Recent calls and jobs" eyebrow="Real backend table" />
-        <DemoState title="No live calls yet" description="This will populate from calls, leads, appointments, and ElevenLabs/Twilio webhooks once phone integration is connected." tone="honey" />
-      </Card>
-    );
+    return <ClientActivityPanel clientId={client.id} />;
   }
 
   return (
