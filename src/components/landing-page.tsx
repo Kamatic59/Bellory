@@ -2,8 +2,9 @@
 
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { track } from "@vercel/analytics";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
   ArrowRight,
@@ -205,20 +206,9 @@ function Section({ id, children, className = "" }: { id?: string; children: Reac
   );
 }
 
-function Reveal({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.55, delay, ease: [0.21, 0.6, 0.35, 1] }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
 function Waveform({ active = true, bars = 22 }: { active?: boolean; bars?: number }) {
+  const prefersReducedMotion = useReducedMotion();
+  const animated = active && !prefersReducedMotion;
   const heights = useMemo(
     () => Array.from({ length: bars }, (_, i) => 24 + Math.abs(Math.sin(i * 1.7)) * 62),
     [bars],
@@ -230,8 +220,8 @@ function Waveform({ active = true, bars = 22 }: { active?: boolean; bars?: numbe
         <motion.span
           key={index}
           className="w-[3px] rounded-full bg-gradient-to-t from-[#7FA84E] to-[#D8FF9B]"
-          animate={active ? { height: [`${height * 0.4}%`, `${height}%`, `${height * 0.6}%`] } : { height: "18%" }}
-          transition={{ duration: 1.1 + (index % 5) * 0.09, repeat: active ? Infinity : 0, repeatType: "mirror", ease: "easeInOut" }}
+          animate={animated ? { height: [`${height * 0.4}%`, `${height}%`, `${height * 0.6}%`] } : { height: `${height * 0.52}%` }}
+          transition={{ duration: 1.1 + (index % 5) * 0.09, repeat: animated ? Infinity : 0, repeatType: "mirror", ease: "easeInOut" }}
         />
       ))}
     </div>
@@ -276,9 +266,9 @@ function CallTicket() {
               transition={{ delay: 0.7 + index * 0.45, duration: 0.4 }}
               className="grid grid-cols-[64px_1fr] gap-3"
             >
-              <p className="font-mono-ui pt-0.5 text-[10px] leading-4 text-[#6E5F49]">{line.at.replace(" PM", "")}</p>
+              <p className="font-mono-ui pt-0.5 text-[10px] leading-4 text-[#94836A]">{line.at.replace(" PM", "")}</p>
               <div>
-                <p className={`font-mono-ui mb-1 text-[9px] font-semibold uppercase tracking-[.2em] ${line.speaker === "bellory" ? "text-[#A9D96B]" : "text-[#94836A]"}`}>
+                <p className={`font-mono-ui mb-1 text-[10px] font-semibold uppercase tracking-[.2em] ${line.speaker === "bellory" ? "text-[#A9D96B]" : "text-[#94836A]"}`}>
                   {line.speaker === "bellory" ? "Bellory" : "Caller"}
                 </p>
                 <p className={`text-[13px] leading-[1.55] ${line.speaker === "bellory" ? "text-[#F4EAD5]" : "text-[#C6B9A6]"}`}>{line.text}</p>
@@ -304,7 +294,7 @@ function CallTicket() {
         </div>
       </div>
 
-      <p className="font-mono-ui mt-3 text-center text-[10px] tracking-[.08em] text-[#6E5F49]">Illustrative call — every install is configured to its own rules</p>
+      <p className="font-mono-ui mt-3 text-center text-[10px] tracking-[.08em] text-[#94836A]">Illustrative call — every install is configured to its own rules</p>
     </motion.div>
   );
 }
@@ -319,7 +309,7 @@ function CallLogTicker() {
         <div className="ticker items-center gap-10 pr-10">
           {doubled.map((line, index) => (
             <span key={index} className="font-mono-ui flex shrink-0 items-center gap-3 text-[11px] tracking-[.02em]">
-              <span className="text-[#6E5F49]">{line.time}</span>
+              <span className="text-[#94836A]">{line.time}</span>
               <span className="text-[#C6B9A6]">{line.issue}</span>
               <span className="text-[#94C759]">→ {line.result}</span>
               <span className="ml-4 size-1 rounded-full bg-[#4A3F2E]" aria-hidden="true" />
@@ -327,7 +317,7 @@ function CallLogTicker() {
           ))}
         </div>
       </div>
-      <p className="font-mono-ui mt-2 px-5 text-center text-[9px] uppercase tracking-[.24em] text-[#544733]">Illustrative call log</p>
+      <p className="font-mono-ui mt-2 px-5 text-center text-[10px] uppercase tracking-[.24em] text-[#94836A]">Illustrative call log</p>
     </div>
   );
 }
@@ -413,17 +403,17 @@ function DemoSection() {
 
   return (
     <Section id="demo">
-      <Reveal>
+      <div>
         <SectionMark index="03" label="Hear it" />
         <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <DisplayHeading>One broken-spring call,<br className="hidden sm:block" /> start to finish.</DisplayHeading>
-          <p className="max-w-sm text-[15px] leading-7 text-[#B7AB98]">What Bellory asks, what it checks, and what your team receives after the caller hangs up.</p>
+          <p className="max-w-sm text-base leading-7 text-[#B7AB98]">What Bellory asks, what it checks, and what your team receives after the caller hangs up.</p>
         </div>
-      </Reveal>
+      </div>
 
       <div className="mt-10 grid gap-5 lg:grid-cols-[1.08fr_.92fr]">
         {/* player + transcript */}
-        <Reveal>
+        <div>
           <div className="glass overflow-hidden rounded-[22px]">
             <div className="flex flex-col gap-4 border-b border-white/[.07] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
               <div className="flex items-center gap-4">
@@ -466,17 +456,17 @@ function DemoSection() {
                   trackLandingEvent("demo_audio_error", { location: "demo_section", error: "audio_element_error" });
                 }}
               />
-              <p className="font-mono-ui mt-2.5 text-[10px] leading-4 tracking-[.04em] text-[#6E5F49]">
+              <p className="font-mono-ui mt-2.5 text-[10px] leading-4 tracking-[.04em] text-[#94836A]">
                 Human-style phone sample. Final installs use the configured Bellory voice for that business.
               </p>
-              {audioMessage && <p className="mt-2 text-[12px] leading-5 text-[#F08B72]">{audioMessage}</p>}
+              {audioMessage && <p className="mt-2 text-[13px] leading-5 text-[#F08B72]">{audioMessage}</p>}
 
               <div className="mt-6 space-y-4">
                 {demoTranscript.map((line, index) => (
                   <div key={index} className="grid grid-cols-[44px_1fr] gap-3.5">
-                    <p className="font-mono-ui pt-0.5 text-[10px] text-[#6E5F49]">{line.at}</p>
+                    <p className="font-mono-ui pt-0.5 text-[10px] text-[#94836A]">{line.at}</p>
                     <div className={`rounded-xl border p-3.5 transition-colors ${playing ? "border-[#C7F76F]/[.16] bg-[#C7F76F]/[.03]" : "border-white/[.06] bg-white/[.015]"}`}>
-                      <p className={`font-mono-ui mb-1.5 text-[9px] font-semibold uppercase tracking-[.2em] ${line.speaker === "Bellory" ? "text-[#A9D96B]" : "text-[#94836A]"}`}>{line.speaker}</p>
+                      <p className={`font-mono-ui mb-1.5 text-[10px] font-semibold uppercase tracking-[.2em] ${line.speaker === "Bellory" ? "text-[#A9D96B]" : "text-[#94836A]"}`}>{line.speaker}</p>
                       <p className="text-[13px] leading-6 text-[#EFE1C8]">{line.text}</p>
                     </div>
                   </div>
@@ -484,11 +474,11 @@ function DemoSection() {
               </div>
             </div>
           </div>
-        </Reveal>
+        </div>
 
         {/* receipt + before/after */}
         <div className="flex flex-col gap-5">
-          <Reveal delay={0.08}>
+          <div>
             <div className="glass relative overflow-hidden rounded-[22px] p-5 sm:p-6">
               <div className="mb-4 flex items-start justify-between">
                 <div>
@@ -507,11 +497,11 @@ function DemoSection() {
                 ))}
               </div>
               <div className="rule-dashed mt-4 opacity-50" />
-              <p className="font-mono-ui mt-4 text-center text-[9px] uppercase tracking-[.3em] text-[#544733]">· · · Bellory · · ·</p>
+              <p aria-hidden="true" className="font-mono-ui mt-4 text-center text-[10px] uppercase tracking-[.3em] text-[#94836A]">· · · Bellory · · ·</p>
             </div>
-          </Reveal>
+          </div>
 
-          <Reveal delay={0.14}>
+          <div>
             <div className="glass rounded-[22px] p-5 sm:p-6">
               <div className="mb-4 grid grid-cols-2 gap-3">
                 <p className="font-mono-ui flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-[#94836A]"><PhoneMissed size={12} /> Without Bellory</p>
@@ -520,8 +510,8 @@ function DemoSection() {
               <div className="space-y-2">
                 {beforeAfterRows.map(([before, after]) => (
                   <div key={before} className="grid grid-cols-2 gap-3 rounded-xl border border-white/[.05] bg-white/[.015] p-3">
-                    <p className="flex items-start gap-2 text-[12px] leading-5 text-[#94836A]"><Minus size={12} className="mt-1 shrink-0 opacity-60" /> {before}</p>
-                    <p className="flex items-start gap-2 text-[12px] font-semibold leading-5 text-[#D8FF9B]"><Check size={12} className="mt-1 shrink-0" /> {after}</p>
+                    <p className="flex items-start gap-2 text-[13px] leading-5 text-[#94836A]"><Minus size={12} className="mt-1 shrink-0 opacity-60" /> {before}</p>
+                    <p className="flex items-start gap-2 text-[13px] font-semibold leading-5 text-[#D8FF9B]"><Check size={12} className="mt-1 shrink-0" /> {after}</p>
                   </div>
                 ))}
               </div>
@@ -529,7 +519,7 @@ function DemoSection() {
                 Request a private install <ArrowRight size={14} />
               </Button>
             </div>
-          </Reveal>
+          </div>
         </div>
       </div>
     </Section>
@@ -541,7 +531,7 @@ function DemoSection() {
 function FAQItem({ question, answer, open, onToggle }: { question: string; answer: string; open: boolean; onToggle: () => void }) {
   return (
     <div className="border-t border-white/[.07]">
-      <button onClick={onToggle} aria-expanded={open} className="flex w-full items-center justify-between gap-6 py-5 text-left transition hover:opacity-80">
+      <button onClick={onToggle} aria-expanded={open} className="flex w-full items-center justify-between gap-6 rounded-lg py-5 text-left transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/40">
         <span className="text-[15px] font-semibold tracking-[-.01em] text-[#FFF7E8] sm:text-base">{question}</span>
         <span className={`grid size-7 shrink-0 place-items-center rounded-full border border-white/[.12] text-[#94836A] transition-transform duration-200 ${open ? "rotate-180 border-[#C7F76F]/30 text-[#C7F76F]" : ""}`}>
           <ChevronDown size={14} />
@@ -556,7 +546,7 @@ function FAQItem({ question, answer, open, onToggle }: { question: string; answe
             transition={{ duration: 0.24, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            <p className="max-w-2xl pb-6 text-[14px] leading-7 text-[#B7AB98]">{answer}</p>
+            <p className="max-w-2xl pb-6 text-base leading-7 text-[#B7AB98]">{answer}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -570,16 +560,16 @@ function FAQSection() {
   return (
     <Section id="faq">
       <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr]">
-        <Reveal>
+        <div>
           <div className="lg:sticky lg:top-24">
             <SectionMark index="07" label="Questions" />
             <DisplayHeading>Asked before handing calls to AI.</DisplayHeading>
-            <p className="mt-5 max-w-sm text-[15px] leading-7 text-[#B7AB98]">
+            <p className="mt-5 max-w-sm text-base leading-7 text-[#B7AB98]">
               The short version: Bellory is configured before launch, answers from your rules, and escalates when a human should take over.
             </p>
           </div>
-        </Reveal>
-        <Reveal delay={0.1}>
+        </div>
+        <div>
           <div className="border-b border-white/[.07]">
             {faqs.map((faq, index) => (
               <FAQItem
@@ -591,7 +581,7 @@ function FAQSection() {
               />
             ))}
           </div>
-        </Reveal>
+        </div>
       </div>
     </Section>
   );
@@ -603,7 +593,7 @@ function FieldLabel({ children, optional = false }: { children: ReactNode; optio
   return (
     <p className="font-mono-ui mb-2 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">
       <span>{children}</span>
-      {optional && <span className="text-[9px] tracking-[.12em] text-[#6E5F49]">Optional</span>}
+      {optional && <span className="text-[10px] tracking-[.12em] text-[#94836A]">Optional</span>}
     </p>
   );
 }
@@ -767,7 +757,7 @@ function WaitlistCard({
                     name="message"
                     aria-label="Setup details"
                     placeholder="Tell us what you want Bellory to help with first: missed calls, after-hours calls, overflow, booking, emergency transfers, or call summaries."
-                    className="w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#6E5F49] focus:border-[#C7F76F]/45 focus-visible:ring-2 focus-visible:ring-[#C7F76F]/20"
+                    className="w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#94836A] focus:border-[#C7F76F]/45 focus-visible:ring-2 focus-visible:ring-[#C7F76F]/20"
                   />
                 </div>
               </motion.div>
@@ -777,9 +767,9 @@ function WaitlistCard({
           <Button disabled={status === "saving"} type="submit" className="mt-6 w-full py-3.5 text-sm">
             {status === "saving" ? "Requesting install…" : "Request my private install"} <ArrowRight size={15} />
           </Button>
-          <p className="font-mono-ui mt-3 text-center text-[10px] tracking-[.06em] text-[#6E5F49]">No spam — we only use this to contact you about Bellory installs.</p>
+          <p className="font-mono-ui mt-3 text-center text-[10px] tracking-[.06em] text-[#94836A]">No spam — we only use this to contact you about Bellory installs.</p>
           {message && (
-            <p aria-live="polite" className={`mt-3 text-center text-[12px] leading-5 ${status === "error" ? "text-[#F08B72]" : "text-[#C7F76F]"}`}>{message}</p>
+            <p aria-live="polite" className={`mt-3 text-center text-[13px] leading-5 ${status === "error" ? "text-[#F08B72]" : "text-[#C7F76F]"}`}>{message}</p>
           )}
         </form>
       </div>
@@ -866,6 +856,7 @@ export function LandingPage() {
   };
 
   return (
+    <MotionConfig reducedMotion="user">
     <main className="grain relative min-h-screen overflow-hidden text-[#FFF7E8]">
       {/* ambient background */}
       <div className="pointer-events-none fixed inset-0" aria-hidden="true">
@@ -883,13 +874,13 @@ export function LandingPage() {
 
       {/* header */}
       <header className="relative z-10 mx-auto flex max-w-[1180px] items-center justify-between px-5 py-5 sm:px-8">
-        <a href="#" className="flex items-center gap-3" onClick={() => trackLandingEvent("nav_logo_click")}>
+        <Link href="/" className="flex items-center gap-3" onClick={() => trackLandingEvent("nav_logo_click")}>
           <Image src="/brand/bellory-bell.png" alt="Bellory" width={40} height={40} className="drop-shadow-[0_10px_24px_rgba(199,247,111,.2)]" priority />
           <div>
             <p className="font-display text-[21px] font-semibold tracking-[-.02em] text-white">Bellory</p>
-            <p className="font-mono-ui -mt-0.5 text-[9px] font-semibold uppercase tracking-[.24em] text-[#94836A]">AI receptionist</p>
+            <p className="font-mono-ui -mt-0.5 text-[10px] font-semibold uppercase tracking-[.24em] text-[#94836A]">AI receptionist</p>
           </div>
-        </a>
+        </Link>
         <nav className="font-mono-ui hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[.14em] text-[#B7AB98] md:flex">
           <a href="#how-it-works" className="transition hover:text-[#D8FF9B]">How it works</a>
           <a href="#demo" className="transition hover:text-[#D8FF9B]">Demo</a>
@@ -909,14 +900,14 @@ export function LandingPage() {
             <span className="pulse-ring size-1.5 rounded-full bg-[#C7F76F]" />
             <MonoTag>Done-for-you AI receptionist</MonoTag>
           </div>
-          <h1 className="font-display text-balance text-[2.9rem] font-medium leading-[1.0] tracking-[-.025em] text-[#FFF7E8] sm:text-7xl lg:text-[5.2rem]">
+          <h1 className="font-display text-balance text-[clamp(2.9rem,1rem+7vw,5.2rem)] font-medium leading-[1.0] tracking-[-.025em] text-[#FFF7E8]">
             It’s 9:47 PM.
             <br />
             A spring just snapped.
             <br />
             <span className="text-[#C7F76F]">Bellory answers.</span>
           </h1>
-          <p className="mt-7 max-w-xl text-[16px] leading-8 text-[#C6B9A6] sm:text-lg">
+          <p className="mt-7 max-w-xl text-base leading-7 text-[#C6B9A6] sm:text-lg sm:leading-8">
             Missed and after-hours garage door calls become booked jobs instead of competitor wins. We configure Bellory around your services, schedule, service area, and emergency rules — so you never manage another app.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -927,7 +918,7 @@ export function LandingPage() {
               <Headphones size={15} /> Hear a real call flow
             </Button>
           </div>
-          <div className="font-mono-ui mt-9 flex flex-wrap gap-x-8 gap-y-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#6E5F49]">
+          <div className="font-mono-ui mt-9 flex flex-wrap gap-x-8 gap-y-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#94836A]">
             <span className="flex items-center gap-2"><Check size={12} className="text-[#94C759]" /> 24/7 coverage</span>
             <span className="flex items-center gap-2"><Check size={12} className="text-[#94C759]" /> Books from your rules</span>
             <span className="flex items-center gap-2"><Check size={12} className="text-[#94C759]" /> Humans stay in the loop</span>
@@ -944,10 +935,10 @@ export function LandingPage() {
       {/* the cost of voicemail */}
       <Section id="proof">
         <div className="grid gap-10 lg:grid-cols-[1.1fr_.9fr] lg:items-center">
-          <Reveal>
+          <div>
             <SectionMark index="01" label="The problem" />
             <DisplayHeading>Garage door calls don’t wait for voicemail.</DisplayHeading>
-            <p className="mt-6 max-w-xl text-[15px] leading-8 text-[#B7AB98]">
+            <p className="mt-6 max-w-xl text-base leading-7 text-[#B7AB98]">
               When someone has a broken spring, a door stuck open, or a car trapped inside, they usually hire the company that answers first. Bellory catches those missed and after-hours calls before they turn into competitor jobs.
             </p>
             <div className="mt-8 grid gap-px overflow-hidden rounded-2xl border border-white/[.07] bg-white/[.05] sm:grid-cols-2">
@@ -961,8 +952,8 @@ export function LandingPage() {
                 </div>
               ))}
             </div>
-          </Reveal>
-          <Reveal delay={0.12}>
+          </div>
+          <div>
             <div className="glass relative overflow-hidden rounded-[22px] p-7 sm:p-9">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(246,198,106,.08),transparent_40%)]" aria-hidden="true" />
               <MonoTag tone="honey">Back-of-the-napkin math</MonoTag>
@@ -981,34 +972,32 @@ export function LandingPage() {
                 </div>
               </div>
               <div className="rule-dashed mt-7 opacity-50" />
-              <p className="font-mono-ui mt-4 text-[10px] leading-4 tracking-[.04em] text-[#6E5F49]">
+              <p className="font-mono-ui mt-4 text-[10px] leading-4 tracking-[.04em] text-[#94836A]">
                 Example only: 20 missed jobs × $350 average ticket. Your numbers will differ — that’s what the install review is for.
               </p>
             </div>
-          </Reveal>
+          </div>
         </div>
       </Section>
 
       {/* how it works */}
       <Section id="how-it-works" className="pt-4 sm:pt-8">
-        <Reveal>
+        <div>
           <SectionMark index="02" label="How it works" />
           <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
             <DisplayHeading>We run the setup.<br className="hidden sm:block" /> You run the business.</DisplayHeading>
-            <p className="max-w-sm text-[15px] leading-7 text-[#B7AB98]">
+            <p className="max-w-sm text-base leading-7 text-[#B7AB98]">
               Most garage door owners don’t want another dashboard. Bellory is configured, tested, and supported for you.
             </p>
           </div>
-        </Reveal>
+        </div>
         <div className="mt-12 grid gap-px overflow-hidden rounded-[22px] border border-white/[.07] bg-white/[.05] md:grid-cols-3">
-          {howSteps.map((step, index) => (
-            <Reveal key={step.num} delay={index * 0.08}>
-              <div className="group h-full bg-[#16120C] p-7 transition-colors hover:bg-[#1A150E] sm:p-8">
-                <p className="font-display text-[54px] font-medium leading-none tracking-[-.03em] text-white/[.08] transition-colors group-hover:text-[#C7F76F]/[.16]">{step.num}</p>
-                <h3 className="mt-6 text-lg font-bold tracking-[-.02em] text-white">{step.title}</h3>
-                <p className="mt-3 text-[13px] leading-7 text-[#94836A]">{step.text}</p>
-              </div>
-            </Reveal>
+          {howSteps.map((step) => (
+            <div key={step.num} className="group h-full bg-[#16120C] p-7 transition-colors hover:bg-[#1A150E] sm:p-8">
+              <p className="font-display text-[54px] font-medium leading-none tracking-[-.03em] text-white/[.08] transition-colors group-hover:text-[#C7F76F]/[.16]">{step.num}</p>
+              <h3 className="mt-6 text-lg font-bold tracking-[-.02em] text-white">{step.title}</h3>
+              <p className="mt-3 text-[13px] leading-7 text-[#94836A]">{step.text}</p>
+            </div>
           ))}
         </div>
       </Section>
@@ -1020,10 +1009,10 @@ export function LandingPage() {
         <div className="glass relative overflow-hidden rounded-[26px] p-8 sm:p-12 lg:p-16">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(199,247,111,.08),transparent_38%)]" aria-hidden="true" />
           <div className="relative grid gap-10 lg:grid-cols-[1fr_auto] lg:items-center">
-            <Reveal>
+            <div>
               <SectionMark index="04" label="Human sound" />
               <DisplayHeading>It should never feel like a phone tree.</DisplayHeading>
-              <p className="mt-6 max-w-xl text-[15px] leading-8 text-[#B7AB98]">
+              <p className="mt-6 max-w-xl text-base leading-7 text-[#B7AB98]">
                 Bellory speaks like a calm front-desk person: it pauses, clarifies, handles interruptions, and escalates instead of forcing callers through a script. When a human is needed, it says so naturally and hands the call over.
               </p>
               <div className="mt-8 flex flex-wrap gap-2.5">
@@ -1033,8 +1022,8 @@ export function LandingPage() {
                   </span>
                 ))}
               </div>
-            </Reveal>
-            <Reveal delay={0.15}>
+            </div>
+            <div>
               <div className="mx-auto flex flex-col items-center gap-5">
                 <div className="relative grid size-36 place-items-center rounded-full border border-[#C7F76F]/[.14] bg-[#C7F76F]/[.04] sm:size-44">
                   <div className="absolute inset-3 rounded-full border border-dashed border-[#C7F76F]/[.16]" />
@@ -1045,7 +1034,7 @@ export function LandingPage() {
                   Missed calls · overflow · lunch breaks · after hours
                 </p>
               </div>
-            </Reveal>
+            </div>
           </div>
         </div>
       </Section>
@@ -1053,10 +1042,10 @@ export function LandingPage() {
       {/* setup / no app */}
       <Section id="setup" className="pt-2 sm:pt-4">
         <div className="grid gap-10 lg:grid-cols-[.95fr_1.05fr] lg:items-center">
-          <Reveal>
+          <div>
             <SectionMark index="05" label="Done-for-you" />
             <DisplayHeading>No new software for your team to learn.</DisplayHeading>
-            <p className="mt-6 max-w-xl text-[15px] leading-8 text-[#B7AB98]">
+            <p className="mt-6 max-w-xl text-base leading-7 text-[#B7AB98]">
               We use our own setup panel to configure your call flow around how your business already works. Your team gets results — a booked job, a transfer, or a clean summary — not another login.
             </p>
             <div className="mt-8 space-y-5">
@@ -1079,22 +1068,22 @@ export function LandingPage() {
                 </div>
               ))}
             </div>
-          </Reveal>
-          <Reveal delay={0.12}>
+          </div>
+          <div>
             <div className="glass overflow-hidden rounded-[22px]">
               <div className="flex items-center justify-between border-b border-white/[.07] px-6 py-4">
                 <div>
-                  <p className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.2em] text-[#94836A]">Bellory setup review</p>
+                  <p className="font-mono-ui text-[10px] font-semibold uppercase tracking-[.2em] text-[#94836A]">Bellory setup review</p>
                   <p className="mt-1 text-[15px] font-bold tracking-[-.01em] text-white">Garage door call flow</p>
                 </div>
-                <span className="font-mono-ui flex items-center gap-2 rounded-md border border-[#C7F76F]/25 bg-[#C7F76F]/[.07] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[.16em] text-[#D8FF9B]">
+                <span className="font-mono-ui flex items-center gap-2 rounded-md border border-[#C7F76F]/25 bg-[#C7F76F]/[.07] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[.16em] text-[#D8FF9B]">
                   <span className="size-1.5 rounded-full bg-[#C7F76F]" /> Configured with you
                 </span>
               </div>
               <div className="grid gap-px bg-white/[.04] sm:grid-cols-2">
                 {setupChecklist.map((item, index) => (
                   <div key={item} className="flex items-center gap-3 bg-[#16120C] px-6 py-4">
-                    <span className="font-mono-ui w-6 text-[10px] text-[#544733]">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="font-mono-ui w-6 text-[10px] text-[#94836A]">{String(index + 1).padStart(2, "0")}</span>
                     <span className="text-[13px] font-semibold text-[#EFE1C8]">{item}</span>
                     <Check size={13} className="ml-auto text-[#94C759]" />
                   </div>
@@ -1104,50 +1093,48 @@ export function LandingPage() {
                 <p className="text-[13px] leading-6 text-[#D8FF9B]">You don’t manage this yourself. Bellory setup and support are handled by humans.</p>
               </div>
             </div>
-          </Reveal>
+          </div>
         </div>
       </Section>
 
       {/* who it's for */}
       <Section className="pt-2 sm:pt-4">
-        <Reveal>
+        <div>
           <SectionMark index="06" label="Built for" />
           <DisplayHeading className="max-w-3xl">For companies that can’t afford to miss the ring.</DisplayHeading>
-        </Reveal>
+        </div>
         <div className="mt-10 grid gap-px overflow-hidden rounded-[22px] border border-white/[.07] bg-white/[.05] sm:grid-cols-2">
           {whoRows.map(([title, text], index) => (
-            <Reveal key={title} delay={index * 0.06}>
+            <div key={title}>
               <div className="flex h-full gap-5 bg-[#16120C] p-7">
-                <span className="font-mono-ui pt-1 text-[11px] text-[#544733]">{String(index + 1).padStart(2, "0")}</span>
+                <span className="font-mono-ui pt-1 text-[11px] text-[#94836A]">{String(index + 1).padStart(2, "0")}</span>
                 <div>
                   <p className="text-[15px] font-bold tracking-[-.01em] text-white">{title}</p>
                   <p className="mt-2 text-[13px] leading-6 text-[#94836A]">{text}</p>
                 </div>
               </div>
-            </Reveal>
+            </div>
           ))}
         </div>
 
         {/* trust guardrails */}
         <div className="mt-16 grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start">
-          <Reveal>
+          <div>
             <MonoTag tone="honey">Trust guardrails</MonoTag>
             <h3 className="font-display mt-4 text-3xl font-medium leading-[1.05] tracking-[-.02em] text-white sm:text-4xl">
               Built for the calls you can’t afford to mishandle.
             </h3>
-            <p className="mt-4 max-w-sm text-[14px] leading-7 text-[#B7AB98]">
+            <p className="mt-4 max-w-sm text-base leading-7 text-[#B7AB98]">
               Bellory touches customers, scheduling, and urgent details. Every install is private, rule-based, and backed by human fallback paths.
             </p>
-          </Reveal>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            {trustItems.map((item, index) => (
-              <Reveal key={item.title} delay={index * 0.06}>
-                <div className="glass h-full rounded-[18px] p-6">
-                  <item.icon size={18} className="text-[#C7F76F]" strokeWidth={1.8} />
-                  <p className="mt-4 text-[15px] font-bold tracking-[-.01em] text-white">{item.title}</p>
-                  <p className="mt-2 text-[13px] leading-6 text-[#94836A]">{item.text}</p>
-                </div>
-              </Reveal>
+            {trustItems.map((item) => (
+              <div key={item.title} className="glass h-full rounded-[18px] p-6">
+                <item.icon size={18} className="text-[#C7F76F]" strokeWidth={1.8} />
+                <p className="mt-4 text-[15px] font-bold tracking-[-.01em] text-white">{item.title}</p>
+                <p className="mt-2 text-[13px] leading-6 text-[#94836A]">{item.text}</p>
+              </div>
             ))}
           </div>
         </div>
@@ -1158,25 +1145,25 @@ export function LandingPage() {
       {/* final CTA + waitlist */}
       <Section className="pb-24 pt-4 sm:pb-28 sm:pt-8">
         <div className="grid gap-12 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
-          <Reveal>
+          <div>
             <SectionMark index="08" label="Install review" />
-            <DisplayHeading>Want Bellory catching your next missed call?</DisplayHeading>
-            <p className="mt-6 max-w-md text-[15px] leading-8 text-[#B7AB98]">
+            <DisplayHeading>Put Bellory on your next missed call.</DisplayHeading>
+            <p className="mt-6 max-w-md text-base leading-7 text-[#B7AB98]">
               We open garage door installs in small batches so each business gets configured, tested, and supported correctly before Bellory answers real callers.
             </p>
             <div className="mt-9 space-y-0 border-t border-white/[.07]">
               {["Done-for-you setup", "Garage door call flow", "Calendar or booking logic", "Emergency fallback routing"].map((item, index) => (
                 <div key={item} className="flex items-center gap-4 border-b border-white/[.07] py-4">
-                  <span className="font-mono-ui text-[10px] text-[#544733]">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="font-mono-ui text-[10px] text-[#94836A]">{String(index + 1).padStart(2, "0")}</span>
                   <span className="text-[14px] font-semibold text-[#EFE1C8]">{item}</span>
                   <Check size={14} className="ml-auto text-[#94C759]" />
                 </div>
               ))}
             </div>
-          </Reveal>
-          <Reveal delay={0.1}>
+          </div>
+          <div>
             <WaitlistCard id="waitlist" source="landing_bottom" />
-          </Reveal>
+          </div>
         </div>
       </Section>
 
@@ -1185,14 +1172,14 @@ export function LandingPage() {
         <div className="mx-auto flex max-w-[1180px] flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <Image src="/brand/bellory-bell.png" alt="" width={28} height={28} />
-            <p className="font-mono-ui text-[11px] tracking-[.04em] text-[#6E5F49]">
+            <p className="font-mono-ui text-[11px] tracking-[.04em] text-[#94836A]">
               Bellory — done-for-you AI receptionist installs for garage door companies.
             </p>
           </div>
           <div className="font-mono-ui flex flex-wrap gap-6 text-[10px] font-semibold uppercase tracking-[.16em]">
-            <a href="/privacy" className="text-[#94836A] transition hover:text-white">Privacy</a>
-            <a href="/terms" className="text-[#94836A] transition hover:text-white">Terms</a>
-            <a href="/contact" className="text-[#94836A] transition hover:text-white">Contact</a>
+            <Link href="/privacy" className="text-[#94836A] transition hover:text-white">Privacy</Link>
+            <Link href="/terms" className="text-[#94836A] transition hover:text-white">Terms</Link>
+            <Link href="/contact" className="text-[#94836A] transition hover:text-white">Contact</Link>
             <a href="#waitlist" className="flex items-center gap-1 text-[#C7F76F] transition hover:text-[#D8FF9B]">
               Request install <ArrowUpRight size={11} />
             </a>
@@ -1203,5 +1190,6 @@ export function LandingPage() {
       <StickyMobileCTA onRequest={() => openLeadModal("sticky_mobile", "mobile_sticky_cta_click")} onDemo={() => scrollToSection("demo", "sticky_demo_click")} />
       <LeadModal open={leadModalOpen} onClose={() => setLeadModalOpen(false)} />
     </main>
+    </MotionConfig>
   );
 }

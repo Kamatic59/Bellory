@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     default: "Bellory - AI Receptionist for Garage Door Companies",
     template: "%s | Bellory",
   },
-  description: "Bellory is a done-for-you AI receptionist for garage door companies. We help catch missed and after-hours calls, qualify customers, book jobs, and transfer urgent calls based on your rules.",
+  description: "A done-for-you AI receptionist for garage door companies. Bellory answers missed and after-hours calls, qualifies callers, and books jobs by your rules.",
   alternates: {
     canonical: "/",
   },
@@ -23,21 +23,12 @@ export const metadata: Metadata = {
     description: "Private Bellory installs are opening for garage door companies. Done-for-you setup, call flow, testing, and support.",
     url: "/",
     siteName: "Bellory",
-    images: [
-      {
-        url: "/brand/bellory-logo.png",
-        width: 1536,
-        height: 1086,
-        alt: "Bellory AI receptionist",
-      },
-    ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Turn missed garage door calls into booked jobs.",
     description: "Private Bellory installs are opening for garage door companies. Done-for-you setup, call flow, testing, and support.",
-    images: ["/brand/bellory-logo.png"],
   },
   robots: {
     index: true,

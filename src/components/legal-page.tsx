@@ -12,12 +12,12 @@ export function LegalPage({
   children: React.ReactNode;
 }) {
   return (
-    <main className="min-h-screen bg-[#12100C] px-4 py-8 text-[#FFF7E8] sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#100E0A] px-4 py-8 text-[#FFF7E8] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-3xl">
         <Link href="/" className="inline-flex items-center gap-3 text-sm font-bold text-[#C7F76F]">
           Back to Bellory
         </Link>
-        <div className="mt-12 rounded-[2rem] border border-white/[.08] bg-[#1B1712] p-6 shadow-2xl sm:p-10">
+        <div className="glass mt-12 rounded-[22px] p-6 sm:p-10">
           <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#C7F76F]">{eyebrow}</p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-.06em] text-white sm:text-6xl">{title}</h1>
           <p className="mt-5 text-base leading-8 text-[#D8CCB8]">{description}</p>
