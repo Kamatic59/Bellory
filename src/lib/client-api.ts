@@ -180,6 +180,18 @@ export async function getClientActivity(clientId: string) {
   return { calls: data.calls, leads: data.leads, appointments: data.appointments };
 }
 
+export type AgentSyncResponse = {
+  ok: true;
+  agentId: string;
+  createdAgent: boolean;
+  toolIds: Record<string, string>;
+  message: string;
+};
+
+export async function syncElevenLabsAgent(clientId: string) {
+  return requestJson<AgentSyncResponse>(`/api/clients/${clientId}/elevenlabs/sync`, { method: "POST" });
+}
+
 export async function listIssues() {
   const data = await requestJson<{ ok: true; issues: ClientIssue[] }>("/api/issues");
   return data.issues;

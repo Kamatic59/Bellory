@@ -37,6 +37,7 @@ import {
   getClientConfig,
   publishClientConfig,
   saveClientConfigDraft,
+  syncElevenLabsAgent,
   validateClientConfig,
   type AppClient,
   type ClientActivity,
@@ -1254,6 +1255,9 @@ function AccountTabContent({
   knowledgeBaseBusy,
   knowledgeBaseDisabled,
   knowledgeBaseNeedsSave,
+  onSyncAgent,
+  agentSyncBusy,
+  agentSyncDisabled,
 }: {
   tab: AccountTab;
   client: AppClient;
@@ -1265,6 +1269,9 @@ function AccountTabContent({
   knowledgeBaseBusy: boolean;
   knowledgeBaseDisabled: boolean;
   knowledgeBaseNeedsSave: boolean;
+  onSyncAgent: () => void;
+  agentSyncBusy: boolean;
+  agentSyncDisabled: boolean;
 }) {
   const metrics = getMetrics(client);
 
@@ -1343,7 +1350,12 @@ function AccountTabContent({
           title="Agent identity and system prompt"
           eyebrow="ElevenLabs agent profile"
           icon={Headphones}
-          action={<Button kind="secondary" onClick={regeneratePrompt}><FileText size={13} /> Generate prompt</Button>}
+          action={(
+            <div className="flex flex-wrap gap-2">
+              <Button kind="secondary" onClick={regeneratePrompt}><FileText size={13} /> Generate prompt</Button>
+              <Button disabled={agentSyncDisabled} onClick={onSyncAgent}><Headphones size={13} /> {agentSyncBusy ? "Syncing..." : "Sync to ElevenLabs"}</Button>
+            </div>
+          )}
         >
           <div className="grid gap-3 md:grid-cols-2">
             <SelectField config={config} path="aiVoice.provider" label="Voice provider" options={["elevenlabs"]} onChange={onChange} />
@@ -1606,7 +1618,7 @@ export function AccountDetailPage({
   const [payload, setPayload] = useState<ClientConfigPayload | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"save" | "validate" | "publish" | "export" | null>(null);
+  const [busy, setBusy] = useState<"save" | "validate" | "publish" | "export" | "sync" | null>(null);
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
@@ -1713,6 +1725,26 @@ export function AccountDetailPage({
     }
   };
 
+  const syncAgent = async () => {
+    if (!client || busy !== null) return;
+    if (dirty && !(await saveDraft())) return;
+
+    setBusy("sync");
+    setMessage(null);
+    try {
+      const result = await syncElevenLabsAgent(client.id);
+      const nextPayload = await getClientConfig(client.id);
+      setPayload(nextPayload);
+      setValidation(nextPayload.validation);
+      setDirty(false);
+      setMessage(`${result.message} Open the agent in the ElevenLabs dashboard to run a test call.`);
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "Unable to sync the ElevenLabs agent");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const downloadKnowledgeBase = async () => {
     if (!client || !payload || busy !== null) return;
     if (dirty && !(await saveDraft())) return;
@@ -1802,6 +1834,9 @@ export function AccountDetailPage({
         knowledgeBaseBusy={busy === "export"}
         knowledgeBaseDisabled={!payload || busy !== null}
         knowledgeBaseNeedsSave={dirty}
+        onSyncAgent={syncAgent}
+        agentSyncBusy={busy === "sync"}
+        agentSyncDisabled={!payload || busy !== null}
       />
     </div>
   );

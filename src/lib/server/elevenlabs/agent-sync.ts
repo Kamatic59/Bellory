@@ -1,0 +1,365 @@
+import { and, desc, eq } from "drizzle-orm";
+import { getDb } from "@/db/client";
+import { clientConfigVersions, clients, voiceAgents } from "@/db/schema";
+import type { BelloryClientConfig } from "@/lib/server/config/client-config-schema";
+import { validateClientConfigForPublish } from "@/lib/server/config/config-validation";
+import { saveClientConfigDraft } from "@/lib/server/clients/client-config-store";
+import { getOptionalEnv, getRequiredEnv } from "@/lib/server/env";
+
+const ELEVENLABS_BASE = "https://api.elevenlabs.io/v1";
+
+export type AgentSyncResult =
+  | { ok: true; agentId: string; createdAgent: boolean; toolIds: Record<string, string>; message: string }
+  | { ok: false; error: string };
+
+type JsonProperty = {
+  type: "string" | "boolean" | "integer" | "number";
+  description?: string;
+  dynamic_variable?: string;
+  constant_value?: string;
+};
+
+type WebhookToolConfig = {
+  type: "webhook";
+  name: string;
+  description: string;
+  response_timeout_secs: number;
+  api_schema: {
+    url: string;
+    method: "POST";
+    request_headers: Record<string, string>;
+    request_body_schema: {
+      type: "object";
+      required: string[];
+      description: string;
+      properties: Record<string, JsonProperty>;
+    };
+  };
+};
+
+async function elevenLabs<T>(path: string, init?: RequestInit): Promise<{ status: number; body: T | null }> {
+  const apiKey = getRequiredEnv("ELEVENLABS_API_KEY");
+  const response = await fetch(`${ELEVENLABS_BASE}${path}`, {
+    ...init,
+    headers: {
+      "xi-api-key": apiKey,
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+  const body = await response.json().catch(() => null);
+  return { status: response.status, body: body as T | null };
+}
+
+function buildToolDefinitions(baseUrl: string): WebhookToolConfig[] {
+  const secret = getOptionalEnv("AGENT_TOOL_SHARED_SECRET");
+  const headers: Record<string, string> = secret ? { Authorization: `Bearer ${secret}` } : {};
+
+  // Tools are shared across all Bellory agents; client_id resolves per agent
+  // through the agent's dynamic-variable placeholder set during sync.
+  const constants: Record<string, JsonProperty> = {
+    client_id: { type: "string", dynamic_variable: "client_id" },
+    conversation_id: { type: "string", dynamic_variable: "system__conversation_id" },
+  };
+
+  function tool(
+    name: string,
+    endpoint: string,
+    description: string,
+    bodyDescription: string,
+    properties: Record<string, JsonProperty>,
+    required: string[] = [],
+  ): WebhookToolConfig {
+    return {
+      type: "webhook",
+      name,
+      description,
+      response_timeout_secs: 20,
+      api_schema: {
+        url: `${baseUrl}/api/agent-tools/${endpoint}`,
+        method: "POST",
+        request_headers: headers,
+        request_body_schema: {
+          type: "object",
+          required,
+          description: bodyDescription,
+          properties: { ...constants, ...properties },
+        },
+      },
+    };
+  }
+
+  return [
+    tool(
+      "bellory_get_client_context",
+      "client-context",
+      "Load this business's live rules: hours, services, pricing guardrails, service areas, booking mode, intake fields, and urgent triggers. Call this once near the start of the call before answering business questions.",
+      "No caller input needed.",
+      {},
+    ),
+    tool(
+      "bellory_check_service_area",
+      "service-area",
+      "Check whether the caller's location is inside this business's service area. Call before promising service or booking. Provide the caller's city, ZIP code, or both.",
+      "The caller's location.",
+      {
+        city: { type: "string", description: "Caller's city, e.g. 'Salt Lake City'." },
+        zip: { type: "string", description: "Caller's 5-digit ZIP code, if given." },
+      },
+    ),
+    tool(
+      "bellory_classify_urgency",
+      "classify-urgency",
+      "Classify how urgent the caller's issue is using this business's urgency rules. Call once the caller has described their problem.",
+      "The caller's issue.",
+      {
+        issue: { type: "string", description: "Short description of the caller's problem in their own words." },
+        vehicle_trapped: { type: "boolean", description: "True if a vehicle or person is trapped." },
+        after_hours: { type: "boolean", description: "True if the call is outside normal business hours." },
+      },
+      ["issue"],
+    ),
+    tool(
+      "bellory_check_availability",
+      "calendar/availability",
+      "Get real bookable openings for this business. Always call this before offering any appointment time. Never invent availability.",
+      "Optional preferences.",
+      {
+        preferred_date: { type: "string", description: "Caller's preferred date in YYYY-MM-DD format, if they mentioned one." },
+        appointment_type: { type: "string", description: "Type of appointment, e.g. 'service call' or 'estimate'." },
+      },
+    ),
+    tool(
+      "bellory_book_appointment",
+      "calendar/book",
+      "Book or request an appointment at a specific time. Only use a starts_at value returned by bellory_check_availability. Collect the caller's name and phone number first.",
+      "The chosen slot and caller details.",
+      {
+        starts_at: { type: "string", description: "Exact startsAt ISO timestamp of the chosen slot from bellory_check_availability." },
+        caller_name: { type: "string", description: "Caller's full name." },
+        caller_phone: { type: "string", description: "Caller's callback phone number." },
+        service_summary: { type: "string", description: "One line describing the work needed." },
+      },
+      ["starts_at"],
+    ),
+    tool(
+      "bellory_save_lead",
+      "leads/upsert",
+      "Save or update the caller as a lead with their details and issue. Call before the call ends for every real caller, even when nothing was booked.",
+      "The caller's details.",
+      {
+        phone: { type: "string", description: "Caller's callback phone number." },
+        name: { type: "string", description: "Caller's name." },
+        issue: { type: "string", description: "Short description of the caller's problem." },
+        urgency: { type: "string", description: "low, medium, or high." },
+        summary: { type: "string", description: "One or two sentences summarizing the call and next step." },
+        appointment_id: { type: "string", description: "appointmentId returned by bellory_book_appointment, if an appointment was made." },
+      },
+      ["phone"],
+    ),
+    tool(
+      "bellory_send_owner_alert",
+      "owner-alert",
+      "Notify the business owner about an urgent situation or a caller who needs fast follow-up. Use for urgent issues that cannot be fully handled on this call.",
+      "The alert details.",
+      {
+        reason: { type: "string", description: "Why the owner needs to know, in one sentence." },
+        issue: { type: "string", description: "The caller's issue." },
+        caller_phone: { type: "string", description: "Caller's callback phone number." },
+        urgency: { type: "string", description: "low, medium, or high." },
+      },
+      ["reason"],
+    ),
+    tool(
+      "bellory_request_transfer",
+      "transfer-request",
+      "Check whether transferring this caller to a person is allowed and get the transfer contact. Use when the caller asks for a human or the situation needs one.",
+      "The transfer context.",
+      {
+        reason: { type: "string", description: "Why the caller should be transferred." },
+        urgency: { type: "string", description: "low, medium, or high." },
+      },
+    ),
+  ];
+}
+
+const TOOL_PROMPT_SECTION = `
+
+# Your Tools
+Use these tools instead of guessing. Never mention tool names to callers.
+- bellory_get_client_context: call once near the start of the call to load business rules.
+- bellory_check_service_area: before promising service or booking, check the caller's city or ZIP.
+- bellory_classify_urgency: after the caller describes their problem.
+- bellory_check_availability: always call before offering any time. Never invent availability.
+- bellory_book_appointment: only with a starts_at value from bellory_check_availability.
+- bellory_save_lead: before ending every real call, save the caller's details.
+- bellory_send_owner_alert: for urgent situations the owner must hear about quickly.
+- bellory_request_transfer: when the caller needs a person.
+Each tool response includes a message with instructions. Follow it.`;
+
+type ToolListResponse = { tools?: Array<{ id: string; tool_config?: { name?: string } }> };
+type ToolResponse = { id?: string };
+type AgentResponse = { agent_id?: string };
+
+async function upsertTools(definitions: WebhookToolConfig[]): Promise<Record<string, string>> {
+  const existing = await elevenLabs<ToolListResponse>("/convai/tools");
+  const existingByName = new Map(
+    (existing.body?.tools ?? [])
+      .filter((tool) => tool.tool_config?.name)
+      .map((tool) => [tool.tool_config!.name as string, tool.id]),
+  );
+
+  const toolIds: Record<string, string> = {};
+  for (const definition of definitions) {
+    const existingId = existingByName.get(definition.name);
+
+    if (existingId) {
+      const updated = await elevenLabs<ToolResponse>(`/convai/tools/${existingId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ tool_config: definition }),
+      });
+      if (updated.status >= 400) {
+        throw new Error(`Updating tool ${definition.name} failed (${updated.status}): ${JSON.stringify(updated.body).slice(0, 300)}`);
+      }
+      toolIds[definition.name] = existingId;
+      continue;
+    }
+
+    const created = await elevenLabs<ToolResponse>("/convai/tools", {
+      method: "POST",
+      body: JSON.stringify({ tool_config: definition }),
+    });
+    if (created.status >= 400 || !created.body?.id) {
+      throw new Error(`Creating tool ${definition.name} failed (${created.status}): ${JSON.stringify(created.body).slice(0, 300)}`);
+    }
+    toolIds[definition.name] = created.body.id;
+  }
+
+  return toolIds;
+}
+
+function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: string[]) {
+  const voiceId = config.aiVoice.externalVoiceId
+    || getOptionalEnv("ELEVENLABS_DEMO_VOICE_ID")
+    || getOptionalEnv("ELEVENLABS_DEFAULT_VOICE_ID");
+
+  return {
+    name: config.aiVoice.agentDisplayName,
+    conversation_config: {
+      agent: {
+        first_message: config.aiVoice.greetingScript,
+        language: "en",
+        prompt: {
+          prompt: `${config.aiVoice.systemPrompt}${TOOL_PROMPT_SECTION}`,
+          tool_ids: toolIds,
+        },
+        dynamic_variables: {
+          dynamic_variable_placeholders: {
+            client_id: clientId,
+            business_name: config.businessIdentity.publicName,
+          },
+        },
+      },
+      ...(voiceId ? { tts: { voice_id: voiceId } } : {}),
+    },
+  };
+}
+
+export async function syncClientAgent(clientId: string): Promise<AgentSyncResult> {
+  if (!getOptionalEnv("ELEVENLABS_API_KEY")) {
+    return { ok: false, error: "ELEVENLABS_API_KEY is not configured." };
+  }
+
+  const db = getDb();
+  const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (!client) return { ok: false, error: "Client not found." };
+
+  const versions = await db
+    .select()
+    .from(clientConfigVersions)
+    .where(eq(clientConfigVersions.clientId, clientId))
+    .orderBy(desc(clientConfigVersions.version));
+  const candidate = versions.find((version) => version.status === "published")
+    ?? versions.find((version) => version.status === "draft")
+    ?? versions[0];
+  const validation = candidate ? validateClientConfigForPublish(candidate.config) : null;
+  if (!candidate || !validation || !validation.ok) {
+    return { ok: false, error: "The client config is not complete enough to sync. Fix validation issues first." };
+  }
+  const config = validation.config;
+
+  // Tool URLs must be reachable from ElevenLabs, so a localhost app URL can be
+  // overridden with AGENT_TOOLS_BASE_URL (e.g. the production deployment).
+  const baseUrl = (getOptionalEnv("AGENT_TOOLS_BASE_URL") ?? getRequiredEnv("NEXT_PUBLIC_APP_URL")).replace(/\/$/, "");
+  if (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
+    return { ok: false, error: "Agent tools must use a public URL. Set AGENT_TOOLS_BASE_URL to the deployed app URL before syncing." };
+  }
+
+  const toolIds = await upsertTools(buildToolDefinitions(baseUrl));
+  const agentBody = buildAgentBody(clientId, config, Object.values(toolIds));
+
+  const [existingAgentRow] = await db
+    .select()
+    .from(voiceAgents)
+    .where(and(eq(voiceAgents.clientId, clientId), eq(voiceAgents.provider, "elevenlabs")))
+    .orderBy(desc(voiceAgents.createdAt))
+    .limit(1);
+
+  const knownAgentId = config.aiVoice.externalAgentId || existingAgentRow?.externalAgentId || null;
+  let agentId = knownAgentId;
+  let createdAgent = false;
+
+  if (knownAgentId) {
+    const updated = await elevenLabs<AgentResponse>(`/convai/agents/${knownAgentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(agentBody),
+    });
+    if (updated.status === 404) {
+      agentId = null;
+    } else if (updated.status >= 400) {
+      return { ok: false, error: `Updating agent failed (${updated.status}): ${JSON.stringify(updated.body).slice(0, 300)}` };
+    }
+  }
+
+  if (!agentId) {
+    const created = await elevenLabs<AgentResponse>("/convai/agents/create", {
+      method: "POST",
+      body: JSON.stringify(agentBody),
+    });
+    if (created.status >= 400 || !created.body?.agent_id) {
+      return { ok: false, error: `Creating agent failed (${created.status}): ${JSON.stringify(created.body).slice(0, 300)}` };
+    }
+    agentId = created.body.agent_id;
+    createdAgent = true;
+  }
+
+  const agentRowValues = {
+    provider: "elevenlabs",
+    externalAgentId: agentId,
+    externalVoiceId: config.aiVoice.externalVoiceId || null,
+    displayName: config.aiVoice.agentDisplayName,
+    status: "connected" as const,
+    metadata: { toolIds, syncedAt: new Date().toISOString(), configVersionId: candidate.id },
+  };
+
+  if (existingAgentRow) {
+    await db.update(voiceAgents).set({ ...agentRowValues, updatedAt: new Date() }).where(eq(voiceAgents.id, existingAgentRow.id));
+  } else {
+    await db.insert(voiceAgents).values({ clientId, ...agentRowValues });
+  }
+
+  await saveClientConfigDraft(clientId, {
+    aiVoice: { externalAgentId: agentId },
+    integrations: { elevenLabs: { status: "connected", provider: "elevenlabs", externalAgentId: agentId } },
+  });
+
+  return {
+    ok: true,
+    agentId,
+    createdAgent,
+    toolIds,
+    message: createdAgent
+      ? `Created ElevenLabs agent ${agentId} with ${Object.keys(toolIds).length} webhook tools.`
+      : `Updated ElevenLabs agent ${agentId} with ${Object.keys(toolIds).length} webhook tools.`,
+  };
+}
