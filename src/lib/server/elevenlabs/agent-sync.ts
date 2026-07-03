@@ -198,7 +198,16 @@ const SPEECH_STYLE_SECTION = `
 - If the caller interrupts, stop immediately and respond to what they said.
 - Never recite lists. Offer one option, and only mention another if the first does not work.
 - Do not repeat the caller's words back verbatim, do not over-apologize, and never announce what you are doing internally.
-- One question at a time, always.`;
+- One question at a time, always.
+
+# Natural Imperfection
+Real receptionists are not perfectly fluent. Written punctuation controls your voice: ellipses make you pause, a dash makes you stop short. Use that.
+- Sparingly — at most once every few turns — open a thinking moment with a soft filler: "Um, let me see..." or "Hmm, one sec..."
+- Use ellipses for a small pause mid-thought: "We've got... Monday at eight in the morning — would that work?"
+- Very occasionally self-correct like a person: "That'd be Tues— actually, Monday morning is the earliest."
+- Vary your pace: a short beat before answering a question feels human; instant perfect answers feel robotic.
+- Never use fillers or pauses when reading back names, phone numbers, times, or addresses — say those cleanly and clearly.
+- Most turns should still be clean. If every sentence hesitates, it sounds fake.`;
 
 const TOOL_PROMPT_SECTION = `
 
@@ -313,9 +322,9 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
             // delivery; lower stability lets intonation vary like a person.
             // English agents require the v2 models (v2_5 is multilingual-only).
             model_id: "eleven_turbo_v2",
-            stability: 0.45,
+            stability: 0.4,
             similarity_boost: 0.85,
-            speed: 1.0,
+            speed: 0.97,
           },
         }
         : {}),
