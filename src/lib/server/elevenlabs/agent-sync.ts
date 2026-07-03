@@ -51,14 +51,16 @@ async function elevenLabs<T>(path: string, init?: RequestInit): Promise<{ status
   return { status: response.status, body: body as T | null };
 }
 
-function buildToolDefinitions(baseUrl: string): WebhookToolConfig[] {
+function buildToolDefinitions(clientId: string, baseUrl: string): WebhookToolConfig[] {
   const secret = getOptionalEnv("AGENT_TOOL_SHARED_SECRET");
   const headers: Record<string, string> = secret ? { Authorization: `Bearer ${secret}` } : {};
 
-  // Tools are shared across all Bellory agents; client_id resolves per agent
-  // through the agent's dynamic-variable placeholder set during sync.
+  // Each client gets its own tool records with client_id baked in as a
+  // constant: agent-level dynamic-variable placeholders are not applied to
+  // real phone calls, and ElevenLabs drops calls whose tools reference
+  // undefined variables. conversation_id is a system variable, always set.
   const constants: Record<string, JsonProperty> = {
-    client_id: { type: "string", dynamic_variable: "client_id" },
+    client_id: { type: "string", constant_value: clientId },
     conversation_id: { type: "string", dynamic_variable: "system__conversation_id" },
   };
 
@@ -197,32 +199,33 @@ Use these tools instead of guessing. Never mention tool names to callers.
 - bellory_request_transfer: when the caller needs a person.
 Each tool response includes a message with instructions. Follow it.`;
 
-type ToolListResponse = { tools?: Array<{ id: string; tool_config?: { name?: string } }> };
 type ToolResponse = { id?: string };
 type AgentResponse = { agent_id?: string };
 
-async function upsertTools(definitions: WebhookToolConfig[]): Promise<Record<string, string>> {
-  const existing = await elevenLabs<ToolListResponse>("/convai/tools");
-  const existingByName = new Map(
-    (existing.body?.tools ?? [])
-      .filter((tool) => tool.tool_config?.name)
-      .map((tool) => [tool.tool_config!.name as string, tool.id]),
-  );
-
+/**
+ * Tools are per-client (client_id is a constant in each), so matching uses the
+ * tool ids stored on the client's voice_agents row from the previous sync —
+ * never workspace-wide name matching.
+ */
+async function upsertTools(definitions: WebhookToolConfig[], storedToolIds: Record<string, string>): Promise<Record<string, string>> {
   const toolIds: Record<string, string> = {};
+
   for (const definition of definitions) {
-    const existingId = existingByName.get(definition.name);
+    const existingId = storedToolIds[definition.name];
 
     if (existingId) {
       const updated = await elevenLabs<ToolResponse>(`/convai/tools/${existingId}`, {
         method: "PATCH",
         body: JSON.stringify({ tool_config: definition }),
       });
-      if (updated.status >= 400) {
+      if (updated.status < 400) {
+        toolIds[definition.name] = existingId;
+        continue;
+      }
+      if (updated.status !== 404) {
         throw new Error(`Updating tool ${definition.name} failed (${updated.status}): ${JSON.stringify(updated.body).slice(0, 300)}`);
       }
-      toolIds[definition.name] = existingId;
-      continue;
+      // 404: the tool was deleted remotely — fall through and recreate it.
     }
 
     const created = await elevenLabs<ToolResponse>("/convai/tools", {
@@ -295,15 +298,16 @@ export async function syncClientAgent(clientId: string): Promise<AgentSyncResult
     return { ok: false, error: "Agent tools must use a public URL. Set AGENT_TOOLS_BASE_URL to the deployed app URL before syncing." };
   }
 
-  const toolIds = await upsertTools(buildToolDefinitions(baseUrl));
-  const agentBody = buildAgentBody(clientId, config, Object.values(toolIds));
-
   const [existingAgentRow] = await db
     .select()
     .from(voiceAgents)
     .where(and(eq(voiceAgents.clientId, clientId), eq(voiceAgents.provider, "elevenlabs")))
     .orderBy(desc(voiceAgents.createdAt))
     .limit(1);
+
+  const storedToolIds = (existingAgentRow?.metadata as { toolIds?: Record<string, string> } | undefined)?.toolIds ?? {};
+  const toolIds = await upsertTools(buildToolDefinitions(clientId, baseUrl), storedToolIds);
+  const agentBody = buildAgentBody(clientId, config, Object.values(toolIds));
 
   const knownAgentId = config.aiVoice.externalAgentId || existingAgentRow?.externalAgentId || null;
   let agentId = knownAgentId;
