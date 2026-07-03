@@ -1,8 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, ChevronRight, LucideIcon, X } from "lucide-react";
-import { ChangeEvent, ReactNode } from "react";
+import { ChangeEvent, Children, isValidElement, ReactNode, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 
 export function Card({ children, className = "", hover = false }: { children: ReactNode; className?: string; hover?: boolean }) {
@@ -168,37 +168,139 @@ export function Input({
   );
 }
 
+export type SelectOption = { value: string; label: string; description?: string };
+
+function optionsFromChildren(children: ReactNode): SelectOption[] {
+  return Children.toArray(children).flatMap((child) => {
+    if (!isValidElement(child) || child.type !== "option") return [];
+    const props = child.props as { value?: string | number; children?: ReactNode };
+    const label = String(props.children ?? "");
+    return [{ value: props.value !== undefined ? String(props.value) : label, label }];
+  });
+}
+
 export function Select({
   children,
+  options,
   className = "",
   value,
   onChange,
   ariaLabel,
   name,
 }: {
-  children: ReactNode;
+  children?: ReactNode;
+  options?: SelectOption[];
   className?: string;
   value?: string;
   onChange?: (value: string) => void;
   ariaLabel?: string;
   name?: string;
 }) {
-  const controlProps = onChange ? { value: value ?? "", onChange: (event: ChangeEvent<HTMLSelectElement>) => onChange(event.target.value) } : {};
+  const items = options ?? optionsFromChildren(children);
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const currentValue = value ?? "";
+  const selected = items.find((item) => item.value === currentValue);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointer = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointer);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
+  const choose = (item: SelectOption) => {
+    onChange?.(item.value);
+    setOpen(false);
+  };
+
+  const onTriggerKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!open) {
+        setOpen(true);
+        setHighlighted(Math.max(0, items.findIndex((item) => item.value === currentValue)));
+        return;
+      }
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      setHighlighted((current) => Math.min(items.length - 1, Math.max(0, current + delta)));
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      if (open && highlighted >= 0 && items[highlighted]) choose(items[highlighted]);
+      else setOpen(true);
+    }
+  };
 
   return (
-    <div className={clsx("relative", className.includes("w-") ? "" : "w-full")}>
-      <select
-        {...controlProps}
+    <div ref={containerRef} className="relative w-full">
+      {name && <input type="hidden" name={name} value={currentValue} />}
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         aria-label={ariaLabel}
-        name={name}
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={onTriggerKeyDown}
         className={clsx(
-          "w-full appearance-none rounded-xl border border-white/[.09] bg-[#13100B] px-3.5 py-3 pr-9 text-sm text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition hover:border-white/[.14] focus:border-[#C7F76F]/45 focus-visible:ring-2 focus-visible:ring-[#C7F76F]/20",
+          "flex w-full items-center justify-between gap-2 rounded-xl border border-white/[.09] bg-[#13100B] px-3.5 py-3 text-left text-sm text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition hover:border-white/[.14] focus-visible:border-[#C7F76F]/45 focus-visible:ring-2 focus-visible:ring-[#C7F76F]/20",
+          open && "border-[#C7F76F]/35",
           className,
         )}
       >
-        {children}
-      </select>
-      <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#94836A]" />
+        <span className={clsx("truncate", !selected && "text-[#94836A]")}>{selected?.label ?? "Select..."}</span>
+        <ChevronDown size={14} className={clsx("shrink-0 text-[#94836A] transition-transform duration-150", open && "rotate-180 text-[#C7F76F]")} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.99 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.99 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
+            role="listbox"
+            className="absolute z-50 mt-1.5 max-h-72 w-full min-w-[240px] overflow-y-auto rounded-xl border border-white/[.12] bg-[#1D1811] p-1 shadow-[0_18px_50px_rgba(0,0,0,.5)]"
+          >
+            {items.map((item, index) => {
+              const isSelected = item.value === currentValue;
+              return (
+                <button
+                  key={`${item.value}-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => choose(item)}
+                  onMouseEnter={() => setHighlighted(index)}
+                  className={clsx(
+                    "flex w-full items-start justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+                    highlighted === index ? "bg-white/[.06]" : "",
+                    isSelected ? "bg-[#C7F76F]/[.08]" : "",
+                  )}
+                >
+                  <span className="min-w-0">
+                    <span className={clsx("block truncate text-[13px] font-semibold", isSelected ? "text-[#D8FF9B]" : "text-[#F4EAD5]")}>{item.label}</span>
+                    {item.description && <span className="mt-0.5 block truncate text-[11px] text-[#94836A]">{item.description}</span>}
+                  </span>
+                  {isSelected && <Check size={14} className="mt-0.5 shrink-0 text-[#C7F76F]" />}
+                </button>
+              );
+            })}
+            {items.length === 0 && <p className="px-3 py-2.5 text-[12px] text-[#94836A]">No options available.</p>}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1305,12 +1305,15 @@ function VoicePicker({ clientId, currentVoiceId, onChange }: { clientId: string;
     <div>
       <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Voice</p>
       <div className="flex gap-2">
-        <Select value={currentVoiceId} onChange={(value) => onChange("aiVoice.externalVoiceId", value)} ariaLabel="Agent voice">
-          <option value="">Workspace default voice</option>
-          {voices.map((voice) => (
-            <option key={voice.voiceId} value={voice.voiceId}>{voice.name}{voice.description ? ` — ${voice.description}` : ""}</option>
-          ))}
-        </Select>
+        <Select
+          value={currentVoiceId}
+          onChange={(value) => onChange("aiVoice.externalVoiceId", value)}
+          ariaLabel="Agent voice"
+          options={[
+            { value: "", label: "Workspace default voice" },
+            ...voices.map((voice) => ({ value: voice.voiceId, label: voice.name, description: voice.description || undefined })),
+          ]}
+        />
         <Button kind="secondary" disabled={!selected?.previewUrl} onClick={preview} ariaLabel="Preview voice">
           {playing ? <Pause size={13} /> : <Play size={13} />}
         </Button>
