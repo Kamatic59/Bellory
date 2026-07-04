@@ -95,6 +95,47 @@ export async function fetchBusyIntervals(connection: CalendarConnection, timeMin
   return busy.map((interval) => ({ startsAt: new Date(interval.start), endsAt: new Date(interval.end) }));
 }
 
+export async function updateCalendarEventTime(
+  connection: CalendarConnection,
+  eventId: string,
+  times: { startsAt: Date; endsAt: Date; timeZone: string },
+): Promise<boolean> {
+  const accessToken = await getAccessToken(connection);
+  if (!accessToken) return false;
+
+  const calendarId = connection.primaryCalendarId || "primary";
+  const response = await fetch(`${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      start: { dateTime: times.startsAt.toISOString(), timeZone: times.timeZone },
+      end: { dateTime: times.endsAt.toISOString(), timeZone: times.timeZone },
+    }),
+  });
+  if (!response.ok) {
+    console.error("google calendar: event reschedule failed", response.status, await response.text().catch(() => ""));
+    return false;
+  }
+  return true;
+}
+
+export async function deleteCalendarEvent(connection: CalendarConnection, eventId: string): Promise<boolean> {
+  const accessToken = await getAccessToken(connection);
+  if (!accessToken) return false;
+
+  const calendarId = connection.primaryCalendarId || "primary";
+  const response = await fetch(`${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  // 410 means the event was already gone, which is fine for a cancel.
+  if (!response.ok && response.status !== 410 && response.status !== 404) {
+    console.error("google calendar: event delete failed", response.status, await response.text().catch(() => ""));
+    return false;
+  }
+  return true;
+}
+
 export async function createCalendarEvent(
   connection: CalendarConnection,
   event: { summary: string; description: string; location?: string | null; startsAt: Date; endsAt: Date; timeZone: string },

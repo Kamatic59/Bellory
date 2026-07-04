@@ -1,12 +1,14 @@
-import { and, desc, eq, inArray, lt, gt } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, gt, ne } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db/client";
 import { appointments, leads, ownerNotifications } from "@/db/schema";
 import type { BelloryClientConfig } from "@/lib/server/config/client-config-schema";
 import {
   createCalendarEvent,
+  deleteCalendarEvent,
   fetchBusyIntervals,
   getActiveCalendarConnection,
+  updateCalendarEventTime,
   type CalendarConnection,
 } from "@/lib/server/google/calendar";
 import type { AgentToolContext, AgentToolHandler, AgentToolResult } from "./runtime";
@@ -119,6 +121,7 @@ async function loadConflicts(
   windowEnd: Date,
   config: BelloryClientConfig,
   connection?: CalendarConnection | null,
+  excludeAppointmentId?: string,
 ) {
   const db = getDb();
   const conflicts: Array<{ startsAt: Date; endsAt: Date }> = await db
@@ -129,6 +132,7 @@ async function loadConflicts(
       inArray(appointments.status, ["held", "booked", "needs_approval"]),
       lt(appointments.startsAt, windowEnd),
       gt(appointments.endsAt, windowStart),
+      ...(excludeAppointmentId ? [ne(appointments.id, excludeAppointmentId)] : []),
     ));
 
   // With a connected Google Calendar, real busy time also blocks slots. A
@@ -622,6 +626,183 @@ const ownerAlert: AgentToolHandler = async (context) => {
   };
 };
 
+/* ------------------------- existing appointments -------------------------- */
+
+const lookupInput = z.object({
+  phone: optionalText,
+  callerPhone: optionalText,
+});
+
+const appointmentsLookup: AgentToolHandler = async (context) => {
+  const input = lookupInput.safeParse(context.payload);
+  const phoneRaw = input.success ? input.data.phone ?? input.data.callerPhone : undefined;
+  if (!phoneRaw) return askAgainResult("Ask the caller for the phone number the appointment was booked under, then look it up again.");
+
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(appointments)
+    .where(and(
+      eq(appointments.clientId, context.client.id),
+      eq(appointments.callerPhone, normalizePhone(phoneRaw)),
+      inArray(appointments.status, ["held", "booked", "needs_approval"]),
+      gt(appointments.startsAt, new Date()),
+    ))
+    .orderBy(asc(appointments.startsAt))
+    .limit(5);
+
+  if (rows.length === 0) {
+    return {
+      ok: true,
+      message: "No upcoming appointments under that number. Double-check the number with the caller; if it still finds nothing, save their details as a lead and alert the owner so the team can sort it out.",
+      data: { appointments: [] },
+    };
+  }
+
+  const timeZone = context.config.businessIdentity.timezone;
+  return {
+    ok: true,
+    message: rows.length === 1
+      ? "Found one upcoming appointment. Confirm the name on it matches the caller before changing anything."
+      : "Found several upcoming appointments. Confirm which one the caller means and that the name matches.",
+    data: {
+      appointments: rows.map((row) => ({
+        appointmentId: row.id,
+        spoken: spokenSlot(row.startsAt, timeZone),
+        startsAt: row.startsAt.toISOString(),
+        service: row.serviceSummary,
+        nameOnAppointment: row.callerName,
+        status: row.status,
+      })),
+    },
+  };
+};
+
+const rescheduleInput = z.object({
+  appointmentId: optionalText,
+  newStartsAt: optionalText,
+  startsAt: optionalText,
+});
+
+const appointmentsReschedule: AgentToolHandler = async (context) => {
+  const input = rescheduleInput.safeParse(context.payload);
+  const appointmentId = input.success ? input.data.appointmentId : undefined;
+  const newStartRaw = input.success ? input.data.newStartsAt ?? input.data.startsAt : undefined;
+  if (!appointmentId || !newStartRaw) {
+    return askAgainResult("Pass the appointment_id from bellory_find_appointments and the new slot's startsAt from bellory_check_availability.");
+  }
+
+  const db = getDb();
+  const [appointment] = await db
+    .select()
+    .from(appointments)
+    .where(and(eq(appointments.id, appointmentId), eq(appointments.clientId, context.client.id)))
+    .limit(1);
+  if (!appointment || !["held", "booked", "needs_approval"].includes(appointment.status)) {
+    return askAgainResult("That appointment could not be found or is no longer active. Look it up again with bellory_find_appointments.");
+  }
+
+  const newStartsAt = new Date(newStartRaw);
+  if (Number.isNaN(newStartsAt.getTime()) || newStartsAt.getTime() < Date.now()) {
+    return askAgainResult("That new start time is not valid. Check availability again and pass an upcoming slot's startsAt value.");
+  }
+
+  const durationMs = appointment.endsAt.getTime() - appointment.startsAt.getTime();
+  const newEndsAt = new Date(newStartsAt.getTime() + durationMs);
+  const { config, client } = context;
+
+  const connection = await getActiveCalendarConnection(client.id);
+  const conflicts = await loadConflicts(client.id, newStartsAt, newEndsAt, config, connection, appointment.id);
+  if (conflicts.length > 0) {
+    return {
+      ok: true,
+      message: "That new time is already taken. Re-check availability and offer the caller another opening.",
+      data: { rescheduled: false, reason: "conflict" },
+    };
+  }
+
+  await db.update(appointments).set({
+    startsAt: newStartsAt,
+    endsAt: newEndsAt,
+    metadata: {
+      ...appointment.metadata,
+      rescheduledFrom: appointment.startsAt.toISOString(),
+      rescheduledAt: new Date().toISOString(),
+      rescheduleConversationId: context.conversationId,
+    },
+    updatedAt: new Date(),
+  }).where(eq(appointments.id, appointment.id));
+
+  let calendarMoved = true;
+  if (appointment.externalEventId && connection) {
+    calendarMoved = await updateCalendarEventTime(connection, appointment.externalEventId, {
+      startsAt: newStartsAt,
+      endsAt: newEndsAt,
+      timeZone: config.businessIdentity.timezone,
+    });
+    if (!calendarMoved) {
+      await db.update(appointments)
+        .set({ metadata: { ...appointment.metadata, calendarSyncError: true }, updatedAt: new Date() })
+        .where(eq(appointments.id, appointment.id));
+    }
+  }
+
+  const spoken = spokenSlot(newStartsAt, config.businessIdentity.timezone);
+  return {
+    ok: true,
+    message: `Rescheduled to ${spoken}. Confirm the new time with the caller using arrival-window wording.`,
+    data: { rescheduled: true, appointmentId: appointment.id, startsAt: newStartsAt.toISOString(), endsAt: newEndsAt.toISOString(), spoken, calendarMoved },
+  };
+};
+
+const cancelInput = z.object({
+  appointmentId: optionalText,
+  reason: optionalText,
+});
+
+const appointmentsCancel: AgentToolHandler = async (context) => {
+  const input = cancelInput.safeParse(context.payload);
+  const appointmentId = input.success ? input.data.appointmentId : undefined;
+  if (!appointmentId) {
+    return askAgainResult("Pass the appointment_id from bellory_find_appointments to cancel it.");
+  }
+
+  const db = getDb();
+  const [appointment] = await db
+    .select()
+    .from(appointments)
+    .where(and(eq(appointments.id, appointmentId), eq(appointments.clientId, context.client.id)))
+    .limit(1);
+  if (!appointment) {
+    return askAgainResult("That appointment could not be found. Look it up again with bellory_find_appointments.");
+  }
+  if (appointment.status === "cancelled") {
+    return { ok: true, message: "That appointment was already cancelled. Let the caller know it's taken care of.", data: { cancelled: true, appointmentId } };
+  }
+
+  await db.update(appointments).set({
+    status: "cancelled",
+    metadata: {
+      ...appointment.metadata,
+      cancelledAt: new Date().toISOString(),
+      cancelReason: input.success ? input.data.reason ?? null : null,
+      cancelConversationId: context.conversationId,
+    },
+    updatedAt: new Date(),
+  }).where(eq(appointments.id, appointment.id));
+
+  const connection = await getActiveCalendarConnection(context.client.id);
+  if (appointment.externalEventId && connection) {
+    await deleteCalendarEvent(connection, appointment.externalEventId);
+  }
+
+  return {
+    ok: true,
+    message: "Cancelled. Confirm it's done, and offer to book a new time whenever they're ready.",
+    data: { cancelled: true, appointmentId: appointment.id },
+  };
+};
+
 const transferRequest: AgentToolHandler = async ({ config, payload }) => {
   const reason = typeof payload.reason === "string" ? payload.reason : null;
   const ownerPhone = config.businessIdentity.ownerPhone;
@@ -645,6 +826,9 @@ export const agentToolHandlers: Record<string, AgentToolHandler> = {
   "calendar/availability": calendarAvailability,
   "calendar/hold": calendarHold,
   "calendar/book": calendarBook,
+  "appointments/lookup": appointmentsLookup,
+  "appointments/reschedule": appointmentsReschedule,
+  "appointments/cancel": appointmentsCancel,
   "leads/upsert": leadsUpsert,
   "owner-alert": ownerAlert,
   "transfer-request": transferRequest,

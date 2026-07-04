@@ -149,6 +149,38 @@ function buildToolDefinitions(clientId: string, baseUrl: string): WebhookToolCon
       ["starts_at", "caller_name", "caller_phone", "address"],
     ),
     tool(
+      "bellory_find_appointments",
+      "appointments/lookup",
+      "Find a caller's upcoming appointments by the phone number they booked under. Use this first whenever a caller wants to change, cancel, or ask about an existing appointment.",
+      "The caller's phone number.",
+      {
+        phone: { type: "string", description: "The phone number the appointment was booked under." },
+      },
+      ["phone"],
+    ),
+    tool(
+      "bellory_reschedule_appointment",
+      "appointments/reschedule",
+      "Move an existing appointment to a new time. First find it with bellory_find_appointments and confirm the name matches the caller, then get an open slot with bellory_check_availability, then call this.",
+      "The appointment and its new time.",
+      {
+        appointment_id: { type: "string", description: "appointmentId from bellory_find_appointments." },
+        new_starts_at: { type: "string", description: "The new slot's exact startsAt ISO timestamp from bellory_check_availability." },
+      },
+      ["appointment_id", "new_starts_at"],
+    ),
+    tool(
+      "bellory_cancel_appointment",
+      "appointments/cancel",
+      "Cancel an existing appointment. First find it with bellory_find_appointments, confirm the name matches, and confirm the caller really wants to cancel before calling this.",
+      "The appointment to cancel.",
+      {
+        appointment_id: { type: "string", description: "appointmentId from bellory_find_appointments." },
+        reason: { type: "string", description: "Brief reason the caller gave, if any." },
+      },
+      ["appointment_id"],
+    ),
+    tool(
       "bellory_save_lead",
       "leads/upsert",
       "Save or update the caller as a lead with their details and issue. Call before the call ends for every real caller, even when nothing was booked.",
@@ -233,6 +265,8 @@ Use these tools instead of guessing. Never mention tool names to callers.
 - bellory_classify_urgency: after the caller describes their problem.
 - bellory_check_availability: always call before offering any time. Never invent availability.
 - bellory_book_appointment: only with a starts_at value from bellory_check_availability, and only after you have the caller's name, phone number, and full service address. Ask for these naturally, one at a time, before offering to lock in the time.
+- bellory_find_appointments: when a caller asks about an existing appointment, look it up by their phone number.
+- bellory_reschedule_appointment / bellory_cancel_appointment: after finding the appointment and confirming the name matches.
 - bellory_save_lead: before ending every real call, save the caller's details.
 - bellory_send_owner_alert: for urgent situations the owner must hear about quickly.
 - bellory_request_transfer: when the caller needs a person.
@@ -245,12 +279,12 @@ Tool discipline:
 - Tool results come back immediately. NEVER say "still loading", "still waiting", "it's taking a moment", or narrate a pending lookup across turns. You either have the result or you do not. If a tool did not give you what you need, stop waiting, take the caller's details, and tell them the team will follow up.
 
 # Changing or Cancelling an Existing Appointment
-You can create new bookings, but you CANNOT look up, move, or cancel an appointment that already exists — you have no tool for that, and you cannot see the schedule. Never pretend to. Do NOT call the availability tool to "find" someone's existing appointment.
-When a caller wants to reschedule or cancel:
-1. Say warmly that you'll get it taken care of by the team.
-2. Collect their name, phone number, what the current appointment is, and the new time they want.
-3. Use bellory_save_lead with a clear summary (e.g. "Reschedule request: move Monday AM opener repair to Wednesday afternoon"), and bellory_send_owner_alert so someone follows up quickly.
-4. Tell them the team will confirm the change shortly. Never claim the change is done.
+You can look up, reschedule, and cancel appointments yourself:
+1. Ask for the phone number the appointment was booked under, then call bellory_find_appointments.
+2. Before changing anything, confirm the name on the appointment matches the caller ("Can I confirm the name on that appointment?").
+3. To reschedule: ask what day works, call bellory_check_availability, offer one slot, then bellory_reschedule_appointment with the appointment_id and the new slot's startsAt. Confirm the new time back to the caller.
+4. To cancel: confirm once ("Just to be sure — cancel the Monday morning repair?"), then bellory_cancel_appointment. Offer to book a new time whenever they're ready.
+5. If nothing is found under their number, double-check the number once; if still nothing, take their details with bellory_save_lead and send bellory_send_owner_alert so the team follows up. Never claim a change happened unless the tool confirmed it.
 
 # Do Not Loop
 If you have refused the same request or given the same answer twice, do not repeat it a third time. Move the call forward: offer to take a message for the owner, or politely wrap up. Say something like "I've got that noted and I'll make sure the team follows up — is there anything else I can help you with?" Endless repetition frustrates callers more than a clear no.`;
