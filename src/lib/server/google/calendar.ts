@@ -97,7 +97,7 @@ export async function fetchBusyIntervals(connection: CalendarConnection, timeMin
 
 export async function createCalendarEvent(
   connection: CalendarConnection,
-  event: { summary: string; description: string; startsAt: Date; endsAt: Date; timeZone: string },
+  event: { summary: string; description: string; location?: string | null; startsAt: Date; endsAt: Date; timeZone: string },
 ): Promise<{ eventId: string; htmlLink: string | null } | null> {
   const accessToken = await getAccessToken(connection);
   if (!accessToken) return null;
@@ -109,6 +109,7 @@ export async function createCalendarEvent(
     body: JSON.stringify({
       summary: event.summary,
       description: event.description,
+      ...(event.location ? { location: event.location } : {}),
       start: { dateTime: event.startsAt.toISOString(), timeZone: event.timeZone },
       end: { dateTime: event.endsAt.toISOString(), timeZone: event.timeZone },
     }),

@@ -135,15 +135,18 @@ function buildToolDefinitions(clientId: string, baseUrl: string): WebhookToolCon
     tool(
       "bellory_book_appointment",
       "calendar/book",
-      "Book or request an appointment at a specific time. Only use a starts_at value returned by bellory_check_availability. Collect the caller's name and phone number first.",
-      "The chosen slot and caller details.",
+      "Book or request an appointment at a specific time. Only use a starts_at value returned by bellory_check_availability. You must collect the caller's name, callback phone number, and the full service address before booking — the technician needs to know where to go. Ask for email only if the caller prefers email contact.",
+      "The chosen slot, caller contact details, and the job.",
       {
         starts_at: { type: "string", description: "Exact startsAt ISO timestamp of the chosen slot from bellory_check_availability." },
         caller_name: { type: "string", description: "Caller's full name." },
         caller_phone: { type: "string", description: "Caller's callback phone number." },
+        address: { type: "string", description: "Full service address where the work happens, including street and city." },
+        email: { type: "string", description: "Caller's email address, only if they gave one or prefer email." },
+        urgency: { type: "string", description: "low, medium, or high." },
         service_summary: { type: "string", description: "One line describing the work needed." },
       },
-      ["starts_at"],
+      ["starts_at", "caller_name", "caller_phone", "address"],
     ),
     tool(
       "bellory_save_lead",
@@ -153,6 +156,8 @@ function buildToolDefinitions(clientId: string, baseUrl: string): WebhookToolCon
       {
         phone: { type: "string", description: "Caller's callback phone number." },
         name: { type: "string", description: "Caller's name." },
+        address: { type: "string", description: "Service address, if the caller shared it." },
+        email: { type: "string", description: "Caller's email, if they gave one." },
         issue: { type: "string", description: "Short description of the caller's problem." },
         urgency: { type: "string", description: "low, medium, or high." },
         summary: { type: "string", description: "One or two sentences summarizing the call and next step." },
@@ -227,7 +232,7 @@ Use these tools instead of guessing. Never mention tool names to callers.
 - bellory_check_service_area: before promising service or booking, check the caller's city or ZIP.
 - bellory_classify_urgency: after the caller describes their problem.
 - bellory_check_availability: always call before offering any time. Never invent availability.
-- bellory_book_appointment: only with a starts_at value from bellory_check_availability.
+- bellory_book_appointment: only with a starts_at value from bellory_check_availability, and only after you have the caller's name, phone number, and full service address. Ask for these naturally, one at a time, before offering to lock in the time.
 - bellory_save_lead: before ending every real call, save the caller's details.
 - bellory_send_owner_alert: for urgent situations the owner must hear about quickly.
 - bellory_request_transfer: when the caller needs a person.

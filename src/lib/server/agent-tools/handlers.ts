@@ -374,6 +374,10 @@ const bookingInput = z.object({
   startsAt: optionalText,
   callerName: optionalText,
   callerPhone: optionalText,
+  address: optionalText,
+  serviceAddress: optionalText,
+  email: optionalText,
+  urgency: optionalText,
   serviceSummary: optionalText,
   issue: optionalText,
   appointmentType: optionalText,
@@ -383,6 +387,11 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
   const input = bookingInput.safeParse(context.payload);
   if (!input.success || !input.data.startsAt) {
     return askAgainResult("Pass the chosen slot's startsAt value from the availability check, plus the caller's name and phone number.");
+  }
+
+  const address = input.data.address ?? input.data.serviceAddress;
+  if (kind === "book" && (!input.data.callerName || !input.data.callerPhone || !address)) {
+    return askAgainResult("Before booking, collect the caller's name, callback phone number, and the full service address, then book again with all three.");
   }
 
   const { config, client } = context;
@@ -432,23 +441,32 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
       source: "agent_tool",
       kind,
       bookingMode,
+      serviceAddress: address ?? null,
+      callerEmail: input.data.email ?? null,
+      urgency: input.data.urgency ?? null,
       conversationId: context.conversationId,
       configVersionId: context.configVersionId,
       ...(kind === "hold" ? { holdExpiresAt: new Date(Date.now() + 30 * 60_000).toISOString() } : {}),
     },
   }).returning();
 
-  // Confirmed bookings land on the real calendar when one is connected.
+  // Confirmed bookings land on the real calendar when one is connected. The
+  // event is the technician's job sheet: what, where, and how to reach them.
   if (status === "booked" && connection) {
     const summaryLine = input.data.serviceSummary ?? input.data.issue ?? "Service appointment";
     const event = await createCalendarEvent(connection, {
       summary: `${summaryLine} — ${input.data.callerName ?? "caller"} (Bellory)`,
       description: [
-        input.data.callerName ? `Caller: ${input.data.callerName}` : null,
+        input.data.callerName ? `Customer: ${input.data.callerName}` : null,
         input.data.callerPhone ? `Phone: ${normalizePhone(input.data.callerPhone)}` : null,
+        input.data.email ? `Email: ${input.data.email}` : null,
+        address ? `Address: ${address}` : null,
         input.data.issue ? `Issue: ${input.data.issue}` : null,
-        "Booked by the Bellory receptionist.",
-      ].filter(Boolean).join("\n"),
+        input.data.urgency ? `Urgency: ${input.data.urgency}` : null,
+        "",
+        "Booked by the Bellory receptionist. Contact the customer directly with any questions.",
+      ].filter((line) => line !== null).join("\n"),
+      location: address,
       startsAt,
       endsAt,
       timeZone: config.businessIdentity.timezone,
@@ -483,6 +501,9 @@ const leadInput = z.object({
   callerPhone: optionalText,
   name: optionalText,
   callerName: optionalText,
+  address: optionalText,
+  serviceAddress: optionalText,
+  email: optionalText,
   issue: optionalText,
   urgency: optionalText,
   status: optionalText,
@@ -505,6 +526,10 @@ const leadsUpsert: AgentToolHandler = async (context) => {
   const phone = normalizePhone(phoneRaw);
   const urgency = urgencyLevels.find((level) => level === data.urgency?.toLowerCase());
   const status = leadStatuses.find((candidate) => candidate === data.status?.toLowerCase());
+  const contactDetails = {
+    ...(data.address ?? data.serviceAddress ? { serviceAddress: data.address ?? data.serviceAddress } : {}),
+    ...(data.email ? { email: data.email } : {}),
+  };
   const db = getDb();
 
   const [existing] = await db
@@ -529,7 +554,7 @@ const leadsUpsert: AgentToolHandler = async (context) => {
   if (existing) {
     const [updated] = await db
       .update(leads)
-      .set({ ...definedFields, updatedAt: new Date() })
+      .set({ ...definedFields, metadata: { ...existing.metadata, ...contactDetails }, updatedAt: new Date() })
       .where(eq(leads.id, existing.id))
       .returning();
 
@@ -544,7 +569,7 @@ const leadsUpsert: AgentToolHandler = async (context) => {
     clientId: context.client.id,
     phone,
     ...definedFields,
-    metadata: { source: "agent_tool", conversationId: context.conversationId },
+    metadata: { source: "agent_tool", conversationId: context.conversationId, ...contactDetails },
   }).returning();
 
   return {
