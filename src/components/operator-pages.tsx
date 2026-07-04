@@ -71,13 +71,10 @@ const setupSteps = [
   "Locations & hours",
   "Phone routing",
   "Agent identity & prompt",
-  "Receptionist brain",
   "Services & pricing",
-  "Qualification rules",
   "Calendar & dispatch",
   "Urgency & escalation",
   "Compliance & policies",
-  "Integrations",
   "Launch QA",
 ] as const;
 
@@ -103,95 +100,44 @@ type AccountTab = (typeof accountTabs)[number];
 type StepDetail = {
   title: string;
   description: string;
-  fields: string[];
-  checklist: string[];
-  backend: string;
 };
 
 const onboardingDetails: Record<SetupStep, StepDetail> = {
   "Business identity": {
     title: "Define the business Bellory represents.",
     description: "The AI needs the same facts a trained receptionist would use before answering the first call.",
-    fields: ["Legal business name", "Caller-facing name", "Owner / primary contact", "Business category", "Short company description", "Brand words"],
-    checklist: ["Primary contact saved", "Industry selected", "Caller-facing name approved", "Business timezone set"],
-    backend: "clients, client_config_versions.businessIdentity",
   },
   "Locations & hours": {
     title: "Set where and when the business operates.",
-    description: "Service area, working hours, holidays, and after-hours behavior determine what the AI can promise.",
-    fields: ["Primary address", "Service cities / ZIP codes", "Normal hours", "Emergency hours", "Holiday schedule", "Out-of-area response"],
-    checklist: ["Timezone mapped to calendar", "After-hours script selected", "Service area saved", "Holiday overrides ready"],
-    backend: "client_config_versions.locationsAndHours",
+    description: "Service area and working hours determine what the AI can promise callers and when it can book.",
   },
   "Phone routing": {
     title: "Decide how callers reach the receptionist.",
-    description: "Choose forwarding, a new Bellory number, or porting later, then define recording and failover behavior.",
-    fields: ["Current phone number", "Caller ID label", "Forward-to number", "Recording consent mode", "Missed-call fallback", "Spam handling"],
-    checklist: ["Twilio number or forward target selected", "Recording rule approved", "Caller ID planned", "Route failover configured"],
-    backend: "phone_numbers, client_config_versions.phoneRouting",
+    description: "Choose forwarding or a new Bellory number, and set the fallback behavior. The actual number is connected after the agent is created.",
   },
   "Agent identity & prompt": {
     title: "Name the receptionist and build the agent prompt.",
-    description: "Each customer gets their own ElevenLabs agent with a receptionist name, greeting, voice behavior, disclosure line, and editable system prompt.",
-    fields: ["Receptionist name", "ElevenLabs agent display name", "Voice / agent ID", "Greeting script", "System prompt", "Disclosure phrase"],
-    checklist: ["Receptionist name approved", "System prompt generated", "Greeting matches the business", "Disclosure language approved"],
-    backend: "voice_agents, client_config_versions.aiVoice",
-  },
-  "Receptionist brain": {
-    title: "Teach Bellory how this business thinks.",
-    description: "This is the source of truth for what the AI can answer, ask, avoid, and escalate.",
-    fields: ["Business summary", "Caller intents", "Required intake questions", "FAQ answers", "Words to avoid", "Forbidden claims"],
-    checklist: ["Prompt instructions drafted", "FAQ knowledge loaded", "Forbidden claims saved", "Low-confidence policy selected"],
-    backend: "client_config_versions.receptionistBrain",
+    description: "The receptionist name, greeting, and system prompt define who answers the phone for this business.",
   },
   "Services & pricing": {
-    title: "Configure services, quote ranges, and limits.",
-    description: "Pricing must be structured so the AI knows when to give a range, ask more questions, or refuse exact pricing.",
-    fields: ["Service catalog", "Diagnostic fees", "Starting prices", "Quote ranges", "Upsell rules", "Never-quote conditions"],
-    checklist: ["At least one service active", "Quote ranges approved", "Exact-price restrictions saved", "Owner approval threshold set"],
-    backend: "client_config_versions.servicesAndPricing",
-  },
-  "Qualification rules": {
-    title: "Tell the AI what to ask before booking.",
-    description: "Qualification fields make every call useful: issue, urgency, location, photos, property type, and decision maker.",
-    fields: ["Caller info", "Issue details", "Photo/SMS request rules", "Property type questions", "Lead score rules", "Do-not-book conditions"],
-    checklist: ["Required fields selected", "Lead scoring rules saved", "Photo request policy approved", "Spam handling configured"],
-    backend: "client_config_versions.qualificationRules",
+    title: "List the services callers ask about.",
+    description: "These become the receptionist's knowledge: what the business does and what the diagnostic visit costs. Detailed price ranges can be added later in Account Detail.",
   },
   "Calendar & dispatch": {
-    title: "Connect appointments to real availability.",
-    description: "Booking rules decide direct booking, owner approval, travel buffers, tech assignment, and reschedules.",
-    fields: ["Calendar provider", "Booking mode", "Appointment types", "Slot length", "Travel buffer", "Technician routing rules"],
-    checklist: ["Calendar provider selected", "Booking mode selected", "Slot templates configured", "No-availability fallback set"],
-    backend: "calendar_connections, client_config_versions.calendarAndDispatch",
+    title: "Decide how appointments get booked.",
+    description: "Direct booking, owner approval, or lead-only — plus what to say when nothing is available.",
   },
   "Urgency & escalation": {
     title: "Define when Bellory gets a human involved.",
-    description: "The AI needs explicit urgent triggers, transfer order, low-confidence paths, and after-hours escalation rules.",
-    fields: ["Urgent trigger phrases", "Primary fallback", "Secondary fallback", "Transfer hours", "SMS alert template", "Operator review threshold"],
-    checklist: ["Urgent intents mapped", "Transfer numbers planned", "SMS templates approved", "Low-confidence handoff enabled"],
-    backend: "owner_notifications, client_config_versions.urgencyAndEscalation",
+    description: "Urgent trigger phrases, who gets alerted, and when calls should be reviewed by a person.",
   },
   "Compliance & policies": {
     title: "Set the rules the AI must never break.",
-    description: "Recording consent, AI disclosure, retention, privacy, safety, and forbidden advice belong here.",
-    fields: ["AI disclosure policy", "Call recording consent", "Data retention", "Safety disclaimer rules", "Prohibited advice", "Complaint script"],
-    checklist: ["Consent language approved", "Retention policy set", "Never-say list saved", "Complaint path configured"],
-    backend: "audit_logs, client_config_versions.complianceAndPolicies",
-  },
-  Integrations: {
-    title: "Connect the tools the AI will use.",
-    description: "Provider credentials and tool permissions need to be explicit before backend wiring starts.",
-    fields: ["ElevenLabs agent", "Twilio account", "Google Calendar account", "CRM / job system", "SMS provider", "Billing system"],
-    checklist: ["Tool permissions scoped", "Webhook endpoints planned", "Provider status visible", "Secrets ready for environment vars"],
-    backend: "voice_agents, phone_numbers, calendar_connections",
+    description: "AI disclosure and call recording language the receptionist uses when asked or required.",
   },
   "Launch QA": {
     title: "Prove the receptionist is safe to launch.",
-    description: "Run the same test scenarios every account needs before traffic goes live.",
-    fields: ["Normal booking test", "Urgent call test", "Quote shopper test", "After-hours test", "No availability test", "Angry caller test"],
-    checklist: ["All required scenarios pass", "Owner approves summaries", "Phone route live", "Rollback plan ready"],
-    backend: "eval_scenarios, eval_runs, client_config_versions.launchQa",
+    description: "The test scenarios this account must pass before real callers reach it. You will run these from the Testing tab after setup.",
   },
 };
 
@@ -350,6 +296,12 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
     locationsAndHours: {
       primaryAddress: form.primaryAddress,
       serviceAreas: [{ city: form.serviceArea, radiusMiles: Number(form.radiusMiles) || 25 }],
+      normalHours: {
+        ...(form.weekdayOpen && form.weekdayClose
+          ? Object.fromEntries(["monday", "tuesday", "wednesday", "thursday", "friday"].map((day) => [day, [{ open: form.weekdayOpen, close: form.weekdayClose }]]))
+          : {}),
+        ...(form.saturdayOpen && form.saturdayClose ? { saturday: [{ open: form.saturdayOpen, close: form.saturdayClose }] } : {}),
+      },
       outOfAreaResponse: form.outOfAreaResponse,
     },
     phoneRouting: {
@@ -370,6 +322,12 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
       disclosurePhrase: form.disclosurePhrase || `Yes, I'm ${receptionistName}, the AI receptionist for ${publicName}. I can help get your information over, check scheduling, or forward you to someone if needed.`,
       behaviorInstructions: form.behaviorInstructions,
       systemPrompt,
+    },
+    servicesAndPricing: {
+      services: splitLines(form.mainServices).map((name) => ({ name, active: true, requiredQuestions: [] })),
+      ...(Number(form.diagnosticFeeDollars) > 0
+        ? { diagnosticFees: [{ label: "Service call / diagnostic fee", amountCents: Math.round(Number(form.diagnosticFeeDollars) * 100) }] }
+        : {}),
     },
     calendarAndDispatch: {
       bookingMode: form.bookingChoice === "approval" ? "owner_approval" : form.bookingChoice === "lead" ? "lead_only" : "direct",
@@ -480,18 +438,6 @@ function ChoiceGrid({ selected, onSelect, options }: { selected: string; onSelec
           <p className="mt-2 text-[11px] leading-5 text-[#94836A]">{option.description}</p>
         </button>
       ))}
-    </div>
-  );
-}
-
-function BackendMapping({ label, checks }: { label: string; checks: string[] }) {
-  return (
-    <div className="mt-6 grid gap-3 rounded-2xl border border-white/[.06] bg-white/[.025] p-4 lg:grid-cols-[1fr_1.2fr]">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-[#C7F76F]">Backend mapping</p>
-        <p className="mt-2 text-[12px] leading-5 text-[#B7AB98]">Saved into <span className="font-bold text-white">{label}</span>. This setup creates a real Supabase client record and draft config.</p>
-      </div>
-      <div className="space-y-2">{checks.map((check) => <EmptyCheck key={check} text={check} />)}</div>
     </div>
   );
 }
@@ -700,6 +646,12 @@ type SetupForm = {
   serviceArea: string;
   radiusMiles: string;
   outOfAreaResponse: string;
+  weekdayOpen: string;
+  weekdayClose: string;
+  saturdayOpen: string;
+  saturdayClose: string;
+  mainServices: string;
+  diagnosticFeeDollars: string;
   phoneChoice: string;
   missedCallFallback: string;
   spamHandling: string;
@@ -738,6 +690,12 @@ const defaultSetupForm: SetupForm = {
   serviceArea: "Salt Lake City",
   radiusMiles: "35",
   outOfAreaResponse: "Politely explain that the business may not service that area and offer to take details for owner review.",
+  weekdayOpen: "07:30",
+  weekdayClose: "18:00",
+  saturdayOpen: "",
+  saturdayClose: "",
+  mainServices: "Broken spring replacement\nGarage door opener repair\nNew opener installation\nOff-track or cable repair\nNew garage door installation\nAnnual tune-up and safety inspection",
+  diagnosticFeeDollars: "89",
   phoneChoice: "forward",
   missedCallFallback: "Collect caller details and send the owner an SMS summary.",
   spamHandling: "Politely end obvious spam calls and mark the lead as spam.",
@@ -926,7 +884,14 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
               <SetupField label="Primary service city" value={form.serviceArea} onChange={update("serviceArea")} />
               <SetupField label="Service radius miles" value={form.radiusMiles} onChange={update("radiusMiles")} type="number" />
               <SetupField label="Out-of-area response" value={form.outOfAreaResponse} onChange={update("outOfAreaResponse")} />
+              <SetupField label="Weekday open (HH:MM)" value={form.weekdayOpen} onChange={update("weekdayOpen")} />
+              <SetupField label="Weekday close (HH:MM)" value={form.weekdayClose} onChange={update("weekdayClose")} />
+              <SetupField label="Saturday open (blank if closed)" value={form.saturdayOpen} onChange={update("saturdayOpen")} />
+              <SetupField label="Saturday close" value={form.saturdayClose} onChange={update("saturdayClose")} />
             </>
+          )}
+          {current === "Services & pricing" && (
+            <SetupField label="Diagnostic / service call fee (dollars)" value={form.diagnosticFeeDollars} onChange={update("diagnosticFeeDollars")} type="number" />
           )}
           {current === "Phone routing" && (
             <>
@@ -960,6 +925,7 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
 
         <div className="mt-4 grid gap-4">
           {current === "Business identity" && <SetupTextarea label="Business summary" value={form.businessSummary} onChange={update("businessSummary")} />}
+          {current === "Services & pricing" && <SetupTextarea label="Main services, one per line" value={form.mainServices} onChange={update("mainServices")} rows={7} />}
           {current === "Agent identity & prompt" && (
             <>
               <SetupTextarea label="Greeting script" value={form.greetingScript} onChange={update("greetingScript")} rows={3} />
@@ -1003,13 +969,6 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
           {current === "Launch QA" && <SetupTextarea label="Required launch scenarios, one per line" value={form.launchScenarios} onChange={update("launchScenarios")} rows={6} />}
         </div>
 
-        {!(["Business identity", "Locations & hours", "Phone routing", "Agent identity & prompt", "Calendar & dispatch", "Urgency & escalation", "Compliance & policies", "Launch QA"] as SetupStep[]).includes(current) && (
-          <div className="grid gap-3 md:grid-cols-2">
-            {detail.fields.map((field) => <EmptyCheck key={field} text={field} />)}
-          </div>
-        )}
-
-        <BackendMapping label={detail.backend} checks={detail.checklist} />
         {error && <div className="mt-4"><DemoState title="Setup needs attention" description={error} tone="coral" /></div>}
 
         <div className="mt-6 flex justify-between border-t border-white/[.06] pt-5">
@@ -1642,9 +1601,9 @@ function AccountTabContent({
           </div>
         </ConfigPanel>
         <ConfigPanel title="Agent setup order" eyebrow="Step-by-step" icon={SlidersHorizontal} tone="violet">
-          <ChecklistGrid items={["Name the receptionist", "Generate the system prompt", "Paste prompt into ElevenLabs", "Upload the KB doc", "Assign voice and phone number", "Configure tools", "Run launch QA calls", "Publish only after test calls pass"]} />
+          <ChecklistGrid items={["Name the receptionist", "Generate the system prompt", "Pick a voice", "Sync to ElevenLabs", "Connect a number (Call Flow tab)", "Connect the calendar", "Run a test call (Testing tab)", "Publish"]} />
           <div className="mt-4">
-            <DemoState title="Prompt vs knowledge base" description="The system prompt controls behavior and the KB document holds business facts. Keep both updated for every client agent." tone="honey" />
+            <DemoState title="One button does the heavy lifting" description="Sync to ElevenLabs pushes the prompt, voice, tools, and a regenerated knowledge base to this client's agent. Re-sync after meaningful config changes." tone="honey" />
           </div>
         </ConfigPanel>
       </div>
@@ -1761,12 +1720,12 @@ function AccountTabContent({
           }
         >
           <p className="max-w-3xl text-[13px] leading-6 text-[#B7AB98]">
-            Bellory turns this account setup into a clean Markdown knowledge base for the ElevenLabs agent. Upload the downloaded file in ElevenLabs under Knowledge Base - Add document, then run a test call and ask questions about pricing, urgency, hours, service area, and booking rules.
+            Bellory turns this account setup into a Markdown knowledge document and uploads it to the ElevenLabs agent automatically every time you sync. Download a copy to review exactly what the receptionist knows.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <DemoState title="1. Finish setup" description="Services, pricing, intake, hours, fallback, and compliance become the source facts." tone="honey" />
-            <DemoState title="2. Download document" description="The generated file uses plain sections and bullets so the agent can retrieve it cleanly." />
-            <DemoState title="3. Upload and test" description="Attach the file to the matching ElevenLabs agent, then test realistic caller scenarios." />
+            <DemoState title="1. Finish setup" description="Services, pricing, hours, service area, and policies become the source facts." tone="honey" />
+            <DemoState title="2. Sync the agent" description="The document is generated, uploaded, and attached automatically. Old versions are replaced." />
+            <DemoState title="3. Spot-check" description="Run a test call and ask about pricing, hours, and service area to confirm the facts landed." />
           </div>
           {knowledgeBaseNeedsSave && <p className="mt-3 text-[11px] font-semibold text-[#F6C66A]">Unsaved edits will be saved before Bellory creates the document.</p>}
           {!config && <p className="mt-3 text-[11px] font-semibold text-[#F08B72]">Load or create an account configuration before exporting a knowledge document.</p>}
@@ -1811,25 +1770,56 @@ function AccountTabContent({
   }
 
   if (tab === "Integrations") {
+    const integrationRows = [
+      {
+        name: "ElevenLabs agent",
+        icon: Headphones,
+        status: getString(config, "integrations.elevenLabs.status", "not_connected"),
+        detail: getString(config, "aiVoice.externalAgentId") || "No agent yet",
+        manage: "Managed by Sync to ElevenLabs in the Agent & Prompt tab.",
+      },
+      {
+        name: "Twilio phone number",
+        icon: PhoneForwarded,
+        status: getString(config, "integrations.twilio.status", "not_connected"),
+        detail: getString(config, "phoneRouting.belloryNumber") || "No number connected",
+        manage: "Managed in the Call Flow tab.",
+      },
+      {
+        name: "Google Calendar",
+        icon: CalendarCheck,
+        status: getString(config, "integrations.googleCalendar.status", "not_connected"),
+        detail: getString(config, "integrations.googleCalendar.connectionId") ? "Calendar linked" : "Not linked",
+        manage: "Managed in the Calendar & Dispatch tab.",
+      },
+      {
+        name: "CRM / job system",
+        icon: Database,
+        status: getString(config, "integrations.crm.status", "planned"),
+        detail: "Lead handoff and job history",
+        manage: "Planned — not part of the current launch scope.",
+      },
+    ];
+
     return (
-      <div className="grid gap-4 md:grid-cols-2">
-        {[
-          ["ElevenLabs", "integrations.elevenLabs", "Voice agent, transcript, post-call webhook", Headphones],
-          ["Twilio", "integrations.twilio", "Phone number, forwarding, recording, SMS", PhoneForwarded],
-          ["Google Calendar", "integrations.googleCalendar", "Availability, holds, booking, reschedules", CalendarCheck],
-          ["CRM / job system", "integrations.crm", "Lead handoff, job status, customer history", Database],
-        ].map(([name, path, detail, icon]) => (
-          <ConfigPanel key={name as string} title={name as string} eyebrow={getString(config, `${path}.status`, "not_connected")} icon={icon as LucideIcon} tone={getString(config, `${path}.status`) === "issue" ? "coral" : getString(config, `${path}.status`) === "connected" ? "mint" : "honey"}>
-            <p className="text-[12px] leading-5 text-[#B7AB98]">{detail as string}</p>
-            <div className="mt-4 grid gap-3">
-              <SelectField config={config} path={`${path}.status`} label="Status" options={["not_connected", "connected", "issue", "disabled", "planned"]} onChange={onChange} />
-              <EditableField config={config} path={`${path}.provider`} label="Provider" onChange={onChange} />
-              <EditableField config={config} path={`${path}.externalAgentId`} label="External agent ID" onChange={onChange} />
-              <EditableField config={config} path={`${path}.phoneNumberId`} label="Phone number ID" onChange={onChange} />
-              <EditableField config={config} path={`${path}.connectionId`} label="Connection ID" onChange={onChange} />
-            </div>
-          </ConfigPanel>
-        ))}
+      <div className="space-y-4">
+        <Card className="p-5">
+          <SectionTitle title="Connection status" eyebrow="Updated automatically" />
+          <p className="max-w-3xl text-[13px] leading-6 text-[#94836A]">
+            These statuses are written by the sync and connect actions in their own tabs — nothing to edit here.
+          </p>
+        </Card>
+        <div className="grid gap-4 md:grid-cols-2">
+          {integrationRows.map((row) => (
+            <ConfigPanel key={row.name} title={row.name} icon={row.icon} tone={row.status === "issue" ? "coral" : row.status === "connected" ? "mint" : "honey"}>
+              <div className="flex items-center gap-3">
+                <Badge tone={row.status === "issue" ? "coral" : row.status === "connected" ? "mint" : "honey"}>{displayStatus(row.status)}</Badge>
+                <span className="font-mono-ui truncate text-[12px] text-[#C6B9A6]">{row.detail}</span>
+              </div>
+              <p className="mt-3 text-[12px] leading-5 text-[#94836A]">{row.manage}</p>
+            </ConfigPanel>
+          ))}
+        </div>
       </div>
     );
   }
@@ -2040,7 +2030,7 @@ export function AccountDetailPage({
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      setMessage("Knowledge base document created. Upload it to the matching ElevenLabs agent under Knowledge Base - Add document.");
+      setMessage("Knowledge base document downloaded for review. Syncing the agent uploads it to ElevenLabs automatically.");
     } finally {
       setBusy(null);
     }
@@ -2248,10 +2238,11 @@ export function OperatorSettingsPage() {
             {[
               ["Supabase", "Database connected and migrations applied", "mint"],
               ["Vercel", "Production env vars installed", "mint"],
-              ["ElevenLabs", "Agent account needed next", "honey"],
-              ["Twilio", "Phone number and webhooks needed next", "honey"],
-              ["Google Calendar", "OAuth app needed before booking", "honey"],
-              ["Stripe", "Billing can wait until the receptionist flow works", "honey"],
+              ["ElevenLabs", "Agents platform connected — sync, tools, KB, and post-call webhook live", "mint"],
+              ["Twilio", "Connected (trial account — upgrade to buy additional numbers)", "mint"],
+              ["Google Calendar", "OAuth app connected — clients link calendars per account", "mint"],
+              ["Resend", "Email alerts pending an API key", "honey"],
+              ["Stripe", "Billing can wait until launch", "honey"],
             ].map(([name, detail, tone]) => <DemoState key={name} title={name} description={detail} tone={tone as "mint" | "honey" | "coral"} />)}
           </div>
         </Card>
