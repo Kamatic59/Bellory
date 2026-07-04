@@ -214,7 +214,9 @@ function getMetrics(client: AppClient) {
     revenueSaved: formatCurrency(metrics.estimatedRevenueCents),
     callsAnswered: metrics.callsAnswered,
     appointmentsBooked: metrics.appointmentsBooked,
-    errors: client.openIssues + metrics.toolFailures,
+    // Open, actionable issues only — tool failures are a metric, not a
+    // clickable item, and mixing them in showed counts with nothing behind them.
+    errors: client.openIssues,
     owner: client.primaryContactName || "Business owner",
     lastIssue: client.openIssues > 0 ? `${client.openIssues} open issue${client.openIssues === 1 ? "" : "s"}` : "None",
   };
@@ -355,17 +357,29 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
   };
 }
 
-function MetricCard({ label, value, helper, icon, tone = "mint" }: { label: string; value: string; helper: string; icon: LucideIcon; tone?: Tone }) {
-  return (
-    <Card hover className="p-5">
+function MetricCard({ label, value, helper, icon, tone = "mint", onClick }: { label: string; value: string; helper: string; icon: LucideIcon; tone?: Tone; onClick?: () => void }) {
+  const body = (
+    <>
       <div className="mb-5 flex items-start justify-between gap-3">
         <p className="font-mono-ui pt-1 text-[10px] font-semibold uppercase tracking-[.16em] text-[#94836A]">{label}</p>
         <IconBox icon={icon} tone={tone} />
       </div>
       <p className="font-mono-ui text-[30px] font-semibold leading-none tracking-[-.03em] text-white">{value}</p>
       <p className="mt-2.5 text-[11px] leading-5 text-[#94836A]">{helper}</p>
-    </Card>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <Card hover className="p-0">
+        <button onClick={onClick} className="w-full rounded-[20px] p-5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/40">
+          {body}
+        </button>
+      </Card>
+    );
+  }
+
+  return <Card hover className="p-5">{body}</Card>;
 }
 
 function FilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
@@ -1472,6 +1486,8 @@ function ClientActivityPanel({ clientId }: { clientId: string }) {
 function AccountTabContent({
   tab,
   client,
+  clientIssues,
+  onShowIssues,
   config,
   readiness,
   validation,
@@ -1486,6 +1502,8 @@ function AccountTabContent({
 }: {
   tab: AccountTab;
   client: AppClient;
+  clientIssues: ClientIssue[];
+  onShowIssues: () => void;
   config: BelloryClientConfigDraft | null;
   readiness: Readiness;
   validation: ValidationResult | null;
@@ -1508,8 +1526,30 @@ function AccountTabContent({
           <MetricCard icon={Brain} label="Config readiness" value={`${readiness.percentage}%`} helper={`${readiness.complete} of ${readiness.required} required settings complete`} />
           <MetricCard icon={PhoneIncoming} label="Calls answered" value={`${metrics.callsAnswered}`} helper="Live calls Bellory picked up" tone="blue" />
           <MetricCard icon={CalendarCheck} label="Jobs saved" value={`${metrics.jobsSaved}`} helper="Booked or escalated work" tone="honey" />
-          <MetricCard icon={TriangleAlert} label="Open issues" value={`${metrics.errors}`} helper={metrics.lastIssue} tone={metrics.errors > 0 ? "coral" : "mint"} />
+          <MetricCard icon={TriangleAlert} label="Open issues" value={`${metrics.errors}`} helper={metrics.errors > 0 ? "Listed below — click for the Issues page" : "Nothing needs attention"} tone={metrics.errors > 0 ? "coral" : "mint"} onClick={onShowIssues} />
         </div>
+        {clientIssues.length > 0 && (
+          <Card className="overflow-hidden">
+            <div className="border-b border-white/[.06] p-5">
+              <SectionTitle
+                title="Open issues for this account"
+                eyebrow="Needs operator action"
+                action={<Button kind="secondary" onClick={onShowIssues}><TriangleAlert size={13} /> All issues</Button>}
+              />
+            </div>
+            {clientIssues.map((issue) => (
+              <div key={issue.id} className="grid gap-3 border-t border-white/[.05] px-5 py-4 lg:grid-cols-[110px_1fr_150px_70px] lg:items-center">
+                <Badge tone={statusTone(displayStatus(issue.severity))}>{displayStatus(issue.severity)}</Badge>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold tracking-[-.01em] text-white">{issue.title}</p>
+                  <p className="mt-1 text-[11px] leading-5 text-[#94836A]">{issue.description ?? "No description provided."}</p>
+                </div>
+                <span className="text-[12px] font-bold text-[#C7F76F]">{issue.actionLabel ?? "Review"}</span>
+                <span className="font-mono-ui text-[11px] text-[#94836A]">{ageFrom(issue.createdAt)}</span>
+              </div>
+            ))}
+          </Card>
+        )}
         <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
           <ConfigPanel title="Configuration checklist" eyebrow="Live readiness" icon={ListChecks}>
             <div className="grid gap-2 md:grid-cols-2">
@@ -1868,20 +1908,24 @@ function AccountTabContent({
 export function AccountDetailPage({
   accountId,
   clients,
+  issues,
   loading,
   error,
   onOpenAccount,
   onShowDirectory,
+  onShowIssues,
   onRefreshClients,
   onRefreshIssues,
   view,
 }: {
   accountId: string;
   clients: AppClient[];
+  issues: ClientIssue[];
   loading: boolean;
   error: string | null;
   onOpenAccount: (id: string) => void;
   onShowDirectory: () => void;
+  onShowIssues: () => void;
   onRefreshClients: () => void;
   onRefreshIssues: () => void;
   view: "directory" | "detail";
@@ -2053,9 +2097,15 @@ export function AccountDetailPage({
           <div className="flex items-start gap-4">
             <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-[#C7F76F]/[.08] text-sm font-black text-[#C7F76F] shadow-[inset_0_0_0_1px_rgba(199,247,111,.12)]">{initials(client.name)}</span>
             <div>
-              <div className="mb-2.5 flex flex-wrap gap-2">
+              <div className="mb-2.5 flex flex-wrap items-center gap-2">
                 <Badge tone={statusTone(displayStatus(client.status))}>{displayStatus(client.status)}</Badge>
-                <Badge tone={metrics.errors > 0 ? "coral" : "mint"}>{metrics.errors} issues</Badge>
+                <button
+                  onClick={onShowIssues}
+                  className="rounded-md transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/40"
+                  aria-label="View issues for this account"
+                >
+                  <Badge tone={metrics.errors > 0 ? "coral" : "mint"}>{metrics.errors} issues</Badge>
+                </button>
                 <Badge tone="blue">{configStatus}</Badge>
                 {dirty && <Badge tone="honey">Unsaved changes</Badge>}
               </div>
@@ -2098,6 +2148,8 @@ export function AccountDetailPage({
       <AccountTabContent
         tab={tab}
         client={client}
+        clientIssues={issues.filter((issue) => issue.clientId === client.id)}
+        onShowIssues={onShowIssues}
         config={payload?.config ?? null}
         readiness={readiness}
         validation={validation}

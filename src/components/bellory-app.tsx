@@ -107,10 +107,12 @@ export function BelloryApp() {
       <AccountDetailPage
         accountId={selectedAccountId}
         clients={clients}
+        issues={issues}
         loading={clientsLoading}
         error={clientsError}
         onOpenAccount={openAccount}
         onShowDirectory={() => setAccountView("directory")}
+        onShowIssues={() => navigate("issues")}
         onRefreshClients={refreshClients}
         onRefreshIssues={refreshIssues}
         view={accountView}
