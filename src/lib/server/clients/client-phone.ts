@@ -10,12 +10,14 @@ export async function getClientPhoneState(clientId: string) {
   const [client] = await db.select({ id: clients.id }).from(clients).where(eq(clients.id, clientId)).limit(1);
   if (!client) return null;
 
-  const [current] = await db
+  const rows = await db
     .select({ e164: phoneNumbers.e164, status: phoneNumbers.status, updatedAt: phoneNumbers.updatedAt })
     .from(phoneNumbers)
     .where(eq(phoneNumbers.clientId, clientId))
-    .orderBy(desc(phoneNumbers.updatedAt))
-    .limit(1);
+    .orderBy(desc(phoneNumbers.updatedAt));
+  // A freshly retired number can have a newer timestamp than the live one, so
+  // connected rows always win over disabled/disconnected history.
+  const current = rows.find((row) => row.status === "connected") ?? rows[0];
 
   const assigned = await db.select({ e164: phoneNumbers.e164 }).from(phoneNumbers);
   const assignedSet = new Set(assigned.map((row) => row.e164));
