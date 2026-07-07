@@ -300,6 +300,10 @@ function CallTicket() {
       </div>
 
       <p className="font-mono-ui mt-3 text-center text-[10px] tracking-[.08em] text-[#94836A]">Illustrative call — every install is configured to its own rules</p>
+      <div className="font-mono-ui mt-4 flex flex-wrap justify-center gap-x-6 gap-y-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#94836A]">
+        <span className="flex items-center gap-2"><Check size={12} className="text-[#94C759]" /> Answers in seconds</span>
+        <span className="flex items-center gap-2"><Check size={12} className="text-[#94C759]" /> Books straight to your calendar</span>
+      </div>
     </motion.div>
   );
 }
@@ -778,11 +782,6 @@ export function LandingPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const scrollToSection = (id: string, eventName: string) => {
-    trackLandingEvent(eventName, { target: id });
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
   const openLeadModal = (location: string, eventName = "request_private_install_click") => {
     trackLandingEvent(eventName, { location });
     setLeadModalOpen(true);
@@ -801,7 +800,7 @@ export function LandingPage() {
       {/* announcement bar */}
       <div className="relative z-10 border-b border-white/[.06] bg-[#C7F76F]/[.04]">
         <p className="font-mono-ui mx-auto max-w-[1180px] px-5 py-2 text-center text-[10px] font-semibold uppercase tracking-[.2em] text-[#A9D96B]">
-          Private installs open · Garage door companies · Limited batches
+          Now installing · Built for garage door companies
         </p>
       </div>
 
@@ -833,10 +832,10 @@ export function LandingPage() {
             <span className="pulse-ring size-1.5 rounded-full bg-[#C7F76F]" />
             <MonoTag>Done-for-you AI receptionist</MonoTag>
           </div>
-          <h1 className="font-display text-balance text-[clamp(2.9rem,1rem+7vw,5.2rem)] font-medium leading-[1.0] tracking-[-.025em] text-[#FFF7E8]">
-            It’s 9:47 PM.
+          <h1 className="font-display text-[clamp(2.6rem,5.3vw,4.3rem)] font-medium leading-[1.0] tracking-[-.025em] text-[#FFF7E8]">
+            It’s 9:47 PM. A spring
             <br />
-            A spring just snapped.
+            just snapped.
             <br />
             <span className="text-[#C7F76F]">Bellory answers.</span>
           </h1>
@@ -847,13 +846,20 @@ export function LandingPage() {
             <Button onClick={() => openLeadModal("hero", "hero_cta_click")} className="px-6 py-3.5 text-sm">
               Request private install <ArrowRight size={15} />
             </Button>
-            <Button kind="secondary" onClick={() => scrollToSection("demo", "secondary_cta_click")} className="px-6 py-3.5 text-sm">
-              <PhoneCall size={15} /> Call the live demo
-            </Button>
+            <a
+              href={demoPhoneHref}
+              onClick={() => trackLandingEvent("demo_call_click", { location: "hero" })}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[.12] bg-white/[.05] px-3 py-3.5 text-[13px] font-bold tracking-[-.01em] text-[#FFF7E8] shadow-[0_1px_0_rgba(255,247,232,.05)_inset] transition-all duration-150 hover:border-white/[.2] hover:bg-white/[.08] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#100E0A] sm:px-6 sm:text-sm"
+            >
+              <PhoneCall size={15} className="shrink-0" /> Call the live demo — {demoPhoneDisplay}
+            </a>
           </div>
+          <p className="font-mono-ui mt-3 text-[10px] tracking-[.08em] text-[#94836A]">
+            Call it right now — after hours is the whole point. · 15-min fit call, no contract required
+          </p>
           <div className="font-mono-ui mt-9 flex flex-wrap gap-x-8 gap-y-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#94836A]">
             <span className="flex items-center gap-2"><Check size={12} className="text-[#94C759]" /> 24/7 coverage</span>
-            <span className="flex items-center gap-2"><Check size={12} className="text-[#94C759]" /> Books from your rules</span>
+            <span className="flex items-center gap-2"><Check size={12} className="text-[#94C759]" /> Books by your rules</span>
             <span className="flex items-center gap-2"><Check size={12} className="text-[#94C759]" /> Humans stay in the loop</span>
           </div>
         </motion.div>
