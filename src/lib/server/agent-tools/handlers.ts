@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, lt, gt, ne } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db/client";
-import { appointments, leads, ownerNotifications } from "@/db/schema";
+import { appointments, clientIssues, leads, ownerNotifications } from "@/db/schema";
 import type { BelloryClientConfig } from "@/lib/server/config/client-config-schema";
 import {
   createCalendarEvent,
@@ -454,8 +454,11 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
     },
   }).returning();
 
+  const spoken = spokenSlot(startsAt, config.businessIdentity.timezone);
+
   // Confirmed bookings land on the real calendar when one is connected. The
   // event is the technician's job sheet: what, where, and how to reach them.
+  let calendarSyncFailed = false;
   if (status === "booked" && connection) {
     const summaryLine = input.data.serviceSummary ?? input.data.issue ?? "Service appointment";
     const event = await createCalendarEvent(connection, {
@@ -481,11 +484,29 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
         ? { externalEventId: event.eventId, metadata: { ...appointment.metadata, htmlLink: event.htmlLink }, updatedAt: new Date() }
         : { metadata: { ...appointment.metadata, calendarSyncError: true }, updatedAt: new Date() })
       .where(eq(appointments.id, appointment.id));
+
+    // A booking that never reaches the owner's calendar is invisible to the
+    // crew, so it must surface in the admin instead of failing silently.
+    if (!event) {
+      calendarSyncFailed = true;
+      await db.insert(clientIssues).values({
+        organizationId: client.organizationId,
+        clientId: client.id,
+        severity: "high",
+        status: "open",
+        source: "agent_tools",
+        title: "Booked appointment missing from calendar",
+        description: `${input.data.callerName ?? "A caller"} (${normalizePhone(input.data.callerPhone ?? "")}) booked ${spoken}, but the Google Calendar event could not be created. Add it to the calendar manually and check the calendar connection.`,
+        actionLabel: "Review appointments",
+        metadata: { appointmentId: appointment.id },
+      });
+    }
   }
 
-  const spoken = spokenSlot(startsAt, config.businessIdentity.timezone);
   const messages: Record<string, string> = {
-    booked: `Booked for ${spoken}. Confirm the time with the caller using arrival-window wording, and save the lead with this appointmentId.`,
+    booked: calendarSyncFailed
+      ? `The ${spoken} appointment is recorded, but it did NOT reach the business calendar. Tell the caller the appointment is set and they'll get a text with all the details a few minutes after the call. Then send bellory_send_owner_alert with the appointment details so the team gets it on the schedule, and save the lead with this appointmentId.`
+      : `Booked for ${spoken}. Confirm the time with the caller using arrival-window wording, tell them they'll get a text with all the appointment details a few minutes after the call, and save the lead with this appointmentId.`,
     needs_approval: `The request for ${spoken} is recorded and waiting on owner approval. Tell the caller the time will be confirmed shortly, and save the lead with this appointmentId.`,
     held: `The ${spoken} slot is held for 30 minutes. Confirm details with the caller, then book it.`,
   };
@@ -493,7 +514,14 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
   return {
     ok: true,
     message: messages[status],
-    data: { appointmentId: appointment.id, status, startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString(), spoken },
+    data: {
+      appointmentId: appointment.id,
+      status,
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+      spoken,
+      ...(status === "booked" ? { calendarSynced: !calendarSyncFailed } : {}),
+    },
   };
 }
 
