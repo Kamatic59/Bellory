@@ -373,14 +373,22 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
     || getOptionalEnv("ELEVENLABS_DEMO_VOICE_ID")
     || getOptionalEnv("ELEVENLABS_DEFAULT_VOICE_ID");
 
+  // Capped agents (demo lines) get a brevity layer so calls wind down
+  // naturally before ElevenLabs hard-cuts them at the duration limit.
+  const maxCallSeconds = config.aiVoice.maxCallDurationSeconds;
+  const brevitySection = maxCallSeconds
+    ? `\n\n# Short Calls\nThis line is a live demo with a hard time limit of about ${Math.round(maxCallSeconds / 60)} minutes per call, so keep things moving: shorter answers, one clarifying question at most per topic, and get to the point quickly. If the caller is exploring or chatting, that's fine — be warm but efficient. As the call gets long, start wrapping up naturally: summarize what you've covered and invite them to call back anytime.`
+    : "";
+
   return {
     name: config.aiVoice.agentDisplayName,
     conversation_config: {
+      ...(maxCallSeconds ? { conversation: { max_duration_seconds: maxCallSeconds } } : {}),
       agent: {
         first_message: config.aiVoice.greetingScript,
         language: "en",
         prompt: {
-          prompt: `${config.aiVoice.systemPrompt}${SPEECH_STYLE_SECTION}${TOOL_PROMPT_SECTION}`,
+          prompt: `${config.aiVoice.systemPrompt}${SPEECH_STYLE_SECTION}${TOOL_PROMPT_SECTION}${brevitySection}`,
           llm: "gemini-2.5-flash",
           tool_ids: toolIds,
           ...(knowledgeBase ? { knowledge_base: [{ type: "text", id: knowledgeBase.id, name: knowledgeBase.name }] } : {}),

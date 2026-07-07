@@ -17,11 +17,9 @@ import {
   Headphones,
   LockKeyhole,
   Minus,
-  Pause,
   PhoneCall,
   PhoneIncoming,
   PhoneMissed,
-  Play,
   ShieldCheck,
   Wrench,
   X,
@@ -48,9 +46,6 @@ type AnalyticsWindow = Window & {
 };
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
-type AudioContextConstructor = new () => AudioContext;
-type AudioWindow = Window & { webkitAudioContext?: AudioContextConstructor };
-type PhoneAudioGraph = { context: AudioContext; source: MediaElementAudioSourceNode };
 
 const defaultForm: WaitlistForm = {
   name: "",
@@ -69,7 +64,8 @@ const callVolumes = ["1-2 missed calls/week", "3-10 missed calls/week", "10-25 m
 const adOptions = ["Yes - Google Ads or LSAs", "Yes - both ads and SEO", "No paid ads right now", "Not sure"];
 const bookingSystems = ["Google Calendar", "Outlook Calendar", "ServiceTitan / field software", "Jobber / Housecall Pro", "Manual scheduling", "Not sure yet"];
 
-const demoAudioSrc = "/audio/bellory-garage-door-demo-v3.mp3";
+const demoPhoneDisplay = "(385) 340-1808";
+const demoPhoneHref = "tel:+13853401808";
 
 const heroTranscript = [
   { at: "9:47:02 PM", speaker: "caller" as const, text: "My garage door spring snapped and my car is stuck inside. Can someone come tonight?" },
@@ -108,11 +104,19 @@ const howSteps = [
 ];
 
 const demoTranscript = [
-  { at: "0:01", speaker: "Bellory", text: "Thanks for calling Canyon Garage Doors, this is Bellory. How can I help?" },
+  { at: "0:01", speaker: "Bellory", text: "Thanks for calling Wasatch Garage Door, this is Sam. How can I help?" },
   { at: "0:06", speaker: "Caller", text: "My garage door spring broke and the door won’t open. My car is stuck inside." },
-  { at: "0:13", speaker: "Bellory", text: "I can help with that. Is the door stuck fully closed, or is it off track too?" },
+  { at: "0:13", speaker: "Bellory", text: "Oh no — okay, let’s get you taken care of. Is the door stuck fully closed, or is it off track too?" },
   { at: "0:19", speaker: "Caller", text: "It looks closed. I don’t think it’s off track." },
-  { at: "0:24", speaker: "Bellory", text: "Got it. Because your car is trapped, I’ll treat this as urgent. Let me check the soonest opening, and if I can’t get this placed right away, I’ll forward you to someone who can help better." },
+  { at: "0:24", speaker: "Bellory", text: "Got it. Since your car’s trapped I’ll treat this as urgent — one sec, let me check the soonest opening for you." },
+];
+
+const demoTryItems = [
+  "Tell it a spring snapped and your car is trapped",
+  "Ask what a new opener install runs",
+  "Ask if they cover your neighborhood",
+  "Book a real appointment — it goes on a live calendar",
+  "Try to trip it up. Interrupt it. Mumble.",
 ];
 
 const summaryRows = [
@@ -145,6 +149,7 @@ const trustItems = [
 ] as const;
 
 const faqs = [
+  { question: "Can I hear it before I request anything?", answer: "Yes — call the live demo line at (385) 340-1808 any time, day or night. It answers as Wasatch Garage Door, a demo company running Bellory end to end. Ask it about pricing, coverage, or book a test appointment." },
   { question: "Do I have to manage another app?", answer: "No. Bellory is a done-for-you setup. We configure, test, and support the system with you." },
   { question: "Is Bellory only for garage door companies?", answer: "For the first private installs, yes. We are starting with garage door companies so the call flows, emergency rules, and booking logic are built for this niche before expanding." },
   { question: "Can Bellory handle urgent calls?", answer: "Yes. Bellory can identify situations like stuck-open doors, broken springs, trapped vehicles, off-track doors, and after-hours emergencies, then book or transfer based on your rules." },
@@ -325,77 +330,6 @@ function CallLogTicker() {
 /* ------------------------------ demo section ------------------------------ */
 
 function DemoSection() {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioGraphRef = useRef<PhoneAudioGraph | null>(null);
-  const [audioStatus, setAudioStatus] = useState<"idle" | "loading" | "playing" | "error">("idle");
-  const [audioMessage, setAudioMessage] = useState("");
-  const playing = audioStatus === "playing";
-
-  const ensurePhoneAudioGraph = async () => {
-    const audio = audioRef.current;
-    if (!audio || typeof window === "undefined") return;
-
-    const AudioContextClass = window.AudioContext || (window as AudioWindow).webkitAudioContext;
-    if (!AudioContextClass) return;
-
-    if (!audioGraphRef.current) {
-      const context = new AudioContextClass();
-      const source = context.createMediaElementSource(audio);
-      const highpass = context.createBiquadFilter();
-      const lowpass = context.createBiquadFilter();
-      const compressor = context.createDynamicsCompressor();
-      const gain = context.createGain();
-
-      highpass.type = "highpass";
-      highpass.frequency.value = 320;
-      lowpass.type = "lowpass";
-      lowpass.frequency.value = 3400;
-      compressor.threshold.value = -24;
-      compressor.knee.value = 18;
-      compressor.ratio.value = 5;
-      compressor.attack.value = 0.004;
-      compressor.release.value = 0.16;
-      gain.gain.value = 0.96;
-
-      source.connect(highpass);
-      highpass.connect(lowpass);
-      lowpass.connect(compressor);
-      compressor.connect(gain);
-      gain.connect(context.destination);
-      audioGraphRef.current = { context, source };
-    }
-
-    if (audioGraphRef.current.context.state === "suspended") {
-      await audioGraphRef.current.context.resume();
-    }
-  };
-
-  const playDemo = async () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (playing) {
-      audio.pause();
-      trackLandingEvent("demo_audio_pause", { location: "demo_section" });
-      return;
-    }
-
-    setAudioStatus("loading");
-    setAudioMessage("");
-    trackLandingEvent("demo_play_click", { location: "demo_section" });
-
-    try {
-      await ensurePhoneAudioGraph();
-      audio.currentTime = 0;
-      await audio.play();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Audio playback failed.";
-      setAudioStatus("error");
-      setAudioMessage("The demo audio could not play. Try the audio controls below or check your browser sound settings.");
-      trackLandingEvent("demo_audio_error", { location: "demo_section", error: errorMessage });
-    }
-  };
-
   const requestInstall = () => {
     trackLandingEvent("demo_section_cta_click", { target: "waitlist" });
     document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -404,74 +338,68 @@ function DemoSection() {
   return (
     <Section id="demo">
       <div>
-        <SectionMark index="03" label="Hear it" />
+        <SectionMark index="03" label="Try it yourself" />
         <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
-          <DisplayHeading>One broken-spring call,<br className="hidden sm:block" /> start to finish.</DisplayHeading>
-          <p className="max-w-sm text-base leading-7 text-[#B7AB98]">What Bellory asks, what it checks, and what your team receives after the caller hangs up.</p>
+          <DisplayHeading>Don’t take our word for it.<br className="hidden sm:block" /> Call it right now.</DisplayHeading>
+          <p className="max-w-sm text-base leading-7 text-[#B7AB98]">This number rings a live Bellory receptionist running a real demo company. No form, no signup — just call.</p>
         </div>
       </div>
 
       <div className="mt-10 grid gap-5 lg:grid-cols-[1.08fr_.92fr]">
-        {/* player + transcript */}
+        {/* live demo line + sample transcript */}
         <div>
           <div className="glass overflow-hidden rounded-[22px]">
-            <div className="flex flex-col gap-4 border-b border-white/[.07] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={playDemo}
-                  disabled={audioStatus === "loading"}
-                  aria-label={playing ? "Pause demo call" : "Play demo call"}
-                  className="grid size-14 shrink-0 place-items-center rounded-full bg-[#C7F76F] text-[#14110B] shadow-[0_10px_30px_rgba(199,247,111,.22)] transition hover:bg-[#D8FF9B] active:scale-95 disabled:opacity-60"
-                >
-                  {playing ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
-                </button>
-                <div>
-                  <p className="font-mono-ui text-[10px] font-semibold uppercase tracking-[.2em] text-[#94836A]">Recorded demo · 9:47 PM scenario</p>
-                  <p className="mt-1 text-lg font-bold tracking-[-.02em] text-white">Broken spring, car trapped</p>
+            <div className="border-b border-white/[.07] p-5 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="relative grid size-14 shrink-0 place-items-center rounded-full bg-[#C7F76F]/10 shadow-[inset_0_0_0_1px_rgba(199,247,111,.18)]">
+                    <PhoneCall size={20} className="text-[#C7F76F]" />
+                    <span className="pulse-ring absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-[#C7F76F]" />
+                  </span>
+                  <div>
+                    <p className="font-mono-ui text-[10px] font-semibold uppercase tracking-[.2em] text-[#A9D96B]">Live demo line · answers 24/7</p>
+                    <a
+                      href={demoPhoneHref}
+                      onClick={() => trackLandingEvent("demo_call_click", { location: "demo_section" })}
+                      className="font-display mt-1 block text-3xl font-medium tracking-[-.02em] text-white transition hover:text-[#D8FF9B] sm:text-4xl"
+                    >
+                      {demoPhoneDisplay}
+                    </a>
+                  </div>
                 </div>
+                <div className="hidden sm:block"><Waveform bars={16} /></div>
               </div>
-              <div className="hidden sm:block"><Waveform active={playing} bars={16} /></div>
+              <p className="font-mono-ui mt-4 text-[10px] leading-4 tracking-[.04em] text-[#94836A]">
+                Answers as Wasatch Garage Door — a demo company running Bellory end to end. Demo calls wrap up after about two minutes; real installs have no cap.
+              </p>
             </div>
 
             <div className="p-5 sm:p-6">
-              <audio
-                ref={audioRef}
-                src={demoAudioSrc}
-                preload="metadata"
-                controls
-                className="w-full rounded-xl border border-white/[.07] bg-[#13100B]/70"
-                onPlay={() => {
-                  void ensurePhoneAudioGraph();
-                  setAudioStatus("playing");
-                  setAudioMessage("");
-                }}
-                onPause={() => setAudioStatus("idle")}
-                onEnded={() => {
-                  setAudioStatus("idle");
-                  audioRef.current?.load();
-                }}
-                onError={() => {
-                  setAudioStatus("error");
-                  setAudioMessage("The demo audio could not load. Please refresh and try again.");
-                  trackLandingEvent("demo_audio_error", { location: "demo_section", error: "audio_element_error" });
-                }}
-              />
-              <p className="font-mono-ui mt-2.5 text-[10px] leading-4 tracking-[.04em] text-[#94836A]">
-                Human-style phone sample. Final installs use the configured Bellory voice for that business.
-              </p>
-              {audioMessage && <p className="mt-2 text-[13px] leading-5 text-[#F08B72]">{audioMessage}</p>}
+              <p className="font-mono-ui mb-3 text-[10px] font-semibold uppercase tracking-[.2em] text-[#94836A]">Things to try on the call</p>
+              <div className="flex flex-wrap gap-2.5">
+                {demoTryItems.map((item) => (
+                  <span key={item} className="font-mono-ui rounded-full border border-white/[.1] bg-white/[.03] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[.1em] text-[#C6B9A6]">
+                    {item}
+                  </span>
+                ))}
+              </div>
 
-              <div className="mt-6 space-y-4">
+              <div className="rule-dashed mt-6 opacity-50" />
+              <p className="font-mono-ui mt-5 mb-3 text-[10px] font-semibold uppercase tracking-[.2em] text-[#94836A]">How a call usually starts</p>
+              <div className="space-y-4">
                 {demoTranscript.map((line, index) => (
                   <div key={index} className="grid grid-cols-[44px_1fr] gap-3.5">
                     <p className="font-mono-ui pt-0.5 text-[10px] text-[#94836A]">{line.at}</p>
-                    <div className={`rounded-xl border p-3.5 transition-colors ${playing ? "border-[#C7F76F]/[.16] bg-[#C7F76F]/[.03]" : "border-white/[.06] bg-white/[.015]"}`}>
+                    <div className="rounded-xl border border-white/[.06] bg-white/[.015] p-3.5">
                       <p className={`font-mono-ui mb-1.5 text-[10px] font-semibold uppercase tracking-[.2em] ${line.speaker === "Bellory" ? "text-[#A9D96B]" : "text-[#94836A]"}`}>{line.speaker}</p>
                       <p className="text-[13px] leading-6 text-[#EFE1C8]">{line.text}</p>
                     </div>
                   </div>
                 ))}
               </div>
+              <p className="font-mono-ui mt-4 text-[10px] leading-4 tracking-[.04em] text-[#94836A]">
+                Sample exchange — your install gets its own voice, greeting, services, and rules.
+              </p>
             </div>
           </div>
         </div>
@@ -806,14 +734,19 @@ function LeadModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
-function StickyMobileCTA({ onRequest, onDemo }: { onRequest: () => void; onDemo: () => void }) {
+function StickyMobileCTA({ onRequest }: { onRequest: () => void }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[.08] bg-[#100E0A]/92 p-3 backdrop-blur-xl md:hidden">
       <div className="mx-auto grid max-w-md grid-cols-[1fr_auto] gap-2">
         <Button onClick={onRequest} className="py-3">Request private install</Button>
-        <Button kind="secondary" onClick={onDemo} className="px-3.5 py-3" ariaLabel="Hear demo">
-          <Headphones size={16} />
-        </Button>
+        <a
+          href={demoPhoneHref}
+          onClick={() => trackLandingEvent("demo_call_click", { location: "sticky_mobile" })}
+          aria-label="Call the live demo"
+          className="grid place-items-center rounded-xl border border-[#C7F76F]/30 bg-[#C7F76F]/[.08] px-3.5 py-3 text-[#C7F76F] transition hover:bg-[#C7F76F]/[.14] active:translate-y-px"
+        >
+          <PhoneCall size={16} />
+        </a>
       </div>
     </div>
   );
@@ -915,7 +848,7 @@ export function LandingPage() {
               Request private install <ArrowRight size={15} />
             </Button>
             <Button kind="secondary" onClick={() => scrollToSection("demo", "secondary_cta_click")} className="px-6 py-3.5 text-sm">
-              <Headphones size={15} /> Hear a real call flow
+              <PhoneCall size={15} /> Call the live demo
             </Button>
           </div>
           <div className="font-mono-ui mt-9 flex flex-wrap gap-x-8 gap-y-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#94836A]">
@@ -1187,7 +1120,7 @@ export function LandingPage() {
         </div>
       </footer>
 
-      <StickyMobileCTA onRequest={() => openLeadModal("sticky_mobile", "mobile_sticky_cta_click")} onDemo={() => scrollToSection("demo", "sticky_demo_click")} />
+      <StickyMobileCTA onRequest={() => openLeadModal("sticky_mobile", "mobile_sticky_cta_click")} />
       <LeadModal open={leadModalOpen} onClose={() => setLeadModalOpen(false)} />
     </main>
     </MotionConfig>

@@ -59,6 +59,9 @@ const aiVoiceSchema = z.object({
   disclosurePhrase: nonEmptyString,
   behaviorInstructions: nonEmptyString,
   systemPrompt: nonEmptyString,
+  // Hard cap on call length in seconds (ElevenLabs ends the call at this
+  // point). Used on demo/test agents to protect voice-minute credits.
+  maxCallDurationSeconds: z.coerce.number().int().min(60).max(3600).optional(),
 });
 
 const receptionistBrainSchema = z.object({
