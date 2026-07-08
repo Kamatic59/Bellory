@@ -150,6 +150,7 @@ const trustItems = [
 
 const faqs = [
   { question: "Can I hear it before I request anything?", answer: "Yes — call the live demo line at (385) 340-1808 any time, day or night. It answers as Wasatch Garage Door, a demo company running Bellory end to end. Ask it about pricing, coverage, or book a test appointment." },
+  { question: "How does the free month work?", answer: "We install Bellory free and you run it on your line for a full month. If it doesn't book you jobs you would have missed, you pay nothing and we take it off your line — no hard feelings. If it earns its keep, we'll talk simple monthly pricing. No contract either way." },
   { question: "Do I have to manage another app?", answer: "No. Bellory is a done-for-you setup. We configure, test, and support the system with you." },
   { question: "Is Bellory only for garage door companies?", answer: "For the first private installs, yes. We are starting with garage door companies so the call flows, emergency rules, and booking logic are built for this niche before expanding." },
   { question: "Can Bellory handle urgent calls?", answer: "Yes. Bellory can identify situations like stuck-open doors, broken springs, trapped vehicles, off-track doors, and after-hours emergencies, then book or transfer based on your rules." },
@@ -240,7 +241,7 @@ function CallTicket() {
     <motion.div
       initial={{ opacity: 0, y: 26, rotate: 0.6 }}
       animate={{ opacity: 1, y: 0, rotate: 0 }}
-      transition={{ delay: 0.25, duration: 0.7, ease: [0.21, 0.6, 0.35, 1] }}
+      transition={{ delay: 0.1, duration: 0.4, ease: [0.21, 0.6, 0.35, 1] }}
       className="relative w-full max-w-[460px]"
     >
       <div className="absolute -inset-8 rounded-[3rem] bg-[#C7F76F]/[.06] blur-3xl" aria-hidden="true" />
@@ -268,7 +269,7 @@ function CallTicket() {
               key={index}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 + index * 0.45, duration: 0.4 }}
+              transition={{ delay: 0.35 + index * 0.22, duration: 0.3 }}
               className="grid grid-cols-[64px_1fr] gap-3"
             >
               <p className="font-mono-ui pt-0.5 text-[10px] leading-4 text-[#94836A]">{line.at.replace(" PM", "")}</p>
@@ -291,7 +292,7 @@ function CallTicket() {
           <motion.span
             initial={{ opacity: 0, scale: 1.4, rotate: -8 }}
             animate={{ opacity: 1, scale: 1, rotate: -2 }}
-            transition={{ delay: 2.6, duration: 0.3, ease: "backOut" }}
+            transition={{ delay: 1.4, duration: 0.3, ease: "backOut" }}
             className="stamp text-[#C7F76F]"
           >
             <Check size={11} strokeWidth={3} /> Booked · 7:30 AM
@@ -448,7 +449,7 @@ function DemoSection() {
                 ))}
               </div>
               <Button onClick={requestInstall} className="mt-5 w-full">
-                Request a private install <ArrowRight size={14} />
+                Start my free month <ArrowRight size={14} />
               </Button>
             </div>
           </div>
@@ -560,9 +561,9 @@ function WaitlistCard({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!form.name.trim() || !form.company.trim() || !form.email.trim() || !form.phone.trim() || !form.serviceArea.trim()) {
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) {
       setStatus("error");
-      const validationMessage = "Add your name, business name, email, phone number, and service area so we can review your install.";
+      const validationMessage = "Add your name, email, and phone number so we can set up your free month.";
       setMessage(validationMessage);
       trackLandingEvent("form_error", { source, error: "missing_required_fields" });
       return;
@@ -580,7 +581,7 @@ function WaitlistCard({
       const data = await response.json().catch(() => null);
       if (!response.ok || data?.ok === false) throw new Error(data?.error || "Could not join waitlist");
       setStatus("success");
-      setMessage("Request received. We will review your company and reach out if your install is a fit for the next private batch.");
+      setMessage("Got it. We'll reach out to schedule your 15-minute fit call and get your free month set up.");
       trackLandingEvent("form_submitted", { source, callVolume: form.callVolume, runsAds: form.runsAds, bookingSystem: form.bookingSystem });
       setForm(defaultForm);
       setShowDetails(false);
@@ -599,10 +600,10 @@ function WaitlistCard({
       <div className="glass relative overflow-hidden rounded-[22px] p-5 sm:p-7">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(199,247,111,.07),transparent_36%)]" aria-hidden="true" />
         <form onSubmit={submit} className="relative">
-          <MonoTag>Private install request</MonoTag>
-          <h3 className="font-display mt-3 text-2xl font-medium tracking-[-.015em] text-white sm:text-3xl">Tell us about your company.</h3>
+          <MonoTag>First month free</MonoTag>
+          <h3 className="font-display mt-3 text-2xl font-medium tracking-[-.015em] text-white sm:text-3xl">Start your free month.</h3>
           <p className="mt-3 text-[13px] leading-6 text-[#B7AB98]">
-            We open garage door installs in small batches so each business gets configured, tested, and supported correctly. Tell us the basics and we will review the fit.
+            We install Bellory free and you run it for a full month. If it doesn’t book you jobs you’d have missed, you pay nothing. Leave your details and we’ll set up a 15-minute fit call.
           </p>
 
           <input
@@ -621,38 +622,12 @@ function WaitlistCard({
               <Input value={form.name} onChange={update("name")} placeholder="Your name" ariaLabel="Name" name="name" autoComplete="name" required />
             </div>
             <div>
-              <FieldLabel>Business name</FieldLabel>
-              <Input value={form.company} onChange={update("company")} placeholder="Company name" ariaLabel="Business name" name="company" autoComplete="organization" required />
-            </div>
-            <div>
-              <FieldLabel>Work email</FieldLabel>
-              <Input value={form.email} onChange={update("email")} placeholder="you@company.com" type="email" ariaLabel="Work email" name="email" autoComplete="email" required />
-            </div>
-            <div>
               <FieldLabel>Phone number</FieldLabel>
               <Input value={form.phone} onChange={update("phone")} placeholder="Best number" type="tel" ariaLabel="Phone number" name="phone" autoComplete="tel" required />
             </div>
-            <div>
-              <FieldLabel>City / service area</FieldLabel>
-              <Input value={form.serviceArea} onChange={update("serviceArea")} placeholder="Denver metro, North Dallas…" ariaLabel="City or service area" name="serviceArea" autoComplete="address-level2" required />
-            </div>
-            <div>
-              <FieldLabel>Missed calls per week</FieldLabel>
-              <Select value={form.callVolume} onChange={update("callVolume")} ariaLabel="Approximate missed calls per week" name="callVolume">
-                {callVolumes.map((item) => <option key={item}>{item}</option>)}
-              </Select>
-            </div>
-            <div>
-              <FieldLabel>Google Ads or LSAs?</FieldLabel>
-              <Select value={form.runsAds} onChange={update("runsAds")} ariaLabel="Do you run Google Ads or Local Services Ads?" name="runsAds">
-                {adOptions.map((item) => <option key={item}>{item}</option>)}
-              </Select>
-            </div>
-            <div>
-              <FieldLabel>Calendar / booking system</FieldLabel>
-              <Select value={form.bookingSystem} onChange={update("bookingSystem")} ariaLabel="Calendar or booking system" name="bookingSystem">
-                {bookingSystems.map((item) => <option key={item}>{item}</option>)}
-              </Select>
+            <div className="md:col-span-2">
+              <FieldLabel>Work email</FieldLabel>
+              <Input value={form.email} onChange={update("email")} placeholder="you@company.com" type="email" ariaLabel="Work email" name="email" autoComplete="email" required />
             </div>
           </div>
 
@@ -668,7 +643,7 @@ function WaitlistCard({
             }}
             className="font-mono-ui mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/[.14] px-4 py-3 text-[11px] font-semibold uppercase tracking-[.12em] text-[#B7AB98] transition hover:border-white/[.24] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/35"
           >
-            {showDetails ? "Hide optional setup details" : "+ Add optional setup details"}
+            {showDetails ? "Hide optional details" : "+ Add optional details — business, area, calendar"}
           </button>
 
           <AnimatePresence initial={false}>
@@ -680,6 +655,34 @@ function WaitlistCard({
                 transition={{ duration: 0.24, ease: "easeOut" }}
                 className="overflow-hidden"
               >
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <FieldLabel optional>Business name</FieldLabel>
+                    <Input value={form.company} onChange={update("company")} placeholder="Company name" ariaLabel="Business name" name="company" autoComplete="organization" />
+                  </div>
+                  <div>
+                    <FieldLabel optional>City / service area</FieldLabel>
+                    <Input value={form.serviceArea} onChange={update("serviceArea")} placeholder="Denver metro, North Dallas…" ariaLabel="City or service area" name="serviceArea" autoComplete="address-level2" />
+                  </div>
+                  <div>
+                    <FieldLabel optional>Missed calls per week</FieldLabel>
+                    <Select value={form.callVolume} onChange={update("callVolume")} ariaLabel="Approximate missed calls per week" name="callVolume">
+                      {callVolumes.map((item) => <option key={item}>{item}</option>)}
+                    </Select>
+                  </div>
+                  <div>
+                    <FieldLabel optional>Google Ads or LSAs?</FieldLabel>
+                    <Select value={form.runsAds} onChange={update("runsAds")} ariaLabel="Do you run Google Ads or Local Services Ads?" name="runsAds">
+                      {adOptions.map((item) => <option key={item}>{item}</option>)}
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <FieldLabel optional>Calendar / booking system</FieldLabel>
+                    <Select value={form.bookingSystem} onChange={update("bookingSystem")} ariaLabel="Calendar or booking system" name="bookingSystem">
+                      {bookingSystems.map((item) => <option key={item}>{item}</option>)}
+                    </Select>
+                  </div>
+                </div>
                 <div className="mt-4">
                   <FieldLabel optional>Setup details</FieldLabel>
                   <textarea
@@ -697,9 +700,19 @@ function WaitlistCard({
           </AnimatePresence>
 
           <Button disabled={status === "saving"} type="submit" className="mt-6 w-full py-3.5 text-sm">
-            {status === "saving" ? "Requesting install…" : "Request my private install"} <ArrowRight size={15} />
+            {status === "saving" ? "Setting it up…" : "Start my free month"} <ArrowRight size={15} />
           </Button>
           <p className="font-mono-ui mt-3 text-center text-[10px] tracking-[.06em] text-[#94836A]">No spam — we only use this to contact you about Bellory installs.</p>
+          <p className="font-mono-ui mt-1.5 text-center text-[10px] tracking-[.06em] text-[#94836A]">
+            Not ready?{" "}
+            <a
+              href={demoPhoneHref}
+              onClick={() => trackLandingEvent("demo_call_click", { location: `form_${source}` })}
+              className="text-[#A9D96B] underline decoration-[#A9D96B]/40 underline-offset-2 transition hover:text-[#D8FF9B]"
+            >
+              Call the live demo first: {demoPhoneDisplay}
+            </a>
+          </p>
           {message && (
             <p aria-live="polite" className={`mt-3 text-center text-[13px] leading-5 ${status === "error" ? "text-[#F08B72]" : "text-[#C7F76F]"}`}>{message}</p>
           )}
@@ -722,13 +735,13 @@ function LeadModal({ open, onClose }: { open: boolean; onClose: () => void }) {
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="Request private Bellory install"
+        aria-label="Start your free Bellory month"
       >
         <button
           type="button"
           onClick={onClose}
           className="absolute -right-2 -top-2 z-10 grid size-10 place-items-center rounded-full border border-white/10 bg-[#17130E] text-[#FFF7E8] shadow-xl transition hover:bg-white/[.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/35"
-          aria-label="Close private install form"
+          aria-label="Close free month form"
         >
           <X size={18} />
         </button>
@@ -742,7 +755,7 @@ function StickyMobileCTA({ onRequest }: { onRequest: () => void }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[.08] bg-[#100E0A]/92 p-3 backdrop-blur-xl md:hidden">
       <div className="mx-auto grid max-w-md grid-cols-[1fr_auto] gap-2">
-        <Button onClick={onRequest} className="py-3">Request private install</Button>
+        <Button onClick={onRequest} className="py-3">Start my free month</Button>
         <a
           href={demoPhoneHref}
           onClick={() => trackLandingEvent("demo_call_click", { location: "sticky_mobile" })}
@@ -813,21 +826,15 @@ export function LandingPage() {
             <p className="font-mono-ui -mt-0.5 text-[10px] font-semibold uppercase tracking-[.24em] text-[#94836A]">AI receptionist</p>
           </div>
         </Link>
-        <nav className="font-mono-ui hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[.14em] text-[#B7AB98] md:flex">
-          <a href="#how-it-works" className="transition hover:text-[#D8FF9B]">How it works</a>
-          <a href="#demo" className="transition hover:text-[#D8FF9B]">Demo</a>
-          <a href="#setup" className="transition hover:text-[#D8FF9B]">Setup</a>
-          <a href="#faq" className="transition hover:text-[#D8FF9B]">FAQ</a>
-        </nav>
         <Button onClick={() => openLeadModal("header", "header_cta_click")}>
-          <span className="hidden sm:inline">Request private install</span>
-          <span className="sm:hidden">Request install</span>
+          <span className="hidden sm:inline">Start my free month</span>
+          <span className="sm:hidden">Free month</span>
         </Button>
       </header>
 
       {/* hero */}
       <section className="relative z-10 mx-auto grid max-w-[1180px] gap-12 px-5 pb-16 pt-10 sm:px-8 sm:pt-16 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:gap-8 lg:pb-24">
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: [0.21, 0.6, 0.35, 1] }}>
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.21, 0.6, 0.35, 1] }}>
           <div className="mb-6 flex items-center gap-3">
             <span className="pulse-ring size-1.5 rounded-full bg-[#C7F76F]" />
             <MonoTag>Done-for-you AI receptionist</MonoTag>
@@ -844,7 +851,7 @@ export function LandingPage() {
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button onClick={() => openLeadModal("hero", "hero_cta_click")} className="px-6 py-3.5 text-sm">
-              Request private install <ArrowRight size={15} />
+              Start my free month <ArrowRight size={15} />
             </Button>
             <a
               href={demoPhoneHref}
@@ -854,8 +861,9 @@ export function LandingPage() {
               <PhoneCall size={15} className="shrink-0" /> Call the live demo — {demoPhoneDisplay}
             </a>
           </div>
-          <p className="font-mono-ui mt-3 text-[10px] tracking-[.08em] text-[#94836A]">
-            Call it right now — after hours is the whole point. · 15-min fit call, no contract required
+          <p className="font-mono-ui mt-3 text-[10px] leading-5 tracking-[.08em] text-[#94836A]">
+            <span className="block">Free install · pay nothing if month one doesn’t book you jobs · no contract</span>
+            <span className="block">Call the demo right now — after hours is the whole point.</span>
           </p>
           <div className="font-mono-ui mt-9 flex flex-wrap gap-x-8 gap-y-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#94836A]">
             <span className="flex items-center gap-2"><Check size={12} className="text-[#94C759]" /> 24/7 coverage</span>
@@ -1085,7 +1093,7 @@ export function LandingPage() {
       <Section className="pb-24 pt-4 sm:pb-28 sm:pt-8">
         <div className="grid gap-12 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
           <div>
-            <SectionMark index="08" label="Install review" />
+            <SectionMark index="08" label="First month free" />
             <DisplayHeading>Put Bellory on your next missed call.</DisplayHeading>
             <p className="mt-6 max-w-md text-base leading-7 text-[#B7AB98]">
               We open garage door installs in small batches so each business gets configured, tested, and supported correctly before Bellory answers real callers.
@@ -1098,6 +1106,12 @@ export function LandingPage() {
                   <Check size={14} className="ml-auto text-[#94C759]" />
                 </div>
               ))}
+            </div>
+            <div className="mt-8 rounded-[18px] border border-white/[.07] bg-white/[.02] p-5">
+              <MonoTag tone="honey">From the builders</MonoTag>
+              <p className="mt-3 text-[13px] leading-6 text-[#B7AB98]">
+                Bellory is run by the two people who built it. When you call, text, or want your call flow changed, you get us directly — not a support queue. We’re launching with a handful of garage door companies and shaping it around their real calls.
+              </p>
             </div>
           </div>
           <div>
@@ -1120,7 +1134,7 @@ export function LandingPage() {
             <Link href="/terms" className="text-[#94836A] transition hover:text-white">Terms</Link>
             <Link href="/contact" className="text-[#94836A] transition hover:text-white">Contact</Link>
             <a href="#waitlist" className="flex items-center gap-1 text-[#C7F76F] transition hover:text-[#D8FF9B]">
-              Request install <ArrowUpRight size={11} />
+              Start free month <ArrowUpRight size={11} />
             </a>
           </div>
         </div>
