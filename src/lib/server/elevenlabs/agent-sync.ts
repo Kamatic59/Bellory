@@ -430,7 +430,9 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
         language: "en",
         prompt: {
           prompt: `${config.aiVoice.systemPrompt}${SPEECH_STYLE_SECTION}${TOOL_PROMPT_SECTION}${brevitySection}`,
-          llm: "gemini-2.5-flash",
+          // Sonnet holds negative constraints (never narrate, never re-ask)
+          // far better than the flash-tier models; worth the extra latency.
+          llm: "claude-sonnet-4-5",
           // Low temperature keeps the agent from improvising reworded
           // repeats of questions it already asked.
           temperature: 0.3,
