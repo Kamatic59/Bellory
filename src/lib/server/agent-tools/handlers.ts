@@ -11,6 +11,7 @@ import {
   updateCalendarEventTime,
   type CalendarConnection,
 } from "@/lib/server/google/calendar";
+import type { AgentToolPayload } from "@/lib/server/agent-tool-responses";
 import type { AgentToolContext, AgentToolHandler, AgentToolResult } from "./runtime";
 
 /* ------------------------------ input helpers ----------------------------- */
@@ -41,6 +42,37 @@ function normalizePhone(value: string): string {
 function formatCents(cents: number): string {
   const dollars = cents / 100;
   return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
+}
+
+/**
+ * The number the caller is dialing from, passed by ElevenLabs as a system
+ * dynamic variable on real phone calls. Test/widget calls send the "unknown"
+ * placeholder, and blocked caller IDs arrive as non-numeric strings.
+ */
+function callerIdPhone(payload: AgentToolPayload): string | null {
+  const raw = payload.callerId;
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed || /unknown|anonymous|restricted|private/i.test(trimmed)) return null;
+  const normalized = normalizePhone(trimmed);
+  return /^\+?\d{7,15}$/.test(normalized) ? normalized : null;
+}
+
+/** Whether the business is open at this moment, with the spoken local time. */
+function businessOpenNow(config: BelloryClientConfig) {
+  const timeZone = config.businessIdentity.timezone;
+  const now = new Date();
+  const today = tzDateString(now, timeZone);
+  const weekday = tzWeekday(today, timeZone);
+  const isHoliday = config.locationsAndHours.holidays.some((holiday) => holiday.date === today);
+  const todaysHours = config.locationsAndHours.normalHours[weekday] ?? [];
+  const isOpen = !isHoliday && todaysHours.some((range) => {
+    const open = zonedTimeToUtc(today, range.open, timeZone);
+    const close = zonedTimeToUtc(today, range.close, timeZone);
+    return open !== null && close !== null && now >= open && now < close;
+  });
+  const localTime = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long", hour: "numeric", minute: "2-digit" }).format(now);
+  return { localTime, weekday, isOpen, isHoliday, todaysHours };
 }
 
 /* ---------------------------- timezone helpers ---------------------------- */
@@ -207,13 +239,22 @@ async function generateAvailability(
 
 /* --------------------------------- handlers ------------------------------- */
 
-const clientContext: AgentToolHandler = async ({ config }) => {
+const clientContext: AgentToolHandler = async ({ config, payload }) => {
   const { businessIdentity, aiVoice, locationsAndHours, calendarAndDispatch, receptionistBrain, servicesAndPricing, urgencyAndEscalation, complianceAndPolicies } = config;
+  const nowStatus = businessOpenNow(config);
+  const callerPhone = callerIdPhone(payload);
 
   return {
     ok: true,
-    message: `Live call context for ${businessIdentity.publicName} loaded. Follow these rules exactly; never invent pricing, availability, or promises beyond them.`,
+    message: `Live call context for ${businessIdentity.publicName} loaded. It is currently ${nowStatus.localTime} for this business, which is ${nowStatus.isOpen ? "OPEN" : "CLOSED"} right now.${callerPhone ? ` The caller is dialing from ${callerPhone} — confirm that number as their callback instead of asking them to dictate one.` : ""} Follow these rules exactly; never invent pricing, availability, or promises beyond them.`,
     data: {
+      now: {
+        localTime: nowStatus.localTime,
+        isOpen: nowStatus.isOpen,
+        isHoliday: nowStatus.isHoliday,
+        todaysHours: nowStatus.todaysHours,
+      },
+      callerPhone,
       businessName: businessIdentity.publicName,
       industry: businessIdentity.industry,
       timezone: businessIdentity.timezone,
@@ -326,7 +367,9 @@ const classifyUrgency: AgentToolHandler = async ({ config, payload }) => {
   });
 
   const vehicleTrapped = input.success ? input.data.vehicleTrapped === true : false;
-  const afterHours = input.success ? input.data.afterHours === true : false;
+  // After-hours is a fact about the clock, not a judgment call — the server
+  // computes it from the business's own hours instead of trusting the agent.
+  const afterHours = !businessOpenNow(config).isOpen;
   const urgency = matchedTriggers.length > 0 || vehicleTrapped ? "high" : afterHours ? "medium" : "low";
 
   const messages = {
@@ -394,7 +437,8 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
   }
 
   const address = input.data.address ?? input.data.serviceAddress;
-  if (kind === "book" && (!input.data.callerName || !input.data.callerPhone || !address)) {
+  const callerPhone = input.data.callerPhone ?? callerIdPhone(context.payload) ?? undefined;
+  if (kind === "book" && (!input.data.callerName || !callerPhone || !address)) {
     return askAgainResult("Before booking, collect the caller's name, callback phone number, and the full service address, then book again with all three.");
   }
 
@@ -436,7 +480,7 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
     clientId: client.id,
     calendarConnectionId: connection?.id ?? null,
     callerName: input.data.callerName,
-    callerPhone: input.data.callerPhone ? normalizePhone(input.data.callerPhone) : null,
+    callerPhone: callerPhone ? normalizePhone(callerPhone) : null,
     serviceSummary: input.data.serviceSummary ?? input.data.issue,
     startsAt,
     endsAt,
@@ -465,7 +509,7 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
       summary: `${summaryLine} — ${input.data.callerName ?? "caller"} (Bellory)`,
       description: [
         input.data.callerName ? `Customer: ${input.data.callerName}` : null,
-        input.data.callerPhone ? `Phone: ${normalizePhone(input.data.callerPhone)}` : null,
+        callerPhone ? `Phone: ${normalizePhone(callerPhone)}` : null,
         input.data.email ? `Email: ${input.data.email}` : null,
         address ? `Address: ${address}` : null,
         input.data.issue ? `Issue: ${input.data.issue}` : null,
@@ -496,7 +540,7 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
         status: "open",
         source: "agent_tools",
         title: "Booked appointment missing from calendar",
-        description: `${input.data.callerName ?? "A caller"} (${normalizePhone(input.data.callerPhone ?? "")}) booked ${spoken}, but the Google Calendar event could not be created. Add it to the calendar manually and check the calendar connection.`,
+        description: `${input.data.callerName ?? "A caller"} (${normalizePhone(callerPhone ?? "")}) booked ${spoken}, but the Google Calendar event could not be created. Add it to the calendar manually and check the calendar connection.`,
         actionLabel: "Review appointments",
         metadata: { appointmentId: appointment.id },
       });
@@ -549,7 +593,7 @@ const urgencyLevels = ["low", "medium", "high"] as const;
 
 const leadsUpsert: AgentToolHandler = async (context) => {
   const input = leadInput.safeParse(context.payload);
-  const phoneRaw = input.success ? input.data.phone ?? input.data.callerPhone : undefined;
+  const phoneRaw = (input.success ? input.data.phone ?? input.data.callerPhone : undefined) ?? callerIdPhone(context.payload);
   if (!input.success || !phoneRaw) {
     return askAgainResult("Ask the caller for a callback phone number, then save the lead again.");
   }
@@ -663,7 +707,7 @@ const lookupInput = z.object({
 
 const appointmentsLookup: AgentToolHandler = async (context) => {
   const input = lookupInput.safeParse(context.payload);
-  const phoneRaw = input.success ? input.data.phone ?? input.data.callerPhone : undefined;
+  const phoneRaw = (input.success ? input.data.phone ?? input.data.callerPhone : undefined) ?? callerIdPhone(context.payload);
   if (!phoneRaw) return askAgainResult("Ask the caller for the phone number the appointment was booked under, then look it up again.");
 
   const db = getDb();

@@ -63,6 +63,10 @@ function buildToolDefinitions(clientId: string, baseUrl: string): WebhookToolCon
   const constants: Record<string, JsonProperty> = {
     client_id: { type: "string", constant_value: clientId },
     conversation_id: { type: "string", dynamic_variable: "system__conversation_id" },
+    // The number the caller dials from, so tools can default the callback
+    // number instead of making callers dictate digits. A placeholder value
+    // is set on the agent so widget/test calls (no caller id) don't break.
+    caller_id: { type: "string", dynamic_variable: "system__caller_id" },
   };
 
   function tool(
@@ -135,7 +139,7 @@ function buildToolDefinitions(clientId: string, baseUrl: string): WebhookToolCon
     tool(
       "bellory_book_appointment",
       "calendar/book",
-      "Book or request an appointment at a specific time. Only use a starts_at value returned by bellory_check_availability. You must collect the caller's name, callback phone number, and the full service address before booking — the technician needs to know where to go. Before calling this, read the full recap back to the caller (day, time, name, phone, address) and get a clear yes. Ask for email only if the caller prefers email contact.",
+      "Book or request an appointment at a specific time. Only use a starts_at value returned by bellory_check_availability. You must collect the caller's name and full service address, and confirm a callback number — prefer confirming the number they're calling from (shown in client context) over asking them to dictate one. Before calling this, read the full recap back to the caller (day, time, name, number, address) and get a clear yes. Ask for email only if the caller prefers email contact.",
       "The chosen slot, caller contact details, and the job.",
       {
         starts_at: { type: "string", description: "Exact startsAt ISO timestamp of the chosen slot from bellory_check_availability." },
@@ -151,12 +155,11 @@ function buildToolDefinitions(clientId: string, baseUrl: string): WebhookToolCon
     tool(
       "bellory_find_appointments",
       "appointments/lookup",
-      "Find a caller's upcoming appointments by the phone number they booked under. Use this first whenever a caller wants to change, cancel, or ask about an existing appointment.",
+      "Find a caller's upcoming appointments by the phone number they booked under. Use this first whenever a caller wants to change, cancel, or ask about an existing appointment. If no phone is passed, the number the caller is dialing from is used automatically.",
       "The caller's phone number.",
       {
-        phone: { type: "string", description: "The phone number the appointment was booked under." },
+        phone: { type: "string", description: "The phone number the appointment was booked under, if different from the number they're calling from." },
       },
-      ["phone"],
     ),
     tool(
       "bellory_reschedule_appointment",
@@ -264,7 +267,7 @@ Use these tools instead of guessing. Never mention tool names to callers.
 - bellory_check_service_area: before promising service or booking, check the caller's city or ZIP.
 - bellory_classify_urgency: after the caller describes their problem.
 - bellory_check_availability: always call before offering any time. Never invent availability.
-- bellory_book_appointment: only with a starts_at value from bellory_check_availability, only after you have the caller's name, phone number, and full service address, and only after the caller has confirmed the full recap (see Booking an Appointment below).
+- bellory_book_appointment: only with a starts_at value from bellory_check_availability, only after you have the caller's name, a confirmed callback number, and the full service address, and only after the caller has confirmed the full recap (see Booking an Appointment below).
 - bellory_find_appointments: when a caller asks about an existing appointment, look it up by their phone number.
 - bellory_reschedule_appointment / bellory_cancel_appointment: after finding the appointment and confirming the name matches.
 - bellory_save_lead: before ending every real call, save the caller's details.
@@ -281,22 +284,32 @@ Tool discipline:
 - Never ask "are you still there?" after your own lookup — the caller is waiting on you, not the other way around.
 - If a tool genuinely returns nothing useful, do not keep waiting or apologize for the delay. Move on immediately: take the caller's details and tell them the team will follow up.
 
+# Callback Numbers — never make the caller dictate digits
+bellory_get_client_context tells you the number the caller is dialing from. Confirm that instead of asking for a number: "And is the number you're calling from the best one to reach you at?" If you need to identify it out loud, use just the last four digits. Only take a different number if the caller offers one — then read it back digit by digit, in groups of three, three, and four, before using it. If the context shows no caller number (a blocked or test call), ask normally and read it back the same way.
+
 # Booking an Appointment — confirm everything before you book
 Never call bellory_book_appointment until the caller has heard the full recap and said yes.
-1. Agree on a time from bellory_check_availability, then collect naturally, one at a time: full name, best callback number, and the full service address including street and city.
-2. Read the whole plan back in one short recap — the day and time, their name, the phone number, and the address: "Okay, so that's Tuesday morning between eight and ten for Sarah, I've got you at 4-2 Elm Street in Sandy, and the best number is 8-0-1... 5-5-5... 0-1-9-8 — did I get all that right?"
-3. If anything is off, fix it and recap just the corrected part. Only call bellory_book_appointment after a clear yes.
-4. Once the tool confirms the booking, close it out warmly: confirm the time one last time and tell the caller they'll get a text message with all the appointment details a few minutes after the call.
+1. Agree on a time from bellory_check_availability, then collect naturally, one at a time: full name and the full service address including street and city. If the street name is unusual or hard to catch, spell it back once — "That's Kesler — K-E-S-L-E-R — Court?" — before moving on.
+2. Confirm the callback number per the Callback Numbers rule above.
+3. Read the whole plan back in one short recap — the day and time, their name, the number's last four digits, and the address: "Okay, so that's Tuesday morning between eight and ten for Sarah, at 42 Elm Street in Sandy, and the technician will call the number ending zero-one-nine-eight — did I get all that right?"
+4. If anything is off, fix it and recap just the corrected part. Only call bellory_book_appointment after a clear yes.
+5. Once the tool confirms the booking, close it out warmly: confirm the time one last time and tell the caller they'll get a text message with all the appointment details a few minutes after the call.
 
 Never tell a caller an appointment is booked unless the booking tool just confirmed it on this call. If the tool fails, errors, or you are not sure it went through, be straight with them: say you've got all their details and the team will confirm the exact time by text shortly, then save the lead and send bellory_send_owner_alert so a person locks it in. A caller who is told the truth calls back; a caller with a phantom appointment is lost for good.
 
 # Changing or Cancelling an Existing Appointment
 You can look up, reschedule, and cancel appointments yourself:
-1. Ask for the phone number the appointment was booked under, then call bellory_find_appointments.
+1. Call bellory_find_appointments — it automatically uses the number they're calling from. Only ask for a number if nothing turns up or they say they booked under a different one.
 2. Before changing anything, confirm the name on the appointment matches the caller ("Can I confirm the name on that appointment?").
 3. To reschedule: ask what day works, call bellory_check_availability, offer one slot, then bellory_reschedule_appointment with the appointment_id and the new slot's startsAt. Confirm the new time back to the caller.
 4. To cancel: confirm once ("Just to be sure — cancel the Monday morning repair?"), then bellory_cancel_appointment. Offer to book a new time whenever they're ready.
 5. If nothing is found under their number, double-check the number once; if still nothing, take their details with bellory_save_lead and send bellory_send_owner_alert so the team follows up. Never claim a change happened unless the tool confirmed it.
+
+# Silence, Dead Air, and Nobody There
+- If the caller goes quiet mid-conversation, give it a breath, then check in once, warmly: "Still with me?"
+- If there's still nothing, offer once more — "If you're there, I can grab your details and have someone call you back." — then say a friendly goodbye and end the call.
+- If the line opens and nobody ever speaks, or it's clearly a recording or a pocket dial, say a brief "Sounds like I've lost you — call back anytime!" and end the call.
+- Never sit in silence and never keep an empty line open. A caller who says nothing for a long stretch is gone.
 
 # Do Not Loop
 If you have refused the same request or given the same answer twice, do not repeat it a third time. Move the call forward: offer to take a message for the owner, or politely wrap up. Say something like "I've got that noted and I'll make sure the team follows up — is there anything else I can help you with?" Endless repetition frustrates callers more than a clear no.`;
@@ -380,10 +393,25 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
     ? `\n\n# Short Calls\nThis line is a live demo with a hard time limit of about ${Math.round(maxCallSeconds / 60)} minutes per call, so keep things moving: shorter answers, one clarifying question at most per topic, and get to the point quickly. If the caller is exploring or chatting, that's fine — be warm but efficient. As the call gets long, start wrapping up naturally: summarize what you've covered and invite them to call back anytime.`
     : "";
 
+  // Domain vocabulary and this client's own names bias speech recognition
+  // toward the words callers actually say, cutting mishears on the terms
+  // that matter most (business name, cities, garage-door parts).
+  const asrKeywords = Array.from(new Set(
+    [
+      config.businessIdentity.publicName,
+      config.aiVoice.receptionistName,
+      ...config.locationsAndHours.serviceAreas.map((area) => area.city),
+      "garage door", "torsion spring", "broken spring", "opener", "off track",
+      "stuck open", "stuck closed", "keypad", "remote", "panel", "estimate",
+      "reschedule", "cancel", "appointment",
+    ].filter((word): word is string => typeof word === "string" && word.trim().length > 1),
+  )).slice(0, 40);
+
   return {
     name: config.aiVoice.agentDisplayName,
     conversation_config: {
       ...(maxCallSeconds ? { conversation: { max_duration_seconds: maxCallSeconds } } : {}),
+      asr: { keywords: asrKeywords },
       agent: {
         first_message: config.aiVoice.greetingScript,
         language: "en",
@@ -397,6 +425,7 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
           dynamic_variable_placeholders: {
             client_id: clientId,
             business_name: config.businessIdentity.publicName,
+            system__caller_id: "unknown",
           },
         },
       },
