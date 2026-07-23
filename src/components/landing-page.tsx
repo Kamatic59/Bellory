@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { Button, Input, Select } from "./ui";
+import { demoPhoneDisplay, demoPhoneHref } from "@/lib/config/site";
 
 type WaitlistForm = {
   name: string;
@@ -63,9 +64,6 @@ const defaultForm: WaitlistForm = {
 const callVolumes = ["1-2 missed calls/week", "3-10 missed calls/week", "10-25 missed calls/week", "25+ missed calls/week"];
 const adOptions = ["Yes - Google Ads or LSAs", "Yes - both ads and SEO", "No paid ads right now", "Not sure"];
 const bookingSystems = ["Google Calendar", "Outlook Calendar", "ServiceTitan / field software", "Jobber / Housecall Pro", "Manual scheduling", "Not sure yet"];
-
-const demoPhoneDisplay = "(385) 340-1808";
-const demoPhoneHref = "tel:+13853401808";
 
 const heroTranscript = [
   { at: "9:47:02 PM", speaker: "caller" as const, text: "My garage door spring snapped and my car is stuck inside. Can someone come tonight?" },
@@ -708,7 +706,7 @@ function WaitlistCard({
             <a
               href={demoPhoneHref}
               onClick={() => trackLandingEvent("demo_call_click", { location: `form_${source}` })}
-              className="text-[#A9D96B] underline decoration-[#A9D96B]/40 underline-offset-2 transition hover:text-[#D8FF9B]"
+              className="-my-2 inline-block py-2 text-[#A9D96B] underline decoration-[#A9D96B]/40 underline-offset-2 transition hover:text-[#D8FF9B]"
             >
               Call the live demo first: {demoPhoneDisplay}
             </a>
@@ -1130,10 +1128,10 @@ export function LandingPage() {
             </p>
           </div>
           <div className="font-mono-ui flex flex-wrap gap-6 text-[10px] font-semibold uppercase tracking-[.16em]">
-            <Link href="/privacy" className="text-[#94836A] transition hover:text-white">Privacy</Link>
-            <Link href="/terms" className="text-[#94836A] transition hover:text-white">Terms</Link>
-            <Link href="/contact" className="text-[#94836A] transition hover:text-white">Contact</Link>
-            <a href="#waitlist" className="flex items-center gap-1 text-[#C7F76F] transition hover:text-[#D8FF9B]">
+            <Link href="/privacy" className="-my-3 inline-flex items-center py-3 text-[#94836A] transition hover:text-white">Privacy</Link>
+            <Link href="/terms" className="-my-3 inline-flex items-center py-3 text-[#94836A] transition hover:text-white">Terms</Link>
+            <Link href="/contact" className="-my-3 inline-flex items-center py-3 text-[#94836A] transition hover:text-white">Contact</Link>
+            <a href="#waitlist" className="-my-3 inline-flex items-center gap-1 py-3 text-[#C7F76F] transition hover:text-[#D8FF9B]">
               Start free month <ArrowUpRight size={11} />
             </a>
           </div>
