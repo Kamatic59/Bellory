@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   FileChartColumn,
   Menu,
+  PhoneOutgoing,
   Plus,
   Search,
   Settings,
@@ -20,6 +21,7 @@ import {
 import { Button } from "./ui";
 
 export const pages = [
+  { id: "sales", label: "Sales", icon: PhoneOutgoing, group: "Operate", hint: "Dials, pilots, the climb to 25" },
   { id: "accounts", label: "Accounts", icon: Building2, group: "Operate", hint: "Find every business" },
   { id: "setup", label: "New Business Setup", icon: ClipboardCheck, group: "Operate", hint: "Launch checklist" },
   { id: "account", label: "Account Detail", icon: Activity, group: "Operate", hint: "Configure one business" },
@@ -225,7 +227,7 @@ export function AppShell({
       </div>
 
       <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 rounded-2xl border border-white/[.09] bg-[#17130E]/94 p-1.5 shadow-2xl backdrop-blur-xl md:hidden">
-        {[pages[0], pages[1], pages[3], pages[4]].map((item) => {
+        {[pages[0], pages[1], pages[4], pages[5]].map((item) => {
           const Icon = item.icon;
           return (
             <button

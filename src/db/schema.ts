@@ -386,6 +386,50 @@ export const auditLogs = pgTable("audit_logs", {
   orgCreatedIdx: index("audit_logs_org_created_idx").on(table.organizationId, table.createdAt),
 }));
 
+export const salesProspectStatus = pgEnum("sales_prospect_status", ["untouched", "working", "demo_sent", "pilot", "paying", "not_fit"]);
+export const salesDialOutcome = pgEnum("sales_dial_outcome", [
+  "no_answer",
+  "voicemail",
+  "gatekeeper",
+  "conversation",
+  "demo_committed",
+  "pilot_agreed",
+  "became_paying",
+  "not_fit",
+]);
+
+export const salesProspects = pgTable("sales_prospects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  company: text("company").notNull(),
+  phone: text("phone"),
+  altPhones: jsonb("alt_phones").$type<Array<{ label: string; phone: string }>>().default([]).notNull(),
+  area: text("area"),
+  tier: integer("tier").default(1).notNull(),
+  research: text("research"),
+  angle: text("angle"),
+  status: salesProspectStatus("status").default("untouched").notNull(),
+  nextActionAt: timestamp("next_action_at", { withTimezone: true }),
+  notes: text("notes"),
+  source: text("source").default("manual").notNull(),
+  ...timestamps,
+}, (table) => ({
+  companyIdx: uniqueIndex("sales_prospects_company_idx").on(table.company),
+  statusIdx: index("sales_prospects_status_idx").on(table.status),
+  nextActionIdx: index("sales_prospects_next_action_idx").on(table.nextActionAt),
+}));
+
+export const salesDials = pgTable("sales_dials", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  prospectId: uuid("prospect_id").notNull().references(() => salesProspects.id, { onDelete: "cascade" }),
+  outcome: salesDialOutcome("outcome").notNull(),
+  caller: text("caller"),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  prospectIdx: index("sales_dials_prospect_id_idx").on(table.prospectId),
+  createdIdx: index("sales_dials_created_at_idx").on(table.createdAt),
+}));
+
 export const evalScenarios = pgTable("eval_scenarios", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),

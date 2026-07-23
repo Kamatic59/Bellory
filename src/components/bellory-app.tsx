@@ -11,7 +11,7 @@ import {
   type ClientIssue,
   type CreateClientPayload,
 } from "@/lib/client-api";
-import { AppShell, PageId } from "./app-shell";
+import { AppShell, PageId, pages } from "./app-shell";
 import {
   AccountDetailPage,
   AccountsPage,
@@ -20,6 +20,7 @@ import {
   OperatorSettingsPage,
   ReportsPage,
 } from "./operator-pages";
+import { SalesPage } from "./sales-page";
 
 export function BelloryApp() {
   const [active, setActive] = useState<PageId>("accounts");
@@ -60,6 +61,9 @@ export function BelloryApp() {
 
   useEffect(() => {
     queueMicrotask(() => {
+      // Deep link: /admin#sales opens that page directly (handy as a phone bookmark).
+      const hash = window.location.hash.slice(1);
+      if (pages.some((page) => page.id === hash)) setActive(hash as PageId);
       void refreshClients();
       void refreshIssues();
     });
@@ -68,6 +72,7 @@ export function BelloryApp() {
   const navigate = (id: PageId) => {
     if (id === "account") setAccountView("directory");
     setActive(id);
+    window.history.replaceState(null, "", `#${id}`);
   };
 
   const openAccount = (id: string) => {
@@ -92,6 +97,7 @@ export function BelloryApp() {
   };
 
   const content = {
+    sales: <SalesPage />,
     accounts: (
       <AccountsPage
         clients={clients}
