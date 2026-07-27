@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, LegalSection } from "@/components/legal-page";
-import { demoPhoneDisplay, demoPhoneHref } from "@/lib/config/site";
+import { contactEmail, contactEmailHref, demoPhoneDisplay, demoPhoneHref } from "@/lib/config/site";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -13,8 +13,14 @@ export default function ContactPage() {
     <LegalPage
       eyebrow="Contact"
       title="Contact Bellory"
-      description="Hear Bellory live on the demo line any time, or request an install review and we'll call you back directly — Bellory is run by the two people who built it."
+      description="Email us, hear Bellory live on the demo line, or request an install review and we'll call you back directly — Bellory is run by the two people who built it."
     >
+      <LegalSection title="Email us">
+        <p>Questions about installs, pricing, or anything else — email us and one of the two of us replies personally.</p>
+        <p>
+          <a href={contactEmailHref} className="font-bold text-[#C7F76F]">{contactEmail}</a>
+        </p>
+      </LegalSection>
       <LegalSection title="Hear Bellory live — 24/7">
         <p>
           The fastest way to understand Bellory is to call it. The demo line answers as Wasatch Garage Door, a demo company running Bellory end to end. Ask about pricing, coverage, or book a test appointment — no form, no signup.
@@ -30,7 +36,7 @@ export default function ContactPage() {
         </p>
       </LegalSection>
       <LegalSection title="Existing setup conversations">
-        <p>If you are already in a Bellory setup process, use the direct contact method shared during onboarding so urgent configuration changes do not get missed.</p>
+        <p>If you are already in a Bellory setup process, use the direct contact method shared during onboarding so urgent configuration changes do not get missed — or email <a href={contactEmailHref} className="font-bold text-[#C7F76F]">{contactEmail}</a>.</p>
       </LegalSection>
     </LegalPage>
   );

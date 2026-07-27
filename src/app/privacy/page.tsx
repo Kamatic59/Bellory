@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal-page";
+import { contactEmail, contactEmailHref } from "@/lib/config/site";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -25,7 +26,9 @@ export default function PrivacyPage() {
         <p>Bellory is designed for phone answering, scheduling, summaries, and fallback routing. Before any production launch, each business setup should define call recording, consent, retention, and escalation rules that fit the business and location.</p>
       </LegalSection>
       <LegalSection title="Contact">
-        <p>For privacy questions, use the contact page or include the request in your Bellory private install submission.</p>
+        <p>
+          For privacy questions, email <a href={contactEmailHref} className="font-bold text-[#C7F76F]">{contactEmail}</a>, use the contact page, or include the request in your Bellory private install submission.
+        </p>
       </LegalSection>
     </LegalPage>
   );

@@ -25,7 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { Button, Input, Select } from "./ui";
-import { demoPhoneDisplay, demoPhoneHref } from "@/lib/config/site";
+import { contactEmail, contactEmailHref, demoPhoneDisplay, demoPhoneHref } from "@/lib/config/site";
 
 type WaitlistForm = {
   name: string;
@@ -1128,6 +1128,7 @@ export function LandingPage() {
             </p>
           </div>
           <div className="font-mono-ui flex flex-wrap gap-6 text-[10px] font-semibold uppercase tracking-[.16em]">
+            <a href={contactEmailHref} className="-my-3 inline-flex items-center py-3 normal-case tracking-normal text-[#94836A] transition hover:text-white">{contactEmail}</a>
             <Link href="/privacy" className="-my-3 inline-flex items-center py-3 text-[#94836A] transition hover:text-white">Privacy</Link>
             <Link href="/terms" className="-my-3 inline-flex items-center py-3 text-[#94836A] transition hover:text-white">Terms</Link>
             <Link href="/contact" className="-my-3 inline-flex items-center py-3 text-[#94836A] transition hover:text-white">Contact</Link>
