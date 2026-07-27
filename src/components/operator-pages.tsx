@@ -2280,7 +2280,7 @@ export function OperatorSettingsPage() {
           <div className="grid gap-3 md:grid-cols-2">
             <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Workspace name</p><Input value="Bellory HQ" disabled /></div>
             <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Timezone</p><Input value="America/Denver" disabled /></div>
-            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">App URL</p><Input value="https://bellory.vercel.app" disabled /></div>
+            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">App URL</p><Input value="https://usebellory.com" disabled /></div>
             <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Primary verticals</p><Input value="Home services" disabled /></div>
           </div>
         </Card>

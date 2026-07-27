@@ -6,7 +6,7 @@ import "./globals.css";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], axes: ["opsz", "SOFT", "WONK"] });
-const siteUrl = new URL(process.env.NEXT_PUBLIC_APP_URL || "https://bellory.vercel.app");
+const siteUrl = new URL(process.env.NEXT_PUBLIC_APP_URL || "https://usebellory.com");
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
