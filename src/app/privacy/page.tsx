@@ -27,7 +27,7 @@ export default function PrivacyPage() {
       </LegalSection>
       <LegalSection title="Contact">
         <p>
-          For privacy questions, email <a href={contactEmailHref} className="font-bold text-[#C7F76F]">{contactEmail}</a>, use the contact page, or include the request in your Bellory private install submission.
+          For privacy questions, email <a href={contactEmailHref} className="font-bold text-[#C6F23D]">{contactEmail}</a>, use the contact page, or include the request in your Bellory private install submission.
         </p>
       </LegalSection>
     </LegalPage>

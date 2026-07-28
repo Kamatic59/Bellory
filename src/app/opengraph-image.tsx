@@ -4,10 +4,10 @@ export const alt = "Bellory — the AI receptionist that answers missed garage d
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const ink = "#100E0A";
-const cream = "#FFF7E8";
-const mint = "#C7F76F";
-const muted = "#94836A";
+const ink = "#12120E";
+const cream = "#F3F1E6";
+const mint = "#C6F23D";
+const muted = "#99978C";
 
 export default function OpengraphImage() {
   return new ImageResponse(
@@ -22,31 +22,26 @@ export default function OpengraphImage() {
           padding: "64px 72px",
           backgroundColor: ink,
           backgroundImage:
-            "radial-gradient(ellipse 900px 500px at 85% -10%, rgba(199,247,111,0.14), transparent), radial-gradient(ellipse 700px 400px at 0% 110%, rgba(246,198,106,0.08), transparent)",
+            "radial-gradient(ellipse 900px 500px at 85% -10%, rgba(198,242,61,0.14), transparent), radial-gradient(ellipse 700px 400px at 0% 110%, rgba(255,122,26,0.08), transparent)",
           color: cream,
           fontFamily: "sans-serif",
         }}
       >
         {/* top rail */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 44,
-                height: 44,
-                borderRadius: 12,
-                backgroundColor: "rgba(199,247,111,0.12)",
-                border: "1px solid rgba(199,247,111,0.35)",
-                color: mint,
-                fontSize: 24,
-              }}
-            >
-              ●
-            </div>
-            <div style={{ display: "flex", fontSize: 34, letterSpacing: -1, color: cream }}>Bellory</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <svg width="63" height="42" viewBox="0 0 288 192">
+              <path
+                d="M122 0 L170 0 C169 6 168 11 167 16 L100 160 C93 175 80 188 48 192 L0 192 C1 186 2 181 3 176 L70 32 C77 17 90 4 122 0 Z"
+                fill={mint}
+              />
+              <path
+                d="M122 0 L170 0 C169 6 168 11 167 16 L100 160 C93 175 80 188 48 192 L0 192 C1 186 2 181 3 176 L70 32 C77 17 90 4 122 0 Z"
+                fill={mint}
+                transform="translate(117 0)"
+              />
+            </svg>
+            <div style={{ display: "flex", fontSize: 38, fontWeight: 700, letterSpacing: -1, color: cream }}>Bellory</div>
           </div>
           <div style={{ display: "flex", fontSize: 18, letterSpacing: 5, textTransform: "uppercase", color: muted }}>
             AI receptionist · Private installs
@@ -69,13 +64,13 @@ export default function OpengraphImage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            borderTop: "1px dashed rgba(255,247,232,0.28)",
+            borderTop: "1px dashed rgba(243,241,230,0.28)",
             paddingTop: 30,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 22, color: muted }}>
             <div style={{ display: "flex", color: muted }}>9:47 PM</div>
-            <div style={{ display: "flex", color: "#C6B9A6" }}>Broken spring · car trapped</div>
+            <div style={{ display: "flex", color: "#99978C" }}>Broken spring · car trapped</div>
           </div>
           <div
             style={{

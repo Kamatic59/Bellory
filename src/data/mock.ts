@@ -1,11 +1,11 @@
 import { Client, Lead } from "@/lib/types";
 
 export const clients: Client[] = [
-  { id: "davis", name: "Davis Garage Doors", industry: "Garage Door Repair", status: "Live", plan: "Premium", mrr: 799, phone: "Live", calendar: "Connected", ai: "Live", health: 96, lastLead: "2m ago", initials: "DG", accent: "#C7F76F" },
-  { id: "wasatch", name: "Wasatch Door Co.", industry: "Garage Door Repair", status: "Setup", plan: "Pro", mrr: 499, phone: "Live", calendar: "Approval", ai: "Testing", health: 84, lastLead: "18m ago", initials: "WD", accent: "#F6C66A" },
-  { id: "peak", name: "Peak Plumbing", industry: "Plumbing", status: "Pilot", plan: "Pro", mrr: 499, phone: "Live", calendar: "Connected", ai: "Live", health: 91, lastLead: "7m ago", initials: "PP", accent: "#D98B3E" },
-  { id: "canyon", name: "Canyon HVAC", industry: "HVAC", status: "Needs Attention", plan: "Premium", mrr: 799, phone: "Live", calendar: "Issue", ai: "Live", health: 68, lastLead: "12m ago", initials: "CH", accent: "#E05F45" },
-  { id: "summit", name: "Summit Electric", industry: "Electrical", status: "Live", plan: "Starter", mrr: 299, phone: "Live", calendar: "Connected", ai: "Live", health: 93, lastLead: "1h ago", initials: "SE", accent: "#BFA777" },
+  { id: "davis", name: "Davis Garage Doors", industry: "Garage Door Repair", status: "Live", plan: "Premium", mrr: 799, phone: "Live", calendar: "Connected", ai: "Live", health: 96, lastLead: "2m ago", initials: "DG", accent: "#C6F23D" },
+  { id: "wasatch", name: "Wasatch Door Co.", industry: "Garage Door Repair", status: "Setup", plan: "Pro", mrr: 499, phone: "Live", calendar: "Approval", ai: "Testing", health: 84, lastLead: "18m ago", initials: "WD", accent: "#FF7A1A" },
+  { id: "peak", name: "Peak Plumbing", industry: "Plumbing", status: "Pilot", plan: "Pro", mrr: 499, phone: "Live", calendar: "Connected", ai: "Live", health: 91, lastLead: "7m ago", initials: "PP", accent: "#FF7A1A" },
+  { id: "canyon", name: "Canyon HVAC", industry: "HVAC", status: "Needs Attention", plan: "Premium", mrr: 799, phone: "Live", calendar: "Issue", ai: "Live", health: 68, lastLead: "12m ago", initials: "CH", accent: "#E95A50" },
+  { id: "summit", name: "Summit Electric", industry: "Electrical", status: "Live", plan: "Starter", mrr: 299, phone: "Live", calendar: "Connected", ai: "Live", health: 93, lastLead: "1h ago", initials: "SE", accent: "#99978C" },
   { id: "clearflow", name: "ClearFlow Plumbing", industry: "Plumbing", status: "Paused", plan: "Pro", mrr: 499, phone: "Setup", calendar: "Connected", ai: "Paused", health: 76, lastLead: "Yesterday", initials: "CP", accent: "#8FAE5F" },
 ];
 

@@ -21,11 +21,11 @@ export function Card({ children, className = "", hover = false }: { children: Re
 
 export function Badge({ children, tone = "mint" }: { children: ReactNode; tone?: "mint" | "honey" | "coral" | "blue" | "muted" }) {
   const tones = {
-    mint: "border-[#C7F76F]/25 bg-[#C7F76F]/[.08] text-[#D8FF9B]",
-    honey: "border-[#F6C66A]/25 bg-[#F6C66A]/[.08] text-[#FFD872]",
-    coral: "border-[#E05F45]/25 bg-[#E05F45]/[.08] text-[#F08B72]",
-    blue: "border-[#BFA777]/25 bg-[#BFA777]/[.08] text-[#E7D6A1]",
-    muted: "border-white/10 bg-white/[.04] text-[#B7AB98]",
+    mint: "border-[#C6F23D]/25 bg-[#C6F23D]/[.08] text-[#D3FA5A]",
+    honey: "border-[#FF7A1A]/25 bg-[#FF7A1A]/[.08] text-[#FF9448]",
+    coral: "border-[#E95A50]/25 bg-[#E95A50]/[.08] text-[#F0837B]",
+    blue: "border-[#99978C]/25 bg-[#99978C]/[.08] text-[#D8D5CA]",
+    muted: "border-white/10 bg-white/[.04] text-[#99978C]",
   };
   return (
     <span className={clsx("font-mono-ui inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-semibold uppercase leading-none tracking-[.14em]", tones[tone])}>
@@ -53,11 +53,11 @@ export function Button({
 }) {
   const styles = {
     primary:
-      "bg-[#C7F76F] text-[#14110B] shadow-[0_1px_0_rgba(255,255,255,.35)_inset,0_10px_28px_rgba(199,247,111,.16)] hover:bg-[#D8FF9B] active:translate-y-px",
+      "bg-[#C6F23D] text-[#12120E] shadow-[0_1px_0_rgba(255,255,255,.35)_inset,0_10px_28px_rgba(198,242,61,.16)] hover:bg-[#D3FA5A] active:translate-y-px",
     secondary:
-      "border border-white/[.12] bg-white/[.05] text-[#FFF7E8] shadow-[0_1px_0_rgba(255,247,232,.05)_inset] hover:border-white/[.2] hover:bg-white/[.08] active:translate-y-px",
-    ghost: "text-[#B7AB98] hover:bg-white/[.05] hover:text-white",
-    danger: "border border-[#E05F45]/25 bg-[#E05F45]/10 text-[#F08B72] hover:bg-[#E05F45]/15",
+      "border border-white/[.12] bg-white/[.05] text-[#F3F1E6] shadow-[0_1px_0_rgba(243,241,230,.05)_inset] hover:border-white/[.2] hover:bg-white/[.08] active:translate-y-px",
+    ghost: "text-[#99978C] hover:bg-white/[.05] hover:text-white",
+    danger: "border border-[#E95A50]/25 bg-[#E95A50]/10 text-[#F0837B] hover:bg-[#E95A50]/15",
   };
   return (
     <button
@@ -66,7 +66,7 @@ export function Button({
       aria-label={ariaLabel}
       onClick={onClick}
       className={clsx(
-        "inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-bold tracking-[-.01em] transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#100E0A] disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-bold tracking-[-.01em] transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6F23D]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#12120E] disabled:cursor-not-allowed disabled:opacity-50",
         styles[kind],
         className,
       )}
@@ -78,11 +78,11 @@ export function Button({
 
 export function IconBox({ icon: Icon, tone = "mint" }: { icon: LucideIcon; tone?: "mint" | "honey" | "coral" | "blue" | "violet" }) {
   const tones = {
-    mint: "bg-[#C7F76F]/[.09] text-[#C7F76F] shadow-[inset_0_0_0_1px_rgba(199,247,111,.14)]",
-    honey: "bg-[#F6C66A]/[.09] text-[#F6C66A] shadow-[inset_0_0_0_1px_rgba(246,198,106,.14)]",
-    coral: "bg-[#E05F45]/[.09] text-[#E8795F] shadow-[inset_0_0_0_1px_rgba(224,95,69,.14)]",
-    blue: "bg-[#BFA777]/[.09] text-[#E7D6A1] shadow-[inset_0_0_0_1px_rgba(191,167,119,.14)]",
-    violet: "bg-[#D98B3E]/[.09] text-[#F6C66A] shadow-[inset_0_0_0_1px_rgba(217,139,62,.14)]",
+    mint: "bg-[#C6F23D]/[.09] text-[#C6F23D] shadow-[inset_0_0_0_1px_rgba(198,242,61,.14)]",
+    honey: "bg-[#FF7A1A]/[.09] text-[#FF7A1A] shadow-[inset_0_0_0_1px_rgba(255,122,26,.14)]",
+    coral: "bg-[#E95A50]/[.09] text-[#E95A50] shadow-[inset_0_0_0_1px_rgba(233,90,80,.14)]",
+    blue: "bg-[#99978C]/[.09] text-[#D8D5CA] shadow-[inset_0_0_0_1px_rgba(153,151,140,.14)]",
+    violet: "bg-[#FF7A1A]/[.09] text-[#FF7A1A] shadow-[inset_0_0_0_1px_rgba(217,139,62,.14)]",
   };
   return <div className={clsx("grid size-10 shrink-0 place-items-center rounded-xl", tones[tone])}><Icon size={17} strokeWidth={1.9} /></div>;
 }
@@ -91,7 +91,7 @@ export function SectionTitle({ title, eyebrow, action }: { title: string; eyebro
   return (
     <div className="mb-4 flex items-end justify-between gap-4">
       <div>
-        {eyebrow && <p className="font-mono-ui mb-1.5 text-[10px] font-semibold uppercase tracking-[.2em] text-[#94C759]">{eyebrow}</p>}
+        {eyebrow && <p className="font-mono-ui mb-1.5 text-[10px] font-semibold uppercase tracking-[.2em] text-[#8FD14F]">{eyebrow}</p>}
         <h2 className="text-lg font-semibold tracking-[-.02em] text-white">{title}</h2>
       </div>
       {action}
@@ -100,7 +100,7 @@ export function SectionTitle({ title, eyebrow, action }: { title: string; eyebro
 }
 
 export function Progress({ value, tone = "mint" }: { value: number; tone?: "mint" | "honey" | "coral" | "blue" }) {
-  const tones = { mint: "from-[#94C759] to-[#C7F76F]", honey: "from-[#D98B3E] to-[#F6C66A]", coral: "from-[#C94A34] to-[#E8795F]", blue: "from-[#BFA777] to-[#FFF0B8]" };
+  const tones = { mint: "from-[#8FD14F] to-[#C6F23D]", honey: "from-[#FF7A1A] to-[#FF7A1A]", coral: "from-[#E95A50] to-[#E95A50]", blue: "from-[#99978C] to-[#F3F1E6]" };
   return (
     <div className="h-1.5 overflow-hidden rounded-full bg-white/[.06] shadow-[inset_0_1px_2px_rgba(0,0,0,.3)]">
       <motion.div initial={{ width: 0 }} animate={{ width: `${value}%` }} transition={{ duration: .7, ease: "easeOut" }} className={clsx("h-full rounded-full bg-gradient-to-r", tones[tone])} />
@@ -114,7 +114,7 @@ export function Toggle({ enabled, onClick }: { enabled: boolean; onClick?: () =>
       onClick={onClick}
       role="switch"
       aria-checked={enabled}
-      className={clsx("relative h-6 w-11 rounded-full transition-colors duration-200", enabled ? "bg-[#C7F76F]" : "bg-white/10")}
+      className={clsx("relative h-6 w-11 rounded-full transition-colors duration-200", enabled ? "bg-[#C6F23D]" : "bg-white/10")}
     >
       <span className={clsx("absolute top-1 size-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.4)] transition-all duration-200", enabled ? "left-6" : "left-1")} />
     </button>
@@ -161,7 +161,7 @@ export function Input({
       placeholder={placeholder}
       {...controlProps}
       className={clsx(
-        "w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 px-3.5 py-3 text-sm text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#94836A] hover:border-white/[.14] focus:border-[#C7F76F]/45 focus-visible:ring-2 focus-visible:ring-[#C7F76F]/20 disabled:cursor-not-allowed disabled:opacity-55",
+        "w-full rounded-xl border border-white/[.09] bg-[#171812]/80 px-3.5 py-3 text-sm text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#99978C] hover:border-white/[.14] focus:border-[#C6F23D]/45 focus-visible:ring-2 focus-visible:ring-[#C6F23D]/20 disabled:cursor-not-allowed disabled:opacity-55",
         className,
       )}
     />
@@ -254,13 +254,13 @@ export function Select({
         onClick={() => setOpen((current) => !current)}
         onKeyDown={onTriggerKeyDown}
         className={clsx(
-          "flex w-full items-center justify-between gap-2 rounded-xl border border-white/[.09] bg-[#13100B] px-3.5 py-3 text-left text-sm text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition hover:border-white/[.14] focus-visible:border-[#C7F76F]/45 focus-visible:ring-2 focus-visible:ring-[#C7F76F]/20",
-          open && "border-[#C7F76F]/35",
+          "flex w-full items-center justify-between gap-2 rounded-xl border border-white/[.09] bg-[#171812] px-3.5 py-3 text-left text-sm text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition hover:border-white/[.14] focus-visible:border-[#C6F23D]/45 focus-visible:ring-2 focus-visible:ring-[#C6F23D]/20",
+          open && "border-[#C6F23D]/35",
           className,
         )}
       >
-        <span className={clsx("truncate", !selected && "text-[#94836A]")}>{selected?.label ?? "Select..."}</span>
-        <ChevronDown size={14} className={clsx("shrink-0 text-[#94836A] transition-transform duration-150", open && "rotate-180 text-[#C7F76F]")} />
+        <span className={clsx("truncate", !selected && "text-[#99978C]")}>{selected?.label ?? "Select..."}</span>
+        <ChevronDown size={14} className={clsx("shrink-0 text-[#99978C] transition-transform duration-150", open && "rotate-180 text-[#C6F23D]")} />
       </button>
 
       <AnimatePresence>
@@ -271,7 +271,7 @@ export function Select({
             exit={{ opacity: 0, y: -4, scale: 0.99 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
             role="listbox"
-            className="absolute z-50 mt-1.5 max-h-72 w-full min-w-[240px] overflow-y-auto rounded-xl border border-white/[.12] bg-[#1D1811] p-1 shadow-[0_18px_50px_rgba(0,0,0,.5)]"
+            className="absolute z-50 mt-1.5 max-h-72 w-full min-w-[240px] overflow-y-auto rounded-xl border border-white/[.12] bg-[#22241C] p-1 shadow-[0_18px_50px_rgba(0,0,0,.5)]"
           >
             {items.map((item, index) => {
               const isSelected = item.value === currentValue;
@@ -286,18 +286,18 @@ export function Select({
                   className={clsx(
                     "flex w-full items-start justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
                     highlighted === index ? "bg-white/[.06]" : "",
-                    isSelected ? "bg-[#C7F76F]/[.08]" : "",
+                    isSelected ? "bg-[#C6F23D]/[.08]" : "",
                   )}
                 >
                   <span className="min-w-0">
-                    <span className={clsx("block truncate text-[13px] font-semibold", isSelected ? "text-[#D8FF9B]" : "text-[#F4EAD5]")}>{item.label}</span>
-                    {item.description && <span className="mt-0.5 block truncate text-[11px] text-[#94836A]">{item.description}</span>}
+                    <span className={clsx("block truncate text-[13px] font-semibold", isSelected ? "text-[#D3FA5A]" : "text-[#F3F1E6]")}>{item.label}</span>
+                    {item.description && <span className="mt-0.5 block truncate text-[11px] text-[#99978C]">{item.description}</span>}
                   </span>
-                  {isSelected && <Check size={14} className="mt-0.5 shrink-0 text-[#C7F76F]" />}
+                  {isSelected && <Check size={14} className="mt-0.5 shrink-0 text-[#C6F23D]" />}
                 </button>
               );
             })}
-            {items.length === 0 && <p className="px-3 py-2.5 text-[12px] text-[#94836A]">No options available.</p>}
+            {items.length === 0 && <p className="px-3 py-2.5 text-[12px] text-[#99978C]">No options available.</p>}
           </motion.div>
         )}
       </AnimatePresence>
@@ -308,7 +308,7 @@ export function Select({
 export function Modal({ open, title, children, onClose }: { open: boolean; title: string; children: ReactNode; onClose: () => void }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-[#100E0A]/82 p-4 backdrop-blur-md" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-[#12120E]/82 p-4 backdrop-blur-md" onMouseDown={onClose}>
       <motion.div
         initial={{ opacity: 0, scale: .97, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -320,7 +320,7 @@ export function Modal({ open, title, children, onClose }: { open: boolean; title
       >
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-lg font-semibold tracking-[-.02em]">{title}</h3>
-          <button onClick={onClose} aria-label="Close" className="grid size-9 place-items-center rounded-xl bg-white/[.05] text-[#B7AB98] transition hover:bg-white/[.09] hover:text-white">
+          <button onClick={onClose} aria-label="Close" className="grid size-9 place-items-center rounded-xl bg-white/[.05] text-[#99978C] transition hover:bg-white/[.09] hover:text-white">
             <X size={16} />
           </button>
         </div>
@@ -332,8 +332,8 @@ export function Modal({ open, title, children, onClose }: { open: boolean; title
 
 export function EmptyCheck({ text, checked = true }: { text: string; checked?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-white/[.07] bg-white/[.02] p-3 text-[13px] text-[#EFE1C8]">
-      <span className={clsx("grid size-5 shrink-0 place-items-center rounded-full", checked ? "bg-[#C7F76F]/15 text-[#C7F76F]" : "bg-white/[.05] text-[#94836A]")}>
+    <div className="flex items-center gap-2.5 rounded-xl border border-white/[.07] bg-white/[.02] p-3 text-[13px] text-[#D8D5CA]">
+      <span className={clsx("grid size-5 shrink-0 place-items-center rounded-full", checked ? "bg-[#C6F23D]/15 text-[#C6F23D]" : "bg-white/[.05] text-[#99978C]")}>
         {checked ? <Check size={12} /> : <ChevronRight size={12} />}
       </span>
       {text}
@@ -343,9 +343,9 @@ export function EmptyCheck({ text, checked = true }: { text: string; checked?: b
 
 export function DemoState({ title, description, tone = "mint" }: { title: string; description: string; tone?: "mint" | "honey" | "coral" }) {
   const styles = {
-    mint: { dot: "bg-[#C7F76F]", border: "border-[#C7F76F]/[.14]" },
-    honey: { dot: "bg-[#F6C66A]", border: "border-[#F6C66A]/[.14]" },
-    coral: { dot: "bg-[#E05F45]", border: "border-[#E05F45]/[.2]" },
+    mint: { dot: "bg-[#C6F23D]", border: "border-[#C6F23D]/[.14]" },
+    honey: { dot: "bg-[#FF7A1A]", border: "border-[#FF7A1A]/[.14]" },
+    coral: { dot: "bg-[#E95A50]", border: "border-[#E95A50]/[.2]" },
   };
   return (
     <div className={clsx("rounded-2xl border bg-white/[.02] p-4", styles[tone].border)}>
@@ -353,7 +353,7 @@ export function DemoState({ title, description, tone = "mint" }: { title: string
         <span className={clsx("size-1.5 rounded-full", styles[tone].dot)} />
         <p className="text-[12px] font-bold text-white">{title}</p>
       </div>
-      <p className="text-[11px] leading-5 text-[#B7AB98]">{description}</p>
+      <p className="text-[11px] leading-5 text-[#99978C]">{description}</p>
     </div>
   );
 }

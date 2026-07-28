@@ -112,9 +112,9 @@ function StatTile({
       <div className="flex items-start gap-3">
         <IconBox icon={icon} tone={tone} />
         <div className="min-w-0">
-          <p className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.18em] text-[#94836A]">{label}</p>
+          <p className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.18em] text-[#99978C]">{label}</p>
           <p className="mt-1 text-[22px] font-bold leading-7 tracking-[-.02em] text-white">{value}</p>
-          {detail && <p className="mt-0.5 truncate text-[11px] text-[#94836A]">{detail}</p>}
+          {detail && <p className="mt-0.5 truncate text-[11px] text-[#99978C]">{detail}</p>}
         </div>
       </div>
     </Card>
@@ -124,13 +124,13 @@ function StatTile({
 function FunnelRow({ label, count, rate, planRate, base }: { label: string; count: number; rate: number | null; planRate: number; base: string }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[.06] bg-white/[.02] px-3.5 py-2.5">
-      <span className="text-[12.5px] font-semibold text-[#EFE1C8]">{label}</span>
+      <span className="text-[12.5px] font-semibold text-[#D8D5CA]">{label}</span>
       <span className="font-mono-ui flex items-center gap-3 text-[11px]">
         <span className="text-white">{count}</span>
-        <span className={clsx(rate === null ? "text-[#6E5F49]" : rate >= planRate ? "text-[#94C759]" : "text-[#F08B72]")}>
+        <span className={clsx(rate === null ? "text-[#706F66]" : rate >= planRate ? "text-[#8FD14F]" : "text-[#F0837B]")}>
           {rate === null ? "—" : `${Math.round(rate * 100)}%`}
         </span>
-        <span className="text-[#6E5F49]">plan {Math.round(planRate * 100)}% of {base}</span>
+        <span className="text-[#706F66]">plan {Math.round(planRate * 100)}% of {base}</span>
       </span>
     </div>
   );
@@ -312,7 +312,7 @@ export function SalesPage() {
           title="Scoreboard"
           action={
             <div className="flex items-center gap-2">
-              <span className="font-mono-ui hidden text-[9px] font-semibold uppercase tracking-[.18em] text-[#6E5F49] sm:block">Dialing as</span>
+              <span className="font-mono-ui hidden text-[9px] font-semibold uppercase tracking-[.18em] text-[#706F66] sm:block">Dialing as</span>
               <Input value={caller} onChange={saveCaller} placeholder="Your name" ariaLabel="Who is dialing" className="w-[120px] px-3 py-2 text-[12px]" />
             </div>
           }
@@ -331,7 +331,7 @@ export function SalesPage() {
         </div>
         <div className="mt-3">
           <Progress value={goalProgress} tone={stats.paying >= PLAN.goalClients ? "mint" : "honey"} />
-          <p className="font-mono-ui mt-1.5 text-[10px] uppercase tracking-[.14em] text-[#6E5F49]">
+          <p className="font-mono-ui mt-1.5 text-[10px] uppercase tracking-[.14em] text-[#706F66]">
             {stats.paying >= PLAN.goalClients ? "Freedom number hit — keep climbing to 33 for after-tax." : `${PLAN.goalClients - stats.paying} clients to the freedom number`}
           </p>
         </div>
@@ -347,19 +347,19 @@ export function SalesPage() {
           <FunnelRow label="Pilots (incl. converted)" count={stats.pilots} rate={stats.demos > 0 ? stats.pilots / stats.demos : null} planRate={PLAN.pilotRate} base="demos" />
           <FunnelRow label="Paying" count={stats.paying} rate={stats.pilots > 0 ? stats.paying / stats.pilots : null} planRate={PLAN.payRate} base="pilots" />
         </div>
-        <p className="mt-3 text-[11px] leading-5 text-[#94836A]">
+        <p className="mt-3 text-[11px] leading-5 text-[#99978C]">
           Plan math: ~{PLAN.dialsPerClient} dials per paying client
           {stats.paying > 0 && stats.totalDials > 0 ? ` · measured: ${Math.round(stats.totalDials / stats.paying)} dials per client` : ""}. Every dial ≈ ${(PLAN.profitPerClient / PLAN.dialsPerClient).toFixed(2)}/mo of recurring profit.
         </p>
       </Card>
 
       {flash && (
-        <div aria-live="polite" className="rounded-xl border border-[#C7F76F]/25 bg-[#C7F76F]/[.07] px-4 py-3 text-[13px] font-semibold text-[#D8FF9B]">
+        <div aria-live="polite" className="rounded-xl border border-[#C6F23D]/25 bg-[#C6F23D]/[.07] px-4 py-3 text-[13px] font-semibold text-[#D3FA5A]">
           {flash}
         </div>
       )}
       {error && (
-        <div aria-live="polite" className="flex items-center justify-between gap-3 rounded-xl border border-[#E05F45]/25 bg-[#E05F45]/[.08] px-4 py-3 text-[13px] text-[#F08B72]">
+        <div aria-live="polite" className="flex items-center justify-between gap-3 rounded-xl border border-[#E95A50]/25 bg-[#E95A50]/[.08] px-4 py-3 text-[13px] text-[#F0837B]">
           <span className="min-w-0 break-words">{error}</span>
           <Button kind="secondary" onClick={() => { setLoading(true); void refresh(); }} className="shrink-0 px-3 py-1.5 text-[12px]">
             Try again
@@ -369,7 +369,7 @@ export function SalesPage() {
 
       {/* due callbacks */}
       {stats.dueCallbacks.length > 0 && (
-        <Card className="border border-[#F6C66A]/[.18] p-4 sm:p-5">
+        <Card className="border border-[#FF7A1A]/[.18] p-4 sm:p-5">
           <SectionTitle eyebrow="Promised — keep it" title={`Call back today (${stats.dueCallbacks.length})`} />
           <div className="space-y-2">
             {stats.dueCallbacks.map((prospect) => (
@@ -407,12 +407,12 @@ export function SalesPage() {
           }
         />
 
-        {loading && <Card className="p-8 text-center text-[13px] text-[#94836A]">Loading the call sheet…</Card>}
+        {loading && <Card className="p-8 text-center text-[13px] text-[#99978C]">Loading the call sheet…</Card>}
 
         {!loading && prospects.length === 0 && !error && (
           <Card className="p-8 text-center">
             <p className="text-[14px] font-semibold text-white">The call sheet is empty.</p>
-            <p className="mx-auto mt-1.5 max-w-md text-[12.5px] leading-6 text-[#94836A]">
+            <p className="mx-auto mt-1.5 max-w-md text-[12.5px] leading-6 text-[#99978C]">
               Import the 26-company Utah prospect list from the field guide — tiers, phone numbers, research, and angles included — and start dialing.
             </p>
             <Button onClick={handleImport} disabled={busy} className="mt-4">
@@ -426,7 +426,7 @@ export function SalesPage() {
             <div key={group.tier}>
               <div className="mb-2 flex items-baseline gap-3">
                 <h3 className="text-[13px] font-bold tracking-[-.01em] text-white">{tierMeta[group.tier].label}</h3>
-                <span className="font-mono-ui hidden text-[9px] uppercase tracking-[.16em] text-[#6E5F49] sm:block">{tierMeta[group.tier].hint}</span>
+                <span className="font-mono-ui hidden text-[9px] uppercase tracking-[.16em] text-[#706F66] sm:block">{tierMeta[group.tier].hint}</span>
               </div>
               <div className="space-y-2">
                 {group.items.map((prospect) => (
@@ -506,13 +506,13 @@ function ProspectRow({
   };
 
   return (
-    <div className={clsx("rounded-2xl border transition-colors", highlight || due ? "border-[#F6C66A]/[.22] bg-[#F6C66A]/[.03]" : "border-white/[.07] bg-white/[.02]", expanded && "border-[#C7F76F]/25")}>
+    <div className={clsx("rounded-2xl border transition-colors", highlight || due ? "border-[#FF7A1A]/[.22] bg-[#FF7A1A]/[.03]" : "border-white/[.07] bg-white/[.02]", expanded && "border-[#C6F23D]/25")}>
       <div className="flex items-center gap-3 p-3 sm:px-4">
         <button onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-expanded={expanded}>
-          <ChevronDown size={14} className={clsx("shrink-0 text-[#94836A] transition-transform", expanded && "rotate-180 text-[#C7F76F]")} />
+          <ChevronDown size={14} className={clsx("shrink-0 text-[#99978C] transition-transform", expanded && "rotate-180 text-[#C6F23D]")} />
           <span className="min-w-0">
             <span className="block truncate text-[13.5px] font-bold tracking-[-.01em] text-white">{prospect.company}</span>
-            <span className="font-mono-ui mt-0.5 block truncate text-[10px] uppercase tracking-[.1em] text-[#94836A]">
+            <span className="font-mono-ui mt-0.5 block truncate text-[10px] uppercase tracking-[.1em] text-[#99978C]">
               {prospect.area ?? "—"}
               {prospect.dialCount > 0 && ` · ${prospect.dialCount} dial${prospect.dialCount === 1 ? "" : "s"}`}
               {last && ` · last ${last}`}
@@ -524,7 +524,7 @@ function ProspectRow({
         {prospect.phone ? (
           <a
             href={telHref(prospect.phone)}
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#C7F76F] px-3 py-2.5 text-[12px] font-bold text-[#14110B] transition hover:bg-[#D8FF9B]"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#C6F23D] px-3 py-2.5 text-[12px] font-bold text-[#12120E] transition hover:bg-[#D3FA5A]"
           >
             <PhoneCall size={13} /> <span className="hidden md:inline">{prospect.phone}</span><span className="md:hidden">Call</span>
           </a>
@@ -539,14 +539,14 @@ function ProspectRow({
             <div className="grid gap-3 lg:grid-cols-2">
               {prospect.research && (
                 <div className="rounded-xl border border-white/[.06] bg-white/[.02] p-3">
-                  <p className="font-mono-ui mb-1 text-[9px] font-semibold uppercase tracking-[.18em] text-[#94836A]">What we know</p>
-                  <p className="text-[12.5px] leading-6 text-[#C6B9A6]">{prospect.research}</p>
+                  <p className="font-mono-ui mb-1 text-[9px] font-semibold uppercase tracking-[.18em] text-[#99978C]">What we know</p>
+                  <p className="text-[12.5px] leading-6 text-[#99978C]">{prospect.research}</p>
                 </div>
               )}
               {prospect.angle && (
-                <div className="rounded-xl border border-[#C7F76F]/[.14] bg-[#C7F76F]/[.03] p-3">
-                  <p className="font-mono-ui mb-1 text-[9px] font-semibold uppercase tracking-[.18em] text-[#94C759]">Your angle</p>
-                  <p className="text-[12.5px] leading-6 text-[#EFE1C8]">{prospect.angle}</p>
+                <div className="rounded-xl border border-[#C6F23D]/[.14] bg-[#C6F23D]/[.03] p-3">
+                  <p className="font-mono-ui mb-1 text-[9px] font-semibold uppercase tracking-[.18em] text-[#8FD14F]">Your angle</p>
+                  <p className="text-[12.5px] leading-6 text-[#D8D5CA]">{prospect.angle}</p>
                 </div>
               )}
             </div>
@@ -555,15 +555,15 @@ function ProspectRow({
           {prospect.altPhones.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {prospect.altPhones.map((alt) => (
-                <a key={alt.phone} href={telHref(alt.phone)} className="font-mono-ui inline-flex items-center gap-1.5 rounded-lg border border-white/[.09] bg-white/[.03] px-2.5 py-1.5 text-[11px] text-[#EFE1C8] transition hover:border-[#C7F76F]/30">
-                  <PhoneCall size={11} className="text-[#94C759]" /> {alt.label}: {alt.phone}
+                <a key={alt.phone} href={telHref(alt.phone)} className="font-mono-ui inline-flex items-center gap-1.5 rounded-lg border border-white/[.09] bg-white/[.03] px-2.5 py-1.5 text-[11px] text-[#D8D5CA] transition hover:border-[#C6F23D]/30">
+                  <PhoneCall size={11} className="text-[#8FD14F]" /> {alt.label}: {alt.phone}
                 </a>
               ))}
             </div>
           )}
 
           <div>
-            <p className="font-mono-ui mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-[#94836A]">Log this dial</p>
+            <p className="font-mono-ui mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-[#99978C]">Log this dial</p>
             <div className="flex flex-wrap gap-1.5">
               {outcomeButtons.map((button) => (
                 <button
@@ -573,11 +573,11 @@ function ProspectRow({
                   className={clsx(
                     "rounded-lg border px-2.5 py-2 text-[11.5px] font-bold transition disabled:cursor-not-allowed disabled:opacity-50",
                     {
-                      muted: "border-white/[.09] bg-white/[.03] text-[#B7AB98] hover:border-white/[.18] hover:text-white",
-                      blue: "border-[#BFA777]/25 bg-[#BFA777]/[.08] text-[#E7D6A1] hover:border-[#BFA777]/45",
-                      honey: "border-[#F6C66A]/25 bg-[#F6C66A]/[.08] text-[#FFD872] hover:border-[#F6C66A]/45",
-                      mint: "border-[#C7F76F]/25 bg-[#C7F76F]/[.08] text-[#D8FF9B] hover:border-[#C7F76F]/45",
-                      coral: "border-[#E05F45]/25 bg-[#E05F45]/[.08] text-[#F08B72] hover:border-[#E05F45]/45",
+                      muted: "border-white/[.09] bg-white/[.03] text-[#99978C] hover:border-white/[.18] hover:text-white",
+                      blue: "border-[#99978C]/25 bg-[#99978C]/[.08] text-[#D8D5CA] hover:border-[#99978C]/45",
+                      honey: "border-[#FF7A1A]/25 bg-[#FF7A1A]/[.08] text-[#FF9448] hover:border-[#FF7A1A]/45",
+                      mint: "border-[#C6F23D]/25 bg-[#C6F23D]/[.08] text-[#D3FA5A] hover:border-[#C6F23D]/45",
+                      coral: "border-[#E95A50]/25 bg-[#E95A50]/[.08] text-[#F0837B] hover:border-[#E95A50]/45",
                     }[button.tone],
                   )}
                 >
@@ -588,15 +588,15 @@ function ProspectRow({
             <div className="mt-2.5 grid gap-2 sm:grid-cols-[1fr_auto]">
               <Input value={note} onChange={setNote} placeholder="Optional note — who you talked to, what they said…" ariaLabel="Dial note" className="px-3 py-2.5 text-[12.5px]" />
               <div className="flex items-center gap-2">
-                <CalendarClock size={14} className="shrink-0 text-[#94836A]" />
+                <CalendarClock size={14} className="shrink-0 text-[#99978C]" />
                 <Input type="date" value={callbackDate} onChange={setCallbackDate} ariaLabel="Callback date" className="w-[150px] px-3 py-2.5 text-[12.5px]" />
               </div>
             </div>
-            <p className="font-mono-ui mt-1.5 text-[9px] uppercase tracking-[.14em] text-[#6E5F49]">Note + callback date attach to the outcome you tap.</p>
+            <p className="font-mono-ui mt-1.5 text-[9px] uppercase tracking-[.14em] text-[#706F66]">Note + callback date attach to the outcome you tap.</p>
           </div>
 
           <div>
-            <p className="font-mono-ui mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-[#94836A]">Running notes</p>
+            <p className="font-mono-ui mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-[#99978C]">Running notes</p>
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
               <Input value={notesDraft} onChange={setNotesDraft} placeholder="Anything worth remembering next dial…" ariaLabel="Prospect notes" className="px-3 py-2.5 text-[12.5px]" />
               <Button kind="secondary" disabled={busy || notesDraft === (prospect.notes ?? "")} onClick={() => void onSaveNotes(prospect, notesDraft)} className="px-3 py-2 text-[12px]">
@@ -606,8 +606,8 @@ function ProspectRow({
           </div>
 
           {prospect.nextActionAt && (
-            <div className="flex items-center justify-between rounded-xl border border-[#F6C66A]/[.16] bg-[#F6C66A]/[.04] px-3.5 py-2.5">
-              <span className="text-[12px] text-[#FFD872]">
+            <div className="flex items-center justify-between rounded-xl border border-[#FF7A1A]/[.16] bg-[#FF7A1A]/[.04] px-3.5 py-2.5">
+              <span className="text-[12px] text-[#FF9448]">
                 Callback {new Date(prospect.nextActionAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
               </span>
               <Button kind="ghost" disabled={busy} onClick={() => void onClearCallback(prospect)} className="px-2 py-1 text-[11px]">

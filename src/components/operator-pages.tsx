@@ -368,18 +368,18 @@ function MetricCard({ label, value, helper, icon, tone = "mint", onClick }: { la
   const body = (
     <>
       <div className="mb-5 flex items-start justify-between gap-3">
-        <p className="font-mono-ui pt-1 text-[10px] font-semibold uppercase tracking-[.16em] text-[#94836A]">{label}</p>
+        <p className="font-mono-ui pt-1 text-[10px] font-semibold uppercase tracking-[.16em] text-[#99978C]">{label}</p>
         <IconBox icon={icon} tone={tone} />
       </div>
       <p className="font-mono-ui text-[30px] font-semibold leading-none tracking-[-.03em] text-white">{value}</p>
-      <p className="mt-2.5 text-[11px] leading-5 text-[#94836A]">{helper}</p>
+      <p className="mt-2.5 text-[11px] leading-5 text-[#99978C]">{helper}</p>
     </>
   );
 
   if (onClick) {
     return (
       <Card hover className="p-0">
-        <button onClick={onClick} className="w-full rounded-[20px] p-5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/40">
+        <button onClick={onClick} className="w-full rounded-[20px] p-5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6F23D]/40">
           {body}
         </button>
       </Card>
@@ -396,8 +396,8 @@ function FilterPill({ label, active, onClick }: { label: string; active: boolean
       className={clsx(
         "font-mono-ui rounded-lg px-3 py-2 text-[10px] font-semibold uppercase tracking-[.1em] transition-colors",
         active
-          ? "bg-[#C7F76F] text-[#14110B] shadow-[0_4px_14px_rgba(199,247,111,.18)]"
-          : "border border-white/[.08] bg-white/[.02] text-[#94836A] hover:border-white/[.16] hover:text-white",
+          ? "bg-[#C6F23D] text-[#12120E] shadow-[0_4px_14px_rgba(198,242,61,.18)]"
+          : "border border-white/[.08] bg-white/[.02] text-[#99978C] hover:border-white/[.16] hover:text-white",
       )}
     >
       {label}
@@ -419,11 +419,11 @@ function LoadingState({ title = "Loading live data..." }: { title?: string }) {
     <Card className="p-6">
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1">
-          <span className="typing-dot size-1.5 rounded-full bg-[#C7F76F]" />
-          <span className="typing-dot size-1.5 rounded-full bg-[#C7F76F]" />
-          <span className="typing-dot size-1.5 rounded-full bg-[#C7F76F]" />
+          <span className="typing-dot size-1.5 rounded-full bg-[#C6F23D]" />
+          <span className="typing-dot size-1.5 rounded-full bg-[#C6F23D]" />
+          <span className="typing-dot size-1.5 rounded-full bg-[#C6F23D]" />
         </span>
-        <p className="text-[13px] font-semibold text-[#C6B9A6]">{title}</p>
+        <p className="text-[13px] font-semibold text-[#99978C]">{title}</p>
       </div>
       <div className="mt-5 space-y-3">
         {[82, 64, 71].map((width, index) => (
@@ -451,12 +451,12 @@ function ChoiceGrid({ selected, onSelect, options }: { selected: string; onSelec
   return (
     <div className="grid gap-3 md:grid-cols-3">
       {options.map((option) => (
-        <button key={option.id} onClick={() => onSelect(option.id)} className={clsx("relative rounded-xl border p-4 text-left transition", selected === option.id ? "border-[#C7F76F]/[.35] bg-[#C7F76F]/[.05] shadow-[0_0_0_1px_rgba(199,247,111,.14),0_8px_24px_rgba(0,0,0,.2)]" : "border-white/[.07] bg-white/[.02] hover:border-white/[.14] hover:bg-white/[.04]")}>
+        <button key={option.id} onClick={() => onSelect(option.id)} className={clsx("relative rounded-xl border p-4 text-left transition", selected === option.id ? "border-[#C6F23D]/[.35] bg-[#C6F23D]/[.05] shadow-[0_0_0_1px_rgba(198,242,61,.14),0_8px_24px_rgba(0,0,0,.2)]" : "border-white/[.07] bg-white/[.02] hover:border-white/[.14] hover:bg-white/[.04]")}>
           {selected === option.id && (
-            <span className="absolute right-3 top-3 grid size-4 place-items-center rounded-full bg-[#C7F76F] text-[#14110B]"><Check size={10} strokeWidth={3.5} /></span>
+            <span className="absolute right-3 top-3 grid size-4 place-items-center rounded-full bg-[#C6F23D] text-[#12120E]"><Check size={10} strokeWidth={3.5} /></span>
           )}
           <p className="pr-6 text-[13px] font-bold tracking-[-.01em] text-white">{option.title}</p>
-          <p className="mt-2 text-[11px] leading-5 text-[#94836A]">{option.description}</p>
+          <p className="mt-2 text-[11px] leading-5 text-[#99978C]">{option.description}</p>
         </button>
       ))}
     </div>
@@ -468,12 +468,12 @@ function AccountRow({ client, onOpen }: { client: AppClient; onOpen: () => void 
   const status = displayStatus(client.status);
 
   return (
-    <button onClick={onOpen} className="group grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-[#C7F76F]/[.02] lg:grid-cols-[1.35fr_.65fr_.75fr_.7fr_.65fr_90px] lg:items-center">
+    <button onClick={onOpen} className="group grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-[#C6F23D]/[.02] lg:grid-cols-[1.35fr_.65fr_.75fr_.7fr_.65fr_90px] lg:items-center">
       <div className="flex items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#C7F76F]/[.08] text-[11px] font-black text-[#C7F76F] shadow-[inset_0_0_0_1px_rgba(199,247,111,.1)]">{initials(client.name)}</span>
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#C6F23D]/[.08] text-[11px] font-black text-[#C6F23D] shadow-[inset_0_0_0_1px_rgba(198,242,61,.1)]">{initials(client.name)}</span>
         <div className="min-w-0">
           <p className="truncate text-[13px] font-bold tracking-[-.01em] text-white">{client.name}</p>
-          <p className="mt-0.5 truncate text-[11px] text-[#94836A]">{client.industry} · {metrics.owner}</p>
+          <p className="mt-0.5 truncate text-[11px] text-[#99978C]">{client.industry} · {metrics.owner}</p>
         </div>
       </div>
       <span><Badge tone={statusTone(status)}>{status}</Badge></span>
@@ -481,9 +481,9 @@ function AccountRow({ client, onOpen }: { client: AppClient; onOpen: () => void 
         <p className="font-mono-ui mb-1.5 text-[11px] font-semibold text-white">{metrics.setupProgress}%</p>
         <Progress value={metrics.setupProgress} tone={metrics.setupProgress > 90 ? "mint" : metrics.setupProgress > 70 ? "honey" : "coral"} />
       </div>
-      <p className="font-mono-ui text-[12px] text-[#C6B9A6]">{metrics.jobsSaved}</p>
-      <p className={clsx("font-mono-ui text-[12px] font-bold", metrics.errors > 0 ? "text-[#F08B72]" : "text-[#94C759]")}>{metrics.errors}</p>
-      <span className="justify-self-start text-[11px] font-bold text-[#C7F76F] transition group-hover:translate-x-0.5 lg:justify-self-end">Open →</span>
+      <p className="font-mono-ui text-[12px] text-[#99978C]">{metrics.jobsSaved}</p>
+      <p className={clsx("font-mono-ui text-[12px] font-bold", metrics.errors > 0 ? "text-[#F0837B]" : "text-[#8FD14F]")}>{metrics.errors}</p>
+      <span className="justify-self-start text-[11px] font-bold text-[#C6F23D] transition group-hover:translate-x-0.5 lg:justify-self-end">Open →</span>
     </button>
   );
 }
@@ -527,12 +527,12 @@ export function AccountsPage({
   return (
     <div className="space-y-5">
       <Card className="relative overflow-hidden p-6 sm:p-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_10%,rgba(199,247,111,.08),transparent_34%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_10%,rgba(198,242,61,.08),transparent_34%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <Badge><span className="size-1.5 rounded-full bg-[#C7F76F]" /> Live accounts</Badge>
+            <Badge><span className="size-1.5 rounded-full bg-[#C6F23D]" /> Live accounts</Badge>
             <h1 className="font-display mt-4 max-w-3xl text-3xl font-medium tracking-[-.02em] text-white sm:text-[2.6rem] sm:leading-[1.05]">Every receptionist, at a glance.</h1>
-            <p className="mt-3 max-w-2xl text-[13px] leading-6 text-[#94836A]">Find a business, launch a receptionist, or fix what is stuck — readiness, issues, and metrics update live from the backend.</p>
+            <p className="mt-3 max-w-2xl text-[13px] leading-6 text-[#99978C]">Find a business, launch a receptionist, or fix what is stuck — readiness, issues, and metrics update live from the backend.</p>
           </div>
           <Button onClick={() => navigate("setup")} className="w-fit"><ClipboardCheck size={14} /> Set up new business</Button>
         </div>
@@ -553,12 +553,12 @@ export function AccountsPage({
             ))}
           </div>
           <div className="relative w-full lg:w-[330px]">
-            <Search size={14} className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[#94836A]" />
+            <Search size={14} className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[#99978C]" />
             <Input value={query} onChange={setQuery} placeholder="Search businesses..." className="pl-9" />
           </div>
         </div>
         <div>
-          <div className="font-mono-ui hidden gap-3 border-t border-white/[.05] bg-white/[.015] px-5 py-2.5 text-[9px] font-semibold uppercase tracking-[.18em] text-[#6E5F49] lg:grid lg:grid-cols-[1.35fr_.65fr_.75fr_.7fr_.65fr_90px]">
+          <div className="font-mono-ui hidden gap-3 border-t border-white/[.05] bg-white/[.015] px-5 py-2.5 text-[9px] font-semibold uppercase tracking-[.18em] text-[#706F66] lg:grid lg:grid-cols-[1.35fr_.65fr_.75fr_.7fr_.65fr_90px]">
             <span>Business</span><span>Status</span><span>Readiness</span><span>Jobs saved</span><span>Issues</span><span />
           </div>
           {shown.map((client) => <AccountRow key={client.id} client={client} onOpen={() => onOpenAccount(client.id)} />)}
@@ -574,18 +574,18 @@ function AccountDirectoryCard({ client, onOpen }: { client: AppClient; onOpen: (
   const status = displayStatus(client.status);
 
   return (
-    <button onClick={onOpen} className="glass group flex h-full flex-col rounded-[20px] p-5 text-left transition-all hover:-translate-y-0.5 hover:border-[#C7F76F]/[.22] hover:shadow-[0_22px_54px_rgba(0,0,0,.28)]">
+    <button onClick={onOpen} className="glass group flex h-full flex-col rounded-[20px] p-5 text-left transition-all hover:-translate-y-0.5 hover:border-[#C6F23D]/[.22] hover:shadow-[0_22px_54px_rgba(0,0,0,.28)]">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#C7F76F]/[.08] text-[12px] font-black text-[#C7F76F] shadow-[inset_0_0_0_1px_rgba(199,247,111,.1)]">{initials(client.name)}</span>
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#C6F23D]/[.08] text-[12px] font-black text-[#C6F23D] shadow-[inset_0_0_0_1px_rgba(198,242,61,.1)]">{initials(client.name)}</span>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-bold tracking-[-.015em] text-white">{client.name}</p>
-            <p className="mt-0.5 text-[11px] text-[#94836A]">{client.industry}</p>
+            <p className="mt-0.5 text-[11px] text-[#99978C]">{client.industry}</p>
           </div>
         </div>
         <Badge tone={statusTone(status)}>{status}</Badge>
       </div>
-      <div className="grid gap-0 text-[11px] text-[#94836A]">
+      <div className="grid gap-0 text-[11px] text-[#99978C]">
         {([
           ["Owner", metrics.owner],
           ["Plan", displayPlan(client.plan)],
@@ -594,23 +594,23 @@ function AccountDirectoryCard({ client, onOpen }: { client: AppClient; onOpen: (
         ] as const).map(([label, value], index) => (
           <div key={label} className={clsx("flex items-baseline justify-between gap-3 py-1.5", index > 0 && "border-t border-white/[.04]")}>
             <span className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.16em]">{label}</span>
-            <span className="truncate font-semibold text-[#EFE1C8]">{value}</span>
+            <span className="truncate font-semibold text-[#D8D5CA]">{value}</span>
           </div>
         ))}
       </div>
       <div className="my-5">
         <div className="mb-2 flex items-center justify-between">
-          <span className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.16em] text-[#94836A]">Readiness</span>
-          <span className="font-mono-ui text-[11px] font-bold text-[#C7F76F]">{metrics.setupProgress}%</span>
+          <span className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.16em] text-[#99978C]">Readiness</span>
+          <span className="font-mono-ui text-[11px] font-bold text-[#C6F23D]">{metrics.setupProgress}%</span>
         </div>
         <Progress value={metrics.setupProgress} tone={metrics.setupProgress > 90 ? "mint" : metrics.setupProgress > 70 ? "honey" : "coral"} />
       </div>
       <div className="mt-auto grid grid-cols-3 gap-2 border-t border-white/[.06] pt-4">
-        <div><p className="font-mono-ui text-[16px] font-semibold tracking-tight text-white">{metrics.jobsSaved}</p><p className="font-mono-ui mt-0.5 text-[8px] uppercase tracking-[.16em] text-[#6E5F49]">Jobs</p></div>
-        <div><p className="font-mono-ui text-[16px] font-semibold tracking-tight text-white">{metrics.hoursSaved}</p><p className="font-mono-ui mt-0.5 text-[8px] uppercase tracking-[.16em] text-[#6E5F49]">Hours</p></div>
-        <div><p className={clsx("font-mono-ui text-[16px] font-semibold tracking-tight", metrics.errors > 0 ? "text-[#F08B72]" : "text-[#94C759]")}>{metrics.errors}</p><p className="font-mono-ui mt-0.5 text-[8px] uppercase tracking-[.16em] text-[#6E5F49]">Issues</p></div>
+        <div><p className="font-mono-ui text-[16px] font-semibold tracking-tight text-white">{metrics.jobsSaved}</p><p className="font-mono-ui mt-0.5 text-[8px] uppercase tracking-[.16em] text-[#706F66]">Jobs</p></div>
+        <div><p className="font-mono-ui text-[16px] font-semibold tracking-tight text-white">{metrics.hoursSaved}</p><p className="font-mono-ui mt-0.5 text-[8px] uppercase tracking-[.16em] text-[#706F66]">Hours</p></div>
+        <div><p className={clsx("font-mono-ui text-[16px] font-semibold tracking-tight", metrics.errors > 0 ? "text-[#F0837B]" : "text-[#8FD14F]")}>{metrics.errors}</p><p className="font-mono-ui mt-0.5 text-[8px] uppercase tracking-[.16em] text-[#706F66]">Issues</p></div>
       </div>
-      <span className="mt-5 inline-flex items-center gap-1 text-[11px] font-bold text-[#C7F76F]">Configure account <ArrowRight size={12} className="transition group-hover:translate-x-0.5" /></span>
+      <span className="mt-5 inline-flex items-center gap-1 text-[11px] font-bold text-[#C6F23D]">Configure account <ArrowRight size={12} className="transition group-hover:translate-x-0.5" /></span>
     </button>
   );
 }
@@ -631,15 +631,15 @@ function AccountDirectory({ clients, loading, error, onOpenAccount, onRefresh }:
   return (
     <div className="space-y-5">
       <Card className="relative overflow-hidden p-6 sm:p-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_10%,rgba(199,247,111,.09),transparent_34%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_10%,rgba(198,242,61,.09),transparent_34%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <Badge><Building2 size={12} /> Configured accounts</Badge>
             <h1 className="font-display mt-4 max-w-3xl text-3xl font-medium tracking-[-.02em] text-white sm:text-[2.6rem] sm:leading-[1.05]">Choose a business to configure.</h1>
-            <p className="mt-3 max-w-2xl text-[13px] leading-6 text-[#94836A]">Each card opens live settings for one client: voice, business brain, quote rules, calendar, routing, fallbacks, compliance, integrations, and testing.</p>
+            <p className="mt-3 max-w-2xl text-[13px] leading-6 text-[#99978C]">Each card opens live settings for one client: voice, business brain, quote rules, calendar, routing, fallbacks, compliance, integrations, and testing.</p>
           </div>
           <div className="relative w-full lg:w-[330px]">
-            <Search size={14} className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[#94836A]" />
+            <Search size={14} className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[#99978C]" />
             <Input value={query} onChange={setQuery} placeholder="Search account cards..." className="pl-9" />
           </div>
         </div>
@@ -744,7 +744,7 @@ const defaultSetupForm: SetupForm = {
 function SetupField({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
   return (
     <div>
-      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">{label}</p>
       <Input value={value} onChange={onChange} placeholder={`Enter ${label.toLowerCase()}...`} type={type} />
     </div>
   );
@@ -753,12 +753,12 @@ function SetupField({ label, value, onChange, type = "text" }: { label: string; 
 function SetupTextarea({ label, value, onChange, rows = 5 }: { label: string; value: string; onChange: (value: string) => void; rows?: number }) {
   return (
     <div>
-      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">{label}</p>
       <textarea
         rows={rows}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#6E5F49] hover:border-white/[.14] focus:border-[#C7F76F]/45"
+        className="w-full rounded-xl border border-white/[.09] bg-[#171812]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#706F66] hover:border-white/[.14] focus:border-[#C6F23D]/45"
       />
     </div>
   );
@@ -825,13 +825,13 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
   return (
     <div className="grid gap-4 xl:grid-cols-[330px_1fr]">
       <Card className="p-4 xl:sticky xl:top-[84px] xl:self-start">
-        <div className="mb-5 rounded-xl bg-gradient-to-br from-[#C7F76F]/[.08] to-transparent p-4">
+        <div className="mb-5 rounded-xl bg-gradient-to-br from-[#C6F23D]/[.08] to-transparent p-4">
           <div className="flex items-center justify-between">
             <Badge tone="honey">Live draft</Badge>
-            <span className="font-mono-ui text-sm font-bold text-[#C7F76F]">{complete}%</span>
+            <span className="font-mono-ui text-sm font-bold text-[#C6F23D]">{complete}%</span>
           </div>
           <p className="mt-3.5 text-[15px] font-bold tracking-[-.01em] text-white">New business onboarding</p>
-          <p className="mt-1 text-[11px] leading-4 text-[#94836A]">Creates a real client and first config draft in Supabase. Your progress is saved on this device until you create the account.</p>
+          <p className="mt-1 text-[11px] leading-4 text-[#99978C]">Creates a real client and first config draft in Supabase. Your progress is saved on this device until you create the account.</p>
           <div className="mt-4"><Progress value={complete} /></div>
         </div>
         <div className="space-y-0.5">
@@ -841,12 +841,12 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
               onClick={() => setStep(index)}
               className={clsx(
                 "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[12px] font-semibold tracking-[-.01em] transition-colors",
-                step === index ? "bg-[#C7F76F]/[.08] text-[#D8FF9B]" : index < step ? "text-[#C6B9A6] hover:bg-white/[.03]" : "text-[#94836A] hover:bg-white/[.03] hover:text-[#C6B9A6]",
+                step === index ? "bg-[#C6F23D]/[.08] text-[#D3FA5A]" : index < step ? "text-[#99978C] hover:bg-white/[.03]" : "text-[#99978C] hover:bg-white/[.03] hover:text-[#99978C]",
               )}
             >
               <span className={clsx(
                 "font-mono-ui grid size-5 shrink-0 place-items-center rounded-full text-[8px] font-bold",
-                index < step ? "bg-[#C7F76F] text-[#14110B]" : step === index ? "border border-[#C7F76F]/40 text-[#C7F76F]" : "bg-white/[.05] text-[#6E5F49]",
+                index < step ? "bg-[#C6F23D] text-[#12120E]" : step === index ? "border border-[#C6F23D]/40 text-[#C6F23D]" : "bg-white/[.05] text-[#706F66]",
               )}>
                 {index < step ? <Check size={10} strokeWidth={3} /> : index + 1}
               </span>
@@ -859,9 +859,9 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
       <Card className="p-5 sm:p-7">
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="font-mono-ui mb-2.5 text-[10px] font-semibold uppercase tracking-[.2em] text-[#94C759]">Step {String(step + 1).padStart(2, "0")} / {setupSteps.length}</p>
+            <p className="font-mono-ui mb-2.5 text-[10px] font-semibold uppercase tracking-[.2em] text-[#8FD14F]">Step {String(step + 1).padStart(2, "0")} / {setupSteps.length}</p>
             <h2 className="font-display text-2xl font-medium tracking-[-.015em] text-white sm:text-3xl">{detail.title}</h2>
-            <p className="mt-2.5 max-w-3xl text-[13px] leading-6 text-[#94836A]">{detail.description}</p>
+            <p className="mt-2.5 max-w-3xl text-[13px] leading-6 text-[#99978C]">{detail.description}</p>
           </div>
           <IconBox icon={step === setupSteps.length - 1 ? Sparkles : ClipboardCheck} tone={step === setupSteps.length - 1 ? "honey" : "mint"} />
         </div>
@@ -953,7 +953,7 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
               <SetupTextarea label="Behavior instructions" value={form.behaviorInstructions} onChange={update("behaviorInstructions")} />
               <div>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-mono-ui text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">System prompt</p>
+                  <p className="font-mono-ui text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">System prompt</p>
                   <Button
                     kind="secondary"
                     onClick={() => setForm((currentForm) => {
@@ -974,9 +974,9 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
                   rows={14}
                   value={form.systemPrompt || buildDefaultAgentSystemPrompt({ receptionistName: form.receptionistName, businessName: form.publicName || form.name || "the business" })}
                   onChange={(event) => update("systemPrompt")(event.target.value)}
-                  className="font-mono-ui w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-xs leading-5 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#6E5F49] hover:border-white/[.14] focus:border-[#C7F76F]/45"
+                  className="font-mono-ui w-full rounded-xl border border-white/[.09] bg-[#171812]/80 p-4 text-xs leading-5 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#706F66] hover:border-white/[.14] focus:border-[#C6F23D]/45"
                 />
-                <p className="mt-1.5 text-[10px] leading-4 text-[#94836A]">This is the exact system prompt to paste into the ElevenLabs agent for this business.</p>
+                <p className="mt-1.5 text-[10px] leading-4 text-[#99978C]">This is the exact system prompt to paste into the ElevenLabs agent for this business.</p>
               </div>
             </>
           )}
@@ -1010,9 +1010,9 @@ function EditableField({ config, path, label, onChange, type = "text", helper }:
 
   return (
     <div>
-      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">{label}</p>
       <Input value={value} type={type} onChange={(next) => onChange(path, type === "number" ? Number(next) || 0 : next)} />
-      {helper && <p className="mt-1.5 text-[10px] leading-4 text-[#94836A]">{helper}</p>}
+      {helper && <p className="mt-1.5 text-[10px] leading-4 text-[#99978C]">{helper}</p>}
     </div>
   );
 }
@@ -1020,12 +1020,12 @@ function EditableField({ config, path, label, onChange, type = "text", helper }:
 function EditableTextArea({ config, path, label, onChange, rows = 5 }: { config: BelloryClientConfigDraft | null; path: string; label: string; onChange: (path: string, value: unknown) => void; rows?: number }) {
   return (
     <div>
-      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">{label}</p>
       <textarea
         rows={rows}
         value={getString(config, path)}
         onChange={(event) => onChange(path, event.target.value)}
-        className="w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#6E5F49] hover:border-white/[.14] focus:border-[#C7F76F]/45"
+        className="w-full rounded-xl border border-white/[.09] bg-[#171812]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#706F66] hover:border-white/[.14] focus:border-[#C6F23D]/45"
       />
     </div>
   );
@@ -1034,14 +1034,14 @@ function EditableTextArea({ config, path, label, onChange, rows = 5 }: { config:
 function EditableList({ config, path, label, onChange, rows = 5 }: { config: BelloryClientConfigDraft | null; path: string; label: string; onChange: (path: string, value: unknown) => void; rows?: number }) {
   return (
     <div>
-      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">{label}</p>
       <textarea
         rows={rows}
         value={getStringArray(config, path).join("\n")}
         onChange={(event) => onChange(path, splitLines(event.target.value))}
-        className="w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#6E5F49] hover:border-white/[.14] focus:border-[#C7F76F]/45"
+        className="w-full rounded-xl border border-white/[.09] bg-[#171812]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#706F66] hover:border-white/[.14] focus:border-[#C6F23D]/45"
       />
-      <p className="mt-1.5 text-[10px] leading-4 text-[#94836A]">One item per line.</p>
+      <p className="mt-1.5 text-[10px] leading-4 text-[#99978C]">One item per line.</p>
     </div>
   );
 }
@@ -1049,7 +1049,7 @@ function EditableList({ config, path, label, onChange, rows = 5 }: { config: Bel
 function SelectField({ config, path, label, options, onChange }: { config: BelloryClientConfigDraft | null; path: string; label: string; options: string[]; onChange: (path: string, value: unknown) => void }) {
   return (
     <div>
-      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">{label}</p>
       <Select value={getString(config, path)} onChange={(value) => onChange(path, value)}>
         {options.map((option) => <option key={option} value={option}>{option}</option>)}
       </Select>
@@ -1060,7 +1060,7 @@ function SelectField({ config, path, label, options, onChange }: { config: Bello
 function BooleanSelect({ config, path, label, onChange }: { config: BelloryClientConfigDraft | null; path: string; label: string; onChange: (path: string, value: unknown) => void }) {
   return (
     <div>
-      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">{label}</p>
       <Select value={getString(config, path, "false")} onChange={(value) => onChange(path, value === "true")}>
         <option value="false">false</option>
         <option value="true">true</option>
@@ -1089,7 +1089,7 @@ function JsonEditor({ config, path, label, onChange }: { config: BelloryClientCo
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="font-mono-ui text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">{label}</p>
+        <p className="font-mono-ui text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">{label}</p>
         <Button kind="ghost" onClick={apply}>Apply JSON</Button>
       </div>
       <textarea
@@ -1097,9 +1097,9 @@ function JsonEditor({ config, path, label, onChange }: { config: BelloryClientCo
         value={text}
         onChange={(event) => setDraftText(event.target.value)}
         onBlur={apply}
-        className="font-mono-ui w-full rounded-xl border border-white/[.09] bg-[#13100B]/80 p-4 text-xs leading-5 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#6E5F49] hover:border-white/[.14] focus:border-[#C7F76F]/45"
+        className="font-mono-ui w-full rounded-xl border border-white/[.09] bg-[#171812]/80 p-4 text-xs leading-5 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#706F66] hover:border-white/[.14] focus:border-[#C6F23D]/45"
       />
-      {error && <p className="mt-1.5 text-[11px] text-[#F08B72]">{error}</p>}
+      {error && <p className="mt-1.5 text-[11px] text-[#F0837B]">{error}</p>}
     </div>
   );
 }
@@ -1109,8 +1109,8 @@ function ValidationPanel({ validation }: { validation: ValidationResult | null }
   if (validation.ok) return <DemoState title="Validation passed" description="This config is publishable for the live receptionist runtime." />;
 
   return (
-    <div className="rounded-2xl border border-[#E05F45]/20 bg-[#E05F45]/10 p-4">
-      <p className="text-[12px] font-bold text-[#F08B72]">Validation issues</p>
+    <div className="rounded-2xl border border-[#E95A50]/20 bg-[#E95A50]/10 p-4">
+      <p className="text-[12px] font-bold text-[#F0837B]">Validation issues</p>
       <div className="mt-3 space-y-2">
         {validation.issues.slice(0, 8).map((issue) => <p key={issue} className="text-[11px] leading-5 text-[#F8C2B6]">{issue}</p>)}
       </div>
@@ -1182,27 +1182,27 @@ function PhoneNumberPanel({ clientId, agentSynced }: { clientId: string; agentSy
             <span className="font-mono-ui text-[15px] font-bold text-white">{state.current.e164}</span>
           </>
         ) : (
-          <p className="text-[12px] leading-5 text-[#94836A]">
+          <p className="text-[12px] leading-5 text-[#99978C]">
             {!agentSynced
               ? "Sync the ElevenLabs agent first (Agent & Prompt tab), then connect a number here."
               : "No number connected yet. Pick an owned number or search for a new one below."}
           </p>
         )}
       </div>
-      {error && <p className="mt-3 text-[12px] text-[#F08B72]">{error}</p>}
-      {message && <p className="mt-3 text-[12px] text-[#C7F76F]">{message}</p>}
+      {error && <p className="mt-3 text-[12px] text-[#F0837B]">{error}</p>}
+      {message && <p className="mt-3 text-[12px] text-[#C6F23D]">{message}</p>}
 
       {state && agentSynced && (
         <div className="mt-5 space-y-4">
           {state.ownedUnassigned.length > 0 && (
             <div>
-              <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Owned, unassigned Twilio numbers</p>
+              <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">Owned, unassigned Twilio numbers</p>
               <div className="grid gap-2">
                 {state.ownedUnassigned.map((number) => (
                   <div key={number.phoneNumber} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[.07] bg-white/[.02] p-3">
                     <div>
                       <span className="font-mono-ui text-[13px] font-bold text-white">{number.phoneNumber}</span>
-                      <span className="ml-3 text-[11px] text-[#94836A]">{[number.locality, number.region].filter(Boolean).join(", ") || "Toll-free / national"}</span>
+                      <span className="ml-3 text-[11px] text-[#99978C]">{[number.locality, number.region].filter(Boolean).join(", ") || "Toll-free / national"}</span>
                     </div>
                     <Button kind="secondary" disabled={busy !== null} onClick={() => connect(number.phoneNumber, false)}>
                       {busy === number.phoneNumber ? "Connecting..." : "Connect"}
@@ -1214,13 +1214,13 @@ function PhoneNumberPanel({ clientId, agentSynced }: { clientId: string; agentSy
           )}
 
           <div>
-            <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Buy a new local number</p>
+            <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">Buy a new local number</p>
             <div className="flex gap-2">
               <Input value={areaCode} onChange={setAreaCode} placeholder="Area code (optional)" className="max-w-[180px]" ariaLabel="Area code" />
               <Button kind="secondary" disabled={busy !== null} onClick={search}>{busy === "search" ? "Searching..." : "Search"}</Button>
             </div>
             {searched && results.length === 0 && (
-              <p className="mt-2 text-[11px] text-[#F6C66A]">No numbers available for that area code right now — try a nearby one, or leave it blank to search everywhere.</p>
+              <p className="mt-2 text-[11px] text-[#FF7A1A]">No numbers available for that area code right now — try a nearby one, or leave it blank to search everywhere.</p>
             )}
             {results.length > 0 && (
               <div className="mt-3 grid gap-2">
@@ -1228,7 +1228,7 @@ function PhoneNumberPanel({ clientId, agentSynced }: { clientId: string; agentSy
                   <div key={number.phoneNumber} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[.07] bg-white/[.02] p-3">
                     <div>
                       <span className="font-mono-ui text-[13px] font-bold text-white">{number.phoneNumber}</span>
-                      <span className="ml-3 text-[11px] text-[#94836A]">{[number.locality, number.region].filter(Boolean).join(", ")}</span>
+                      <span className="ml-3 text-[11px] text-[#99978C]">{[number.locality, number.region].filter(Boolean).join(", ")}</span>
                     </div>
                     {confirming === number.phoneNumber ? (
                       <Button disabled={busy !== null} onClick={() => connect(number.phoneNumber, true)}>
@@ -1242,7 +1242,7 @@ function PhoneNumberPanel({ clientId, agentSynced }: { clientId: string; agentSy
               </div>
             )}
           </div>
-          {state.ownedError && <p className="text-[11px] text-[#F6C66A]">{state.ownedError}</p>}
+          {state.ownedError && <p className="text-[11px] text-[#FF7A1A]">{state.ownedError}</p>}
         </div>
       )}
     </ConfigPanel>
@@ -1283,7 +1283,7 @@ function VoicePicker({ clientId, currentVoiceId, onChange }: { clientId: string;
 
   return (
     <div>
-      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Voice</p>
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">Voice</p>
       <div className="flex gap-2">
         <Select
           value={currentVoiceId}
@@ -1298,8 +1298,8 @@ function VoicePicker({ clientId, currentVoiceId, onChange }: { clientId: string;
           {playing ? <Pause size={13} /> : <Play size={13} />}
         </Button>
       </div>
-      <p className="mt-1.5 text-[10px] leading-4 text-[#94836A]">Save and re-sync the agent after changing the voice.</p>
-      {error && <p className="mt-1 text-[11px] text-[#F08B72]">{error}</p>}
+      <p className="mt-1.5 text-[10px] leading-4 text-[#99978C]">Save and re-sync the agent after changing the voice.</p>
+      {error && <p className="mt-1 text-[11px] text-[#F0837B]">{error}</p>}
     </div>
   );
 }
@@ -1320,7 +1320,7 @@ function TestCallPanel({ agentId }: { agentId: string }) {
 
   return (
     <ConfigPanel title="Talk to this receptionist" eyebrow="Browser test call" icon={Headphones} tone="mint">
-      <p className="mb-4 max-w-2xl text-[12px] leading-5 text-[#94836A]">
+      <p className="mb-4 max-w-2xl text-[12px] leading-5 text-[#99978C]">
         Start a live voice conversation with this client&rsquo;s agent right here — same prompt, tools, and knowledge as the phone line. Tool calls and leads land in the real backend, so use test details.
       </p>
       <div dangerouslySetInnerHTML={{ __html: `<elevenlabs-convai agent-id="${agentId}"></elevenlabs-convai>` }} />
@@ -1351,20 +1351,20 @@ function CalendarConnectionCard({ clientId }: { clientId: string }) {
         <div>
           <div className="flex items-center gap-2">
             <Badge tone={tone}>{label}</Badge>
-            {status?.email && <span className="font-mono-ui text-[11px] text-[#94836A]">{status.email}</span>}
+            {status?.email && <span className="font-mono-ui text-[11px] text-[#99978C]">{status.email}</span>}
           </div>
-          <p className="mt-2 max-w-xl text-[12px] leading-5 text-[#94836A]">
+          <p className="mt-2 max-w-xl text-[12px] leading-5 text-[#99978C]">
             {status?.connected
               ? "Availability checks exclude real busy time, and confirmed bookings create calendar events."
               : status?.status === "issue"
                 ? "Google rejected the stored credentials. Reconnect to restore real availability; rules-only mode is active meanwhile."
                 : "Until a calendar is connected, availability comes from business-hours rules only."}
           </p>
-          {error && <p className="mt-2 text-[11px] text-[#F08B72]">{error}</p>}
+          {error && <p className="mt-2 text-[11px] text-[#F0837B]">{error}</p>}
         </div>
         <a
           href={`/api/google/oauth/start?clientId=${clientId}`}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#C7F76F] px-3.5 py-2.5 text-[13px] font-bold text-[#14110B] transition hover:bg-[#D8FF9B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/45"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#C6F23D] px-3.5 py-2.5 text-[13px] font-bold text-[#12120E] transition hover:bg-[#D3FA5A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6F23D]/45"
         >
           <CalendarCheck size={14} /> {status?.connected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
         </a>
@@ -1434,14 +1434,14 @@ function ClientActivityPanel({ clientId }: { clientId: string }) {
         </div>
         {activity.calls.map((call) => (
           <div key={call.id} className="grid gap-3 border-t border-white/[.05] px-5 py-4 lg:grid-cols-[130px_1fr_110px_90px_110px] lg:items-center">
-            <span className="font-mono-ui text-[11px] text-[#94836A]">{formatActivityTime(call.startedAt ?? call.createdAt)}</span>
+            <span className="font-mono-ui text-[11px] text-[#99978C]">{formatActivityTime(call.startedAt ?? call.createdAt)}</span>
             <div className="min-w-0">
               <p className="truncate text-[13px] font-bold tracking-[-.01em] text-white">{call.callerName || call.callerPhone || "Unknown caller"}</p>
-              <p className="mt-1 truncate text-[11px] leading-5 text-[#94836A]">{call.summary || "No summary yet."}</p>
+              <p className="mt-1 truncate text-[11px] leading-5 text-[#99978C]">{call.summary || "No summary yet."}</p>
             </div>
             <span><Badge tone={activityTone(call.status)}>{displayStatus(call.status)}</Badge></span>
-            <span className="font-mono-ui text-[12px] text-[#C6B9A6]">{formatDuration(call.durationSeconds)}</span>
-            <span className="font-mono-ui truncate text-[11px] text-[#94836A]">{call.outcome ? displayStatus(call.outcome) : "—"}</span>
+            <span className="font-mono-ui text-[12px] text-[#99978C]">{formatDuration(call.durationSeconds)}</span>
+            <span className="font-mono-ui truncate text-[11px] text-[#99978C]">{call.outcome ? displayStatus(call.outcome) : "—"}</span>
           </div>
         ))}
         {activity.calls.length === 0 && (
@@ -1456,10 +1456,10 @@ function ClientActivityPanel({ clientId }: { clientId: string }) {
           <div className="border-b border-white/[.06] p-5"><SectionTitle title="Appointments" eyebrow="Booked and pending" /></div>
           {activity.appointments.map((appointment) => (
             <div key={appointment.id} className="grid gap-2 border-t border-white/[.05] px-5 py-4 sm:grid-cols-[150px_1fr_130px] sm:items-center">
-              <span className="font-mono-ui text-[11px] text-[#94836A]">{formatActivityTime(appointment.startsAt)}</span>
+              <span className="font-mono-ui text-[11px] text-[#99978C]">{formatActivityTime(appointment.startsAt)}</span>
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-bold tracking-[-.01em] text-white">{appointment.callerName || appointment.callerPhone || "Unknown caller"}</p>
-                <p className="mt-1 truncate text-[11px] text-[#94836A]">{appointment.serviceSummary || "No service summary."}</p>
+                <p className="mt-1 truncate text-[11px] text-[#99978C]">{appointment.serviceSummary || "No service summary."}</p>
               </div>
               <span className="sm:justify-self-end"><Badge tone={activityTone(appointment.status)}>{displayStatus(appointment.status)}</Badge></span>
             </div>
@@ -1475,7 +1475,7 @@ function ClientActivityPanel({ clientId }: { clientId: string }) {
             <div key={lead.id} className="grid gap-2 border-t border-white/[.05] px-5 py-4 sm:grid-cols-[1fr_90px_110px] sm:items-center">
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-bold tracking-[-.01em] text-white">{lead.name || lead.phone}</p>
-                <p className="mt-1 truncate text-[11px] text-[#94836A]">{lead.issue || lead.summary || lead.phone}</p>
+                <p className="mt-1 truncate text-[11px] text-[#99978C]">{lead.issue || lead.summary || lead.phone}</p>
               </div>
               <span><Badge tone={activityTone(lead.urgency)}>{displayStatus(lead.urgency)}</Badge></span>
               <span className="sm:justify-self-end"><Badge tone={activityTone(lead.status)}>{displayStatus(lead.status)}</Badge></span>
@@ -1549,10 +1549,10 @@ function AccountTabContent({
                 <Badge tone={statusTone(displayStatus(issue.severity))}>{displayStatus(issue.severity)}</Badge>
                 <div className="min-w-0">
                   <p className="text-[13px] font-bold tracking-[-.01em] text-white">{issue.title}</p>
-                  <p className="mt-1 text-[11px] leading-5 text-[#94836A]">{issue.description ?? "No description provided."}</p>
+                  <p className="mt-1 text-[11px] leading-5 text-[#99978C]">{issue.description ?? "No description provided."}</p>
                 </div>
-                <span className="text-[12px] font-bold text-[#C7F76F]">{issue.actionLabel ?? "Review"}</span>
-                <span className="font-mono-ui text-[11px] text-[#94836A]">{ageFrom(issue.createdAt)}</span>
+                <span className="text-[12px] font-bold text-[#C6F23D]">{issue.actionLabel ?? "Review"}</span>
+                <span className="font-mono-ui text-[11px] text-[#99978C]">{ageFrom(issue.createdAt)}</span>
               </div>
             ))}
           </Card>
@@ -1766,7 +1766,7 @@ function AccountTabContent({
             </Button>
           }
         >
-          <p className="max-w-3xl text-[13px] leading-6 text-[#B7AB98]">
+          <p className="max-w-3xl text-[13px] leading-6 text-[#99978C]">
             Bellory turns this account setup into a Markdown knowledge document and uploads it to the ElevenLabs agent automatically every time you sync. Download a copy to review exactly what the receptionist knows.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -1774,8 +1774,8 @@ function AccountTabContent({
             <DemoState title="2. Sync the agent" description="The document is generated, uploaded, and attached automatically. Old versions are replaced." />
             <DemoState title="3. Spot-check" description="Run a test call and ask about pricing, hours, and service area to confirm the facts landed." />
           </div>
-          {knowledgeBaseNeedsSave && <p className="mt-3 text-[11px] font-semibold text-[#F6C66A]">Unsaved edits will be saved before Bellory creates the document.</p>}
-          {!config && <p className="mt-3 text-[11px] font-semibold text-[#F08B72]">Load or create an account configuration before exporting a knowledge document.</p>}
+          {knowledgeBaseNeedsSave && <p className="mt-3 text-[11px] font-semibold text-[#FF7A1A]">Unsaved edits will be saved before Bellory creates the document.</p>}
+          {!config && <p className="mt-3 text-[11px] font-semibold text-[#F0837B]">Load or create an account configuration before exporting a knowledge document.</p>}
         </ConfigPanel>
         <div className="grid gap-4 xl:grid-cols-[1fr_390px]">
           <ConfigPanel title="FAQs and knowledge" eyebrow="AI memory" icon={Brain}>
@@ -1852,7 +1852,7 @@ function AccountTabContent({
       <div className="space-y-4">
         <Card className="p-5">
           <SectionTitle title="Connection status" eyebrow="Updated automatically" />
-          <p className="max-w-3xl text-[13px] leading-6 text-[#94836A]">
+          <p className="max-w-3xl text-[13px] leading-6 text-[#99978C]">
             These statuses are written by the sync and connect actions in their own tabs — nothing to edit here.
           </p>
         </Card>
@@ -1861,9 +1861,9 @@ function AccountTabContent({
             <ConfigPanel key={row.name} title={row.name} icon={row.icon} tone={row.status === "issue" ? "coral" : row.status === "connected" ? "mint" : "honey"}>
               <div className="flex items-center gap-3">
                 <Badge tone={row.status === "issue" ? "coral" : row.status === "connected" ? "mint" : "honey"}>{displayStatus(row.status)}</Badge>
-                <span className="font-mono-ui truncate text-[12px] text-[#C6B9A6]">{row.detail}</span>
+                <span className="font-mono-ui truncate text-[12px] text-[#99978C]">{row.detail}</span>
               </div>
-              <p className="mt-3 text-[12px] leading-5 text-[#94836A]">{row.manage}</p>
+              <p className="mt-3 text-[12px] leading-5 text-[#99978C]">{row.manage}</p>
             </ConfigPanel>
           ))}
         </div>
@@ -2099,16 +2099,16 @@ export function AccountDetailPage({
   return (
     <div className="space-y-5">
       <Card className="relative overflow-hidden p-6">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(199,247,111,.08),transparent_35%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(198,242,61,.08),transparent_35%)]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-4">
-            <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-[#C7F76F]/[.08] text-sm font-black text-[#C7F76F] shadow-[inset_0_0_0_1px_rgba(199,247,111,.12)]">{initials(client.name)}</span>
+            <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-[#C6F23D]/[.08] text-sm font-black text-[#C6F23D] shadow-[inset_0_0_0_1px_rgba(198,242,61,.12)]">{initials(client.name)}</span>
             <div>
               <div className="mb-2.5 flex flex-wrap items-center gap-2">
                 <Badge tone={statusTone(displayStatus(client.status))}>{displayStatus(client.status)}</Badge>
                 <button
                   onClick={onShowIssues}
-                  className="rounded-md transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C7F76F]/40"
+                  className="rounded-md transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6F23D]/40"
                   aria-label="View issues for this account"
                 >
                   <Badge tone={metrics.errors > 0 ? "coral" : "mint"}>{metrics.errors} issues</Badge>
@@ -2117,7 +2117,7 @@ export function AccountDetailPage({
                 {dirty && <Badge tone="honey">Unsaved changes</Badge>}
               </div>
               <h1 className="font-display text-3xl font-medium tracking-[-.02em] text-white sm:text-4xl">{client.name}</h1>
-              <p className="font-mono-ui mt-2 text-[11px] uppercase tracking-[.1em] text-[#94836A]">{client.industry} · {metrics.owner} · {readiness.percentage}% ready</p>
+              <p className="font-mono-ui mt-2 text-[11px] uppercase tracking-[.1em] text-[#99978C]">{client.industry} · {metrics.owner} · {readiness.percentage}% ready</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -2142,11 +2142,11 @@ export function AccountDetailPage({
               onClick={() => setTab(item)}
               className={clsx(
                 "relative whitespace-nowrap px-3.5 pb-3 pt-1.5 text-[12px] font-semibold tracking-[-.01em] transition-colors",
-                tab === item ? "text-[#D8FF9B]" : "text-[#94836A] hover:text-[#EFE1C8]",
+                tab === item ? "text-[#D3FA5A]" : "text-[#99978C] hover:text-[#D8D5CA]",
               )}
             >
               {item}
-              {tab === item && <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[#C7F76F] shadow-[0_0_10px_rgba(199,247,111,.6)]" />}
+              {tab === item && <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[#C6F23D] shadow-[0_0_10px_rgba(198,242,61,.6)]" />}
             </button>
           ))}
         </div>
@@ -2209,9 +2209,9 @@ export function IssuesPage({
         {shown.map((issue) => (
           <button key={issue.id} disabled={!issue.clientId} onClick={() => issue.clientId && onOpenAccount(issue.clientId)} className="grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-white/[.025] disabled:cursor-not-allowed lg:grid-cols-[130px_1fr_150px_90px] lg:items-center">
             <Badge tone={statusTone(issue.severity)}>{displayStatus(issue.severity)}</Badge>
-            <div><p className="text-[13px] font-bold tracking-[-.01em] text-white">{issue.title}</p><p className="mt-1 text-[11px] leading-5 text-[#94836A]">{issue.clientName ?? "Bellory"} · {issue.description ?? "No description provided."}</p></div>
-            <span className="text-[12px] font-bold text-[#C7F76F]">{issue.actionLabel ?? "Review"} →</span>
-            <span className="font-mono-ui text-[11px] text-[#6E5F49]">{ageFrom(issue.createdAt)}</span>
+            <div><p className="text-[13px] font-bold tracking-[-.01em] text-white">{issue.title}</p><p className="mt-1 text-[11px] leading-5 text-[#99978C]">{issue.clientName ?? "Bellory"} · {issue.description ?? "No description provided."}</p></div>
+            <span className="text-[12px] font-bold text-[#C6F23D]">{issue.actionLabel ?? "Review"} →</span>
+            <span className="font-mono-ui text-[11px] text-[#706F66]">{ageFrom(issue.createdAt)}</span>
           </button>
         ))}
         {shown.length === 0 && <div className="p-5"><DemoState title="No open issues" description="Config validation and runtime issues will appear here when they need operator action." /></div>}
@@ -2248,7 +2248,7 @@ export function ReportsPage({
     <div className="space-y-5">
       <Card className="p-6">
         <SectionTitle title="Proof that Bellory is working" eyebrow="Client-ready reports" action={<Button kind="secondary" onClick={onRefresh}><FileChartColumn size={13} /> Refresh report</Button>} />
-        <p className="max-w-3xl text-[13px] leading-6 text-[#94836A]">These numbers are wired to live daily metrics. They will move automatically once call, lead, and appointment webhooks start writing data.</p>
+        <p className="max-w-3xl text-[13px] leading-6 text-[#99978C]">These numbers are wired to live daily metrics. They will move automatically once call, lead, and appointment webhooks start writing data.</p>
       </Card>
       <div className="grid gap-4 sm:grid-cols-4">
         <MetricCard icon={PhoneIncoming} label="Calls answered" value={`${totals.calls}`} helper="Total account coverage" />
@@ -2262,11 +2262,11 @@ export function ReportsPage({
           const metrics = getMetrics(client);
           return (
             <button key={client.id} onClick={() => onOpenAccount(client.id)} className="grid w-full gap-3 border-t border-white/[.05] px-5 py-4 text-left transition hover:bg-white/[.025] md:grid-cols-[1.2fr_.5fr_.5fr_.5fr_.7fr] md:items-center">
-              <div><p className="text-[13px] font-bold tracking-[-.01em] text-white">{client.name}</p><p className="mt-1 text-[11px] text-[#94836A]">{client.industry}</p></div>
-              <span className="font-mono-ui text-[13px] font-bold text-[#C7F76F]">{metrics.jobsSaved} jobs</span>
+              <div><p className="text-[13px] font-bold tracking-[-.01em] text-white">{client.name}</p><p className="mt-1 text-[11px] text-[#99978C]">{client.industry}</p></div>
+              <span className="font-mono-ui text-[13px] font-bold text-[#C6F23D]">{metrics.jobsSaved} jobs</span>
               <span className="font-mono-ui text-[13px] font-bold text-white">{metrics.hoursSaved} hrs</span>
-              <span className="font-mono-ui text-[13px] font-bold text-[#F6C66A]">{metrics.revenueSaved}</span>
-              <span className="text-[11px] font-bold text-[#C7F76F]">Open report →</span>
+              <span className="font-mono-ui text-[13px] font-bold text-[#FF7A1A]">{metrics.revenueSaved}</span>
+              <span className="text-[11px] font-bold text-[#C6F23D]">Open report →</span>
             </button>
           );
         })}
@@ -2285,10 +2285,10 @@ export function OperatorSettingsPage() {
         <Card className="p-5">
           <SectionTitle title="Workspace" eyebrow="Internal only" action={<IconBox icon={Building2} />} />
           <div className="grid gap-3 md:grid-cols-2">
-            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Workspace name</p><Input value="Bellory HQ" disabled /></div>
-            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Timezone</p><Input value="America/Denver" disabled /></div>
-            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">App URL</p><Input value="https://usebellory.com" disabled /></div>
-            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94836A]">Primary verticals</p><Input value="Home services" disabled /></div>
+            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">Workspace name</p><Input value="Bellory HQ" disabled /></div>
+            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">Timezone</p><Input value="America/Denver" disabled /></div>
+            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">App URL</p><Input value="https://usebellory.com" disabled /></div>
+            <div><p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">Primary verticals</p><Input value="Home services" disabled /></div>
           </div>
         </Card>
         <Card className="p-5">

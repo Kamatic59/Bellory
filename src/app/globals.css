@@ -1,17 +1,39 @@
 @import "tailwindcss";
 
+/* ————————————————————————————————————————————————————————————
+   Bellory design tokens — dark, editorial, restrained.
+   Palette is the single source of truth; derived text shades for
+   small-size contrast are marked as such.
+   ———————————————————————————————————————————————————————————— */
 :root {
-  --ink: #100E0A;
-  --ink-soft: #17130E;
-  --ink-card: #1D1811;
-  --ink-raise: #251E15;
-  --mint: #C7F76F;
-  --mint-deep: #94C759;
-  --honey: #F6C66A;
-  --coral: #E05F45;
-  --cream: #FFF7E8;
-  --muted: #B7AB98;
-  --line: rgba(255, 247, 232, 0.08);
+  --bg: #12120E;
+  --bg-2: #171812;
+  --surface: #1C1E17;
+  --surface-2: #22241C;
+  --lime: #C6F23D;
+  --lime-hover: #D3FA5A;
+  --ivory: #F3F1E6;
+  --text: #D8D5CA;
+  --muted: #99978C;
+  --subtle: #706F66;
+  --border: #303228;
+  --border-strong: #45483A;
+  --orange: #FF7A1A;
+  --red: #E95A50;
+  --red-text: #F0837B; /* derived: error text at small sizes */
+  --green: #8FD14F;
+  --line: rgba(243, 241, 230, 0.08);
+
+  /* Back-compat aliases used across components */
+  --ink: var(--bg);
+  --ink-soft: var(--bg-2);
+  --ink-card: var(--surface);
+  --ink-raise: var(--surface-2);
+  --mint: var(--lime);
+  --mint-deep: var(--green);
+  --honey: var(--orange);
+  --coral: var(--red);
+  --cream: var(--ivory);
 }
 
 * {
@@ -19,28 +41,25 @@
 }
 
 html {
-  background: var(--ink);
+  background: var(--bg);
   scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  background:
-    radial-gradient(ellipse 80rem 44rem at 68% -12%, rgba(199, 247, 111, 0.07), transparent),
-    radial-gradient(ellipse 60rem 40rem at 4% 104%, rgba(246, 198, 106, 0.05), transparent),
-    var(--ink);
-  color: var(--cream);
-  font-family: var(--font-geist-sans), Arial, sans-serif;
-  font-feature-settings: "ss01" 1, "cv05" 1;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), Arial, sans-serif;
 }
 
 .font-display {
-  font-family: var(--font-fraunces), Georgia, serif;
-  font-variation-settings: "opsz" 144, "SOFT" 40, "WONK" 0;
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
 .font-mono-ui {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-mono), ui-monospace, monospace;
 }
 
 button, input, textarea, select {
@@ -51,8 +70,14 @@ button {
   cursor: pointer;
 }
 
+:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 ::selection {
-  background: rgba(199, 247, 111, 0.28);
+  background: rgba(198, 242, 61, 0.3);
   color: #fff;
 }
 
@@ -66,15 +91,15 @@ button {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(191, 167, 119, 0.22);
+  background: rgba(153, 151, 140, 0.25);
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(191, 167, 119, 0.35);
+  background: rgba(153, 151, 140, 0.4);
 }
 
-/* Film grain overlay — fixed, sits above backgrounds, below content */
+/* Film grain — kept extremely subtle */
 .grain::before {
   content: "";
   position: fixed;
@@ -82,43 +107,40 @@ button {
   z-index: 1;
   pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-  opacity: 0.03;
+  opacity: 0.02;
 }
 
+/* Elevated card surface — flat, bordered, minimal shadow */
 .glass {
-  background:
-    linear-gradient(160deg, rgba(37, 30, 21, 0.92), rgba(20, 16, 11, 0.88)),
-    radial-gradient(circle at 18% 0%, rgba(199, 247, 111, 0.05), transparent 24rem);
-  border: 1px solid var(--line);
-  box-shadow: inset 0 1px 0 rgba(255, 247, 232, 0.04), 0 20px 48px rgba(0, 0, 0, 0.24);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(243, 241, 230, 0.03) inset;
 }
 
 .glass-soft {
-  background: rgba(29, 24, 17, 0.7);
-  border: 1px solid var(--line);
+  background: rgba(28, 30, 23, 0.72);
+  border: 1px solid var(--border);
 }
 
 .mint-glow {
-  box-shadow: 0 0 0 1px rgba(199, 247, 111, 0.14), 0 0 26px rgba(148, 199, 89, 0.1);
+  box-shadow: 0 0 0 1px rgba(198, 242, 61, 0.22);
 }
 
 .grid-glow {
   background-image:
-    linear-gradient(rgba(255,247,232,.024) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,247,232,.024) 1px, transparent 1px);
+    linear-gradient(rgba(243,241,230,.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(243,241,230,.02) 1px, transparent 1px);
   background-size: 32px 32px;
   mask-image: linear-gradient(to bottom, black, transparent);
 }
 
-/* Perforated / receipt edge */
 .rule-dashed {
-  background-image: linear-gradient(to right, rgba(255,247,232,.22) 32%, transparent 0);
+  background-image: linear-gradient(to right, rgba(243,241,230,.2) 32%, transparent 0);
   background-size: 10px 1px;
   background-repeat: repeat-x;
   height: 1px;
 }
 
-/* Rubber-stamp outcome mark */
 .stamp {
   display: inline-flex;
   align-items: center;
@@ -126,14 +148,12 @@ button {
   border: 1.5px solid currentColor;
   border-radius: .45rem;
   padding: .3rem .6rem;
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: .18em;
   text-transform: uppercase;
   transform: rotate(-2deg);
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40'%3E%3Cfilter id='r'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.4 -0.15'/%3E%3CfeComposite operator='in' in2='SourceGraphic'/%3E%3C/filter%3E%3Crect width='120' height='40' fill='%23fff' filter='url(%23r)'/%3E%3C/svg%3E");
-  mask-size: 120px 40px;
 }
 
 .text-balance {
@@ -144,13 +164,8 @@ button {
   animation: typing 1.35s infinite ease-in-out;
 }
 
-.typing-dot:nth-child(2) {
-  animation-delay: .14s;
-}
-
-.typing-dot:nth-child(3) {
-  animation-delay: .28s;
-}
+.typing-dot:nth-child(2) { animation-delay: .14s; }
+.typing-dot:nth-child(3) { animation-delay: .28s; }
 
 @keyframes typing {
   0%, 60%, 100% { transform: translateY(0); opacity: .35; }
@@ -162,12 +177,22 @@ button {
 }
 
 @keyframes ring {
-  0% { box-shadow: 0 0 0 0 rgba(199, 247, 111, .35); }
-  70% { box-shadow: 0 0 0 8px rgba(199, 247, 111, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(199, 247, 111, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(198, 242, 61, .3); }
+  70% { box-shadow: 0 0 0 8px rgba(198, 242, 61, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(198, 242, 61, 0); }
 }
 
-/* Continuous call-log ticker */
+/* Live-call waveform bars */
+.wave-bar {
+  animation: wave 1.1s infinite ease-in-out;
+  transform-origin: center;
+}
+
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
 .ticker {
   display: flex;
   width: max-content;
@@ -184,8 +209,12 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ticker { animation: none; }
+  .ticker, .typing-dot, .pulse-ring, .wave-bar { animation: none; }
   html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media (max-width: 767px) {
