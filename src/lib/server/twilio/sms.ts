@@ -2,7 +2,18 @@ import { getOptionalEnv } from "@/lib/server/env";
 
 const TWILIO_API = "https://api.twilio.com/2010-04-01";
 
-export type SmsResult = { ok: true; sid: string } | { ok: false; error: string };
+export type SmsResult = { ok: true; sid: string } | { ok: false; error: string; disabled?: true };
+
+/**
+ * US carriers block application SMS from numbers without A2P 10DLC
+ * registration — and Twilio accepts the API call before dropping the message,
+ * so an unregistered sender looks like success in code while nothing arrives.
+ * SMS therefore stays off until registration is done: set SMS_ENABLED=true
+ * (and redeploy) once the brand + campaign are approved.
+ */
+export function smsEnabled(): boolean {
+  return getOptionalEnv("SMS_ENABLED") === "true";
+}
 
 export function normalizeE164(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -18,6 +29,10 @@ export function normalizeE164(raw: string | null | undefined): string | null {
  * the caller already knows.
  */
 export async function sendSms(input: { to: string; body: string; from?: string | null }): Promise<SmsResult> {
+  if (!smsEnabled()) {
+    return { ok: false, error: "SMS is disabled until A2P 10DLC registration is complete (set SMS_ENABLED=true).", disabled: true };
+  }
+
   const sid = getOptionalEnv("TWILIO_ACCOUNT_SID");
   const token = getOptionalEnv("TWILIO_AUTH_TOKEN");
   if (!sid || !token) return { ok: false, error: "Twilio is not configured." };

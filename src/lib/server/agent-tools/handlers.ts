@@ -579,7 +579,7 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
       })
       .where(eq(appointments.id, appointment.id));
 
-    if (!sent.ok && status === "booked") {
+    if (!sent.ok && !sent.disabled && status === "booked") {
       await db.insert(clientIssues).values({
         organizationId: client.organizationId,
         clientId: client.id,
@@ -742,13 +742,17 @@ const ownerAlert: AgentToolHandler = async (context) => {
   }).returning();
 
   // Deliver immediately — an urgent alert sitting in a queue nobody reads is
-  // worse than no alert feature at all.
+  // worse than no alert feature at all. While SMS is deliberately disabled
+  // (pre-A2P registration) the row stays queued for the day it ships, without
+  // raising a false alarm.
   const sent = await sendSms({ to: config.businessIdentity.ownerPhone, body, from: clientSmsFrom(config) });
-  await db.update(ownerNotifications)
-    .set(sent.ok ? { status: "sent", sentAt: new Date(), updatedAt: new Date() } : { status: "failed", updatedAt: new Date() })
-    .where(eq(ownerNotifications.id, notification.id));
+  if (!(!sent.ok && sent.disabled)) {
+    await db.update(ownerNotifications)
+      .set(sent.ok ? { status: "sent", sentAt: new Date(), updatedAt: new Date() } : { status: "failed", updatedAt: new Date() })
+      .where(eq(ownerNotifications.id, notification.id));
+  }
 
-  if (!sent.ok) {
+  if (!sent.ok && !sent.disabled) {
     // The owner did NOT get the text — someone must see this in the admin.
     await db.insert(clientIssues).values({
       organizationId: client.organizationId,
