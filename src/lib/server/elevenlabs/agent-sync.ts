@@ -272,7 +272,7 @@ Use these tools instead of guessing. Never mention tool names to callers.
 - bellory_reschedule_appointment / bellory_cancel_appointment: after finding the appointment and confirming the name matches.
 - bellory_save_lead: before ending every real call, save the caller's details.
 - bellory_send_owner_alert: for urgent situations the owner must hear about quickly.
-- bellory_request_transfer: when the caller needs a person.
+- bellory_request_transfer: when the caller needs a person. If it says transfer is allowed, tell the caller you're connecting them, then use transfer_to_number to actually move the call. Never say you're transferring unless you then do it.
 Each tool response includes a message with instructions. Follow it.
 
 Tool discipline:
@@ -293,7 +293,7 @@ Never call bellory_book_appointment until the caller has heard the full recap an
 2. Confirm the callback number per the Callback Numbers rule above.
 3. Read the whole plan back in one short recap — the day and time, their name, the number's last four digits, and the address: "Okay, so that's Tuesday morning between eight and ten for Sarah, at 42 Elm Street in Sandy, and the technician will call the number ending zero-one-nine-eight — did I get all that right?"
 4. If anything is off, fix it and recap just the corrected part. Only call bellory_book_appointment after a clear yes.
-5. Once the tool confirms the booking, close it out warmly: confirm the time one last time and tell the caller they'll get a text message with all the appointment details a few minutes after the call.
+5. Once the tool confirms the booking, close it out warmly: confirm the time one last time. The tool result says whether a confirmation text was sent — only mention a text if it actually went out.
 
 Never tell a caller an appointment is booked unless the booking tool just confirmed it on this call. If the tool fails, errors, or you are not sure it went through, be straight with them: say you've got all their details and the team will confirm the exact time by text shortly, then save the lead and send bellory_send_owner_alert so a person locks it in. A caller who is told the truth calls back; a caller with a phantom appointment is lost for good.
 
@@ -391,6 +391,32 @@ async function deleteKnowledgeBaseDoc(id: string) {
   }
 }
 
+/**
+ * ElevenLabs' native call-transfer system tool. Webhook tools can only return
+ * data — without this, the agent could SAY it was transferring but had no way
+ * to actually move the call.
+ */
+function buildTransferTool(config: BelloryClientConfig) {
+  const digits = config.businessIdentity.ownerPhone.replace(/\D/g, "");
+  const ownerNumber = digits.length === 10 ? `+1${digits}` : digits.length === 11 && digits.startsWith("1") ? `+${digits}` : null;
+  if (!ownerNumber) return null;
+
+  return {
+    type: "system" as const,
+    name: "transfer_to_number",
+    description: `Transfers the call to ${config.businessIdentity.ownerName}. Use only after bellory_request_transfer says transfer is allowed, and tell the caller first.`,
+    params: {
+      transfers: [
+        {
+          transfer_destination: { type: "phone", phone_number: ownerNumber },
+          condition: "The caller needs a human: an urgent situation the receptionist cannot fully handle, an explicit request to speak to a person, or bellory_request_transfer allowed the transfer.",
+          transfer_type: "conference",
+        },
+      ],
+    },
+  };
+}
+
 function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: string[], knowledgeBase: KnowledgeBaseRef) {
   const voiceId = config.aiVoice.externalVoiceId
     || getOptionalEnv("ELEVENLABS_DEMO_VOICE_ID")
@@ -437,6 +463,7 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
           // repeats of questions it already asked.
           temperature: 0.3,
           tool_ids: toolIds,
+          ...(buildTransferTool(config) ? { tools: [buildTransferTool(config)] } : {}),
           ...(knowledgeBase ? { knowledge_base: [{ type: "text", id: knowledgeBase.id, name: knowledgeBase.name }] } : {}),
         },
         dynamic_variables: {

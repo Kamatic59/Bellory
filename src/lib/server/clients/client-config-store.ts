@@ -21,7 +21,7 @@ type CreateClientInput = {
   name: string;
   industry: string;
   primaryContactName?: string;
-  primaryContactPhone?: string;
+  primaryContactPhone: string;
   primaryContactEmail?: string;
 };
 
@@ -152,8 +152,9 @@ export async function createClientWithDraft(input: CreateClientInput) {
   const initialConfig = createDemoClientConfig(input.name);
   initialConfig.businessIdentity.industry = input.industry;
   initialConfig.businessIdentity.ownerName = input.primaryContactName || "Business owner";
-  initialConfig.businessIdentity.ownerPhone = input.primaryContactPhone || "+18015550100";
+  initialConfig.businessIdentity.ownerPhone = input.primaryContactPhone;
   initialConfig.businessIdentity.ownerEmail = input.primaryContactEmail;
+  initialConfig.phoneRouting.currentNumber = input.primaryContactPhone;
 
   const [client] = await db.insert(clients).values({
     organizationId: org.id,
@@ -265,6 +266,31 @@ export async function publishClientConfig(clientId: string) {
   if (!validation.ok) {
     await createValidationIssue(clientId, validation.issues);
     return { ok: false as const, validation };
+  }
+
+  // Publishing means "real callers run on this config" — a valid schema is not
+  // enough. Every tool the receptionist depends on must actually be connected,
+  // and someone must have signed off on launch QA.
+  const publishGate: string[] = [];
+  const full = validation.config;
+  if (full.integrations.elevenLabs.status !== "connected") {
+    publishGate.push("ElevenLabs agent is not synced — run Sync agent on the Agent & Prompt tab.");
+  }
+  if (full.integrations.twilio.status !== "connected") {
+    publishGate.push("No phone number is connected — connect one on the Call Flow tab.");
+  }
+  if (full.calendarAndDispatch.provider === "google" && full.integrations.googleCalendar.status !== "connected") {
+    publishGate.push("Google Calendar is not connected — connect it on the Integrations tab, or set the calendar provider to manual.");
+  }
+  if (!full.launchQa.passed) {
+    publishGate.push("Launch QA has not been marked passed — run the test scenarios and set it on the Testing tab.");
+  }
+  if (publishGate.length > 0) {
+    await createValidationIssue(clientId, publishGate);
+    return {
+      ok: false as const,
+      validation: { ok: false as const, draft: full, readiness: getConfigReadiness(full), issues: publishGate },
+    };
   }
 
   const draft = config.draft ?? config.configVersion;

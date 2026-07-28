@@ -58,7 +58,7 @@ export type CreateClientPayload = {
   name: string;
   industry: string;
   primaryContactName?: string;
-  primaryContactPhone?: string;
+  primaryContactPhone: string;
   primaryContactEmail?: string;
 };
 

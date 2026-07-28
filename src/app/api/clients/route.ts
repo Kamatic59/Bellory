@@ -8,7 +8,17 @@ const createClientSchema = z.object({
   name: z.string().trim().min(1),
   industry: z.string().trim().min(1),
   primaryContactName: z.string().trim().optional(),
-  primaryContactPhone: z.string().trim().optional(),
+  // The owner phone is where urgent transfers and alert texts go — a business
+  // must never be created without a real one.
+  primaryContactPhone: z.string().trim().transform((value, ctx) => {
+    const digits = value.replace(/\D/g, "");
+    const e164 = digits.length === 10 ? `+1${digits}` : digits.length === 11 && digits.startsWith("1") ? `+${digits}` : null;
+    if (!e164) {
+      ctx.addIssue({ code: "custom", message: "Owner phone must be a 10-digit US number." });
+      return z.NEVER;
+    }
+    return e164;
+  }),
   primaryContactEmail: z.string().trim().email().optional(),
 });
 

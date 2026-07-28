@@ -4,7 +4,15 @@ type Requirement = {
   section: ConfigSection;
   path: string;
   label: string;
+  /** Custom completion predicate; defaults to non-empty presence. */
+  check?: (value: unknown, config: BelloryClientConfigDraft) => boolean;
 };
+
+const isConnected = (value: unknown) => value === "connected";
+
+/** Calendar counts once connected, or when the client deliberately runs without Google. */
+const calendarReady = (value: unknown, config: BelloryClientConfigDraft) =>
+  isConnected(value) || (config.calendarAndDispatch?.provider !== undefined && config.calendarAndDispatch.provider !== "google");
 
 const requirements: Requirement[] = [
   { section: "businessIdentity", path: "businessIdentity.publicName", label: "Caller-facing business name" },
@@ -30,10 +38,11 @@ const requirements: Requirement[] = [
   { section: "urgencyAndEscalation", path: "urgencyAndEscalation.smsAlertTemplate", label: "Owner alert template" },
   { section: "complianceAndPolicies", path: "complianceAndPolicies.aiDisclosurePolicy", label: "AI disclosure policy" },
   { section: "complianceAndPolicies", path: "complianceAndPolicies.callRecordingConsentScript", label: "Recording consent script" },
-  { section: "integrations", path: "integrations.elevenLabs.status", label: "ElevenLabs status" },
-  { section: "integrations", path: "integrations.twilio.status", label: "Twilio status" },
-  { section: "integrations", path: "integrations.googleCalendar.status", label: "Calendar status" },
+  { section: "integrations", path: "integrations.elevenLabs.status", label: "ElevenLabs agent synced", check: isConnected },
+  { section: "integrations", path: "integrations.twilio.status", label: "Phone number connected", check: isConnected },
+  { section: "integrations", path: "integrations.googleCalendar.status", label: "Calendar connected (or set to manual)", check: calendarReady },
   { section: "launchQa", path: "launchQa.requiredScenarios", label: "Launch QA scenarios" },
+  { section: "launchQa", path: "launchQa.passed", label: "Launch QA passed", check: (value) => value === true },
 ];
 
 function readPath(value: unknown, path: string): unknown {
@@ -52,12 +61,16 @@ function hasValue(value: unknown): boolean {
 }
 
 export function getConfigReadiness(config: BelloryClientConfigDraft) {
-  const missing = requirements.filter((requirement) => !hasValue(readPath(config, requirement.path)));
+  const satisfied = (requirement: Requirement) => {
+    const value = readPath(config, requirement.path);
+    return requirement.check ? requirement.check(value, config) : hasValue(value);
+  };
+  const missing = requirements.filter((requirement) => !satisfied(requirement));
   const complete = requirements.length - missing.length;
   const percentage = Math.round((complete / requirements.length) * 100);
   const sectionStatus = Object.fromEntries(configSections.map((section) => {
     const sectionRequirements = requirements.filter((requirement) => requirement.section === section);
-    const sectionMissing = sectionRequirements.filter((requirement) => !hasValue(readPath(config, requirement.path)));
+    const sectionMissing = sectionRequirements.filter((requirement) => !satisfied(requirement));
     return [section, {
       complete: sectionMissing.length === 0,
       missing: sectionMissing.map((requirement) => requirement.label),

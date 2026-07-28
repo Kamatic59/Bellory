@@ -275,10 +275,17 @@ function splitLines(value: string) {
   return value.split("\n").map((item) => item.trim()).filter(Boolean);
 }
 
+function normalizeUsPhone(raw: string): string | null {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return null;
+}
+
 function setupPatch(form: SetupForm): BelloryClientConfigDraft {
   const publicName = form.publicName || form.name;
   const ownerName = form.primaryContactName || "Business owner";
-  const ownerPhone = form.primaryContactPhone || "+18015550100";
+  const ownerPhone = normalizeUsPhone(form.primaryContactPhone) ?? form.primaryContactPhone;
   const receptionistName = form.receptionistName.trim() || "Sam";
   const agentDisplayName = form.agentDisplayName.trim() || `${receptionistName} - ${publicName}`;
   const systemPrompt = form.systemPrompt.trim() || buildDefaultAgentSystemPrompt({ receptionistName, businessName: publicName });
@@ -669,7 +676,6 @@ type SetupForm = {
   phoneChoice: string;
   missedCallFallback: string;
   spamHandling: string;
-  voiceChoice: string;
   receptionistName: string;
   agentDisplayName: string;
   greetingScript: string;
@@ -683,7 +689,6 @@ type SetupForm = {
   brandTone: string;
   bookingChoice: string;
   noAvailabilityBehavior: string;
-  fallbackChoice: string;
   urgentTriggers: string;
   smsAlertTemplate: string;
   operatorReviewThreshold: string;
@@ -691,6 +696,8 @@ type SetupForm = {
   callRecordingConsentScript: string;
   launchScenarios: string;
 };
+
+const SETUP_DRAFT_KEY = "bellory-setup-draft";
 
 const defaultSetupForm: SetupForm = {
   name: "",
@@ -713,7 +720,6 @@ const defaultSetupForm: SetupForm = {
   phoneChoice: "forward",
   missedCallFallback: "Collect caller details and send the owner an SMS summary.",
   spamHandling: "Politely end obvious spam calls and mark the lead as spam.",
-  voiceChoice: "elevenlabs",
   receptionistName: "Sam",
   agentDisplayName: "",
   greetingScript: "",
@@ -727,7 +733,6 @@ const defaultSetupForm: SetupForm = {
   brandTone: "warm, brief, professional, local",
   bookingChoice: "direct",
   noAvailabilityBehavior: "Collect preferred windows and alert the owner.",
-  fallbackChoice: "owner",
   urgentTriggers: "safety risk\nactive leak\ndoor stuck open\ncaller trapped\nproperty damage\nangry caller",
   smsAlertTemplate: "Urgent Bellory call for {{client_name}}: {{issue}}. Caller: {{caller_phone}}.",
   operatorReviewThreshold: "Escalate low confidence, urgent, or pricing-outside-rules calls.",
@@ -769,11 +774,32 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
   const detail = onboardingDetails[current];
 
   const update = (key: keyof SetupForm) => (value: string) => setForm((currentForm) => ({ ...currentForm, [key]: value }));
-  const createDisabled = !form.name.trim() || !form.industry.trim() || saving;
+  const ownerPhone = normalizeUsPhone(form.primaryContactPhone);
+  const createDisabled = !form.name.trim() || !form.industry.trim() || !ownerPhone || saving;
+
+  // The wizard survives an accidental tab close: every keystroke mirrors to
+  // localStorage until the account is actually created.
+  useEffect(() => {
+    queueMicrotask(() => {
+      const stored = window.localStorage.getItem(SETUP_DRAFT_KEY);
+      if (!stored) return;
+      try {
+        const parsed = JSON.parse(stored) as { form?: Partial<SetupForm>; step?: number };
+        if (parsed.form) setForm({ ...defaultSetupForm, ...parsed.form });
+        if (typeof parsed.step === "number") setStep(Math.min(Math.max(parsed.step, 0), setupSteps.length - 1));
+      } catch {
+        window.localStorage.removeItem(SETUP_DRAFT_KEY);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(SETUP_DRAFT_KEY, JSON.stringify({ form, step }));
+  }, [form, step]);
 
   const handleCreate = async () => {
     if (createDisabled) {
-      setError("Business name and industry are required before creating the account.");
+      setError("Business name, industry, and a valid 10-digit owner phone are required — the owner phone is where urgent transfers and alert texts go.");
       return;
     }
 
@@ -784,10 +810,11 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
         name: form.name.trim(),
         industry: form.industry.trim(),
         primaryContactName: form.primaryContactName.trim() || undefined,
-        primaryContactPhone: form.primaryContactPhone.trim() || undefined,
+        primaryContactPhone: ownerPhone,
         primaryContactEmail: form.primaryContactEmail.trim() || undefined,
       }, setupPatch(form));
       setForm(defaultSetupForm);
+      window.localStorage.removeItem(SETUP_DRAFT_KEY);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to create business");
     } finally {
@@ -804,7 +831,7 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
             <span className="font-mono-ui text-sm font-bold text-[#C7F76F]">{complete}%</span>
           </div>
           <p className="mt-3.5 text-[15px] font-bold tracking-[-.01em] text-white">New business onboarding</p>
-          <p className="mt-1 text-[11px] leading-4 text-[#94836A]">Creates a real client and first config draft in Supabase.</p>
+          <p className="mt-1 text-[11px] leading-4 text-[#94836A]">Creates a real client and first config draft in Supabase. Your progress is saved on this device until you create the account.</p>
           <div className="mt-4"><Progress value={complete} /></div>
         </div>
         <div className="space-y-0.5">
@@ -849,32 +876,12 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
           </div>
         )}
 
-        {current === "Agent identity & prompt" && (
-          <div className="mb-5">
-            <ChoiceGrid selected={form.voiceChoice} onSelect={update("voiceChoice")} options={[
-              { id: "elevenlabs", title: "ElevenLabs agent", description: "Use the most human voice profile and live call agent config." },
-              { id: "template", title: "Copy Bellory template", description: "Start from the Bellory base agent, then customize the name and prompt." },
-              { id: "custom", title: "Custom client agent", description: "Use a dedicated agent when the customer needs deeper behavior changes." },
-            ]} />
-          </div>
-        )}
-
         {current === "Calendar & dispatch" && (
           <div className="mb-5">
             <ChoiceGrid selected={form.bookingChoice} onSelect={update("bookingChoice")} options={[
               { id: "direct", title: "Book directly", description: "AI books when all rules match and calendar has availability." },
               { id: "approval", title: "Owner approval", description: "AI collects details and holds appointment until approved." },
               { id: "lead", title: "Lead only", description: "AI captures qualified jobs without committing a time." },
-            ]} />
-          </div>
-        )}
-
-        {current === "Urgency & escalation" && (
-          <div className="mb-5">
-            <ChoiceGrid selected={form.fallbackChoice} onSelect={update("fallbackChoice")} options={[
-              { id: "owner", title: "Owner first", description: "Transfer urgent calls to owner, then SMS summary." },
-              { id: "manager", title: "Manager first", description: "Use office manager for scheduling or pricing uncertainty." },
-              { id: "bellory", title: "Bellory operator", description: "Route ambiguous calls to an internal Bellory operator." },
             ]} />
           </div>
         )}
@@ -886,7 +893,7 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
               <SetupField label="Caller-facing name" value={form.publicName} onChange={update("publicName")} />
               <SetupField label="Industry" value={form.industry} onChange={update("industry")} />
               <SetupField label="Owner name" value={form.primaryContactName} onChange={update("primaryContactName")} />
-              <SetupField label="Owner phone" value={form.primaryContactPhone} onChange={update("primaryContactPhone")} />
+              <SetupField label="Owner phone (required — transfers & alerts go here)" value={form.primaryContactPhone} onChange={update("primaryContactPhone")} type="tel" />
               <SetupField label="Owner email" value={form.primaryContactEmail} onChange={update("primaryContactEmail")} type="email" />
               <SetupField label="Timezone" value={form.timezone} onChange={update("timezone")} />
               <SetupField label="Brand tone" value={form.brandTone} onChange={update("brandTone")} />
@@ -988,7 +995,7 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
         <div className="mt-6 flex justify-between border-t border-white/[.06] pt-5">
           <Button kind="ghost" disabled={step === 0} onClick={() => setStep(Math.max(0, step - 1))}>Back</Button>
           {step < setupSteps.length - 1 ? (
-            <Button onClick={() => setStep(step + 1)}>Save & continue <ArrowRight size={13} /></Button>
+            <Button onClick={() => setStep(step + 1)}>Continue <ArrowRight size={13} /></Button>
           ) : (
             <Button disabled={createDisabled} onClick={handleCreate}><Sparkles size={14} /> {saving ? "Creating..." : "Create live account"}</Button>
           )}

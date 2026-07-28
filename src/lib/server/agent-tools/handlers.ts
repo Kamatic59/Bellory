@@ -12,6 +12,7 @@ import {
   type CalendarConnection,
 } from "@/lib/server/google/calendar";
 import type { AgentToolPayload } from "@/lib/server/agent-tool-responses";
+import { normalizeE164, sendSms } from "@/lib/server/twilio/sms";
 import type { AgentToolContext, AgentToolHandler, AgentToolResult } from "./runtime";
 
 /* ------------------------------ input helpers ----------------------------- */
@@ -42,6 +43,11 @@ function normalizePhone(value: string): string {
 function formatCents(cents: number): string {
   const dollars = cents / 100;
   return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
+}
+
+/** Texts come from the client's own Bellory number when one is connected. */
+function clientSmsFrom(config: BelloryClientConfig): string | null {
+  return normalizeE164(config.phoneRouting.belloryNumber) ?? null;
 }
 
 /**
@@ -547,10 +553,54 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
     }
   }
 
+  // The agent promises callers a confirmation text, so one actually goes out
+  // the moment the appointment lands. Failures never break the call — they're
+  // recorded on the appointment and surfaced as an admin issue.
+  let confirmationTexted = false;
+  if ((status === "booked" || status === "needs_approval") && callerPhone) {
+    const businessName = config.businessIdentity.publicName;
+    const textBody = status === "booked"
+      ? [
+        `${businessName}: you're booked for ${spoken}${address ? ` at ${address}` : ""}.`,
+        input.data.serviceSummary ?? input.data.issue ?? null,
+        "Reply or call this number if anything changes.",
+      ].filter(Boolean).join(" ")
+      : `${businessName}: got your request for ${spoken}. We'll text you shortly to confirm the exact time.`;
+
+    const sent = await sendSms({ to: callerPhone, body: textBody, from: clientSmsFrom(config) });
+    confirmationTexted = sent.ok;
+    await db.update(appointments)
+      .set({
+        metadata: {
+          ...appointment.metadata,
+          confirmationSms: sent.ok ? { sid: sent.sid, sentAt: new Date().toISOString() } : { error: sent.error, failedAt: new Date().toISOString() },
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(appointments.id, appointment.id));
+
+    if (!sent.ok && status === "booked") {
+      await db.insert(clientIssues).values({
+        organizationId: client.organizationId,
+        clientId: client.id,
+        severity: "medium",
+        status: "open",
+        source: "notifications",
+        title: "Booking confirmation text failed to send",
+        description: `${input.data.callerName ?? "A caller"} booked ${spoken} but the confirmation SMS to ${callerPhone} failed: ${sent.error}`,
+        actionLabel: "Text the customer manually",
+        metadata: { appointmentId: appointment.id },
+      });
+    }
+  }
+
+  const confirmationLine = confirmationTexted
+    ? "tell them a confirmation text was just sent to their number,"
+    : "confirm the details verbally,";
   const messages: Record<string, string> = {
     booked: calendarSyncFailed
-      ? `The ${spoken} appointment is recorded, but it did NOT reach the business calendar. Tell the caller the appointment is set and they'll get a text with all the details a few minutes after the call. Then send bellory_send_owner_alert with the appointment details so the team gets it on the schedule, and save the lead with this appointmentId.`
-      : `Booked for ${spoken}. Confirm the time with the caller using arrival-window wording, tell them they'll get a text with all the appointment details a few minutes after the call, and save the lead with this appointmentId.`,
+      ? `The ${spoken} appointment is recorded, but it did NOT reach the business calendar. Tell the caller the appointment is set and ${confirmationLine} then send bellory_send_owner_alert with the appointment details so the team gets it on the schedule, and save the lead with this appointmentId.`
+      : `Booked for ${spoken}. Confirm the time with the caller using arrival-window wording, ${confirmationLine} and save the lead with this appointmentId.`,
     needs_approval: `The request for ${spoken} is recorded and waiting on owner approval. Tell the caller the time will be confirmed shortly, and save the lead with this appointmentId.`,
     held: `The ${spoken} slot is held for 30 minutes. Confirm details with the caller, then book it.`,
   };
@@ -685,16 +735,40 @@ const ownerAlert: AgentToolHandler = async (context) => {
     clientId: client.id,
     leadId: data.leadId,
     callId: context.callId,
-    channel: data.channel?.toLowerCase() === "email" ? "email" : "sms",
+    channel: "sms",
     recipient: config.businessIdentity.ownerPhone,
     status: "queued",
     body,
   }).returning();
 
+  // Deliver immediately — an urgent alert sitting in a queue nobody reads is
+  // worse than no alert feature at all.
+  const sent = await sendSms({ to: config.businessIdentity.ownerPhone, body, from: clientSmsFrom(config) });
+  await db.update(ownerNotifications)
+    .set(sent.ok ? { status: "sent", sentAt: new Date(), updatedAt: new Date() } : { status: "failed", updatedAt: new Date() })
+    .where(eq(ownerNotifications.id, notification.id));
+
+  if (!sent.ok) {
+    // The owner did NOT get the text — someone must see this in the admin.
+    await db.insert(clientIssues).values({
+      organizationId: client.organizationId,
+      clientId: client.id,
+      severity: "critical",
+      status: "open",
+      source: "notifications",
+      title: "Urgent owner alert SMS failed to send",
+      description: `Alert for ${config.businessIdentity.ownerName} (${config.businessIdentity.ownerPhone}) was not delivered: ${sent.error}. Alert text: ${body}`,
+      actionLabel: "Contact the owner manually",
+      metadata: { notificationId: notification.id },
+    });
+  }
+
   return {
     ok: true,
-    message: `Alert for ${config.businessIdentity.ownerName} is queued. Tell the caller their details have been passed along for follow-up.`,
-    data: { notificationId: notification.id, channel: notification.channel, status: notification.status },
+    message: sent.ok
+      ? `Alert texted to ${config.businessIdentity.ownerName}. Tell the caller their details have been passed along for follow-up.`
+      : `Alert recorded for the team's review. Tell the caller their details have been passed along for follow-up.`,
+    data: { notificationId: notification.id, channel: notification.channel, status: sent.ok ? "sent" : "failed" },
   };
 };
 
@@ -820,6 +894,15 @@ const appointmentsReschedule: AgentToolHandler = async (context) => {
   }
 
   const spoken = spokenSlot(newStartsAt, config.businessIdentity.timezone);
+
+  if (appointment.callerPhone) {
+    await sendSms({
+      to: appointment.callerPhone,
+      body: `${config.businessIdentity.publicName}: your appointment has been moved to ${spoken}. Reply or call this number if that doesn't work.`,
+      from: clientSmsFrom(config),
+    });
+  }
+
   return {
     ok: true,
     message: `Rescheduled to ${spoken}. Confirm the new time with the caller using arrival-window wording.`,
@@ -868,6 +951,14 @@ const appointmentsCancel: AgentToolHandler = async (context) => {
     await deleteCalendarEvent(connection, appointment.externalEventId);
   }
 
+  if (appointment.callerPhone) {
+    await sendSms({
+      to: appointment.callerPhone,
+      body: `${context.config.businessIdentity.publicName}: your appointment has been cancelled. Call or text this number anytime to book a new time.`,
+      from: clientSmsFrom(context.config),
+    });
+  }
+
   return {
     ok: true,
     message: "Cancelled. Confirm it's done, and offer to book a new time whenever they're ready.",
@@ -881,7 +972,7 @@ const transferRequest: AgentToolHandler = async ({ config, payload }) => {
 
   return {
     ok: true,
-    message: `Transfer is allowed. Say something natural like "I'm going to forward you to someone who can help better," then transfer to ${config.businessIdentity.ownerName}.`,
+    message: `Transfer is allowed. Say something natural like "I'm going to forward you to someone who can help better," then use transfer_to_number to connect the caller to ${config.businessIdentity.ownerName}. If the transfer fails, take their details, save the lead, and send an owner alert instead.`,
     data: {
       transferAllowed: true,
       transferNumber: ownerPhone,
