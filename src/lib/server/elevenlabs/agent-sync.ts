@@ -394,7 +394,8 @@ async function deleteKnowledgeBaseDoc(id: string) {
 /**
  * ElevenLabs' native call-transfer system tool. Webhook tools can only return
  * data — without this, the agent could SAY it was transferring but had no way
- * to actually move the call.
+ * to actually move the call. System tools attach via prompt.built_in_tools;
+ * inline prompt.tools cannot be combined with tool_ids.
  */
 function buildTransferTool(config: BelloryClientConfig) {
   const digits = config.businessIdentity.ownerPhone.replace(/\D/g, "");
@@ -402,10 +403,10 @@ function buildTransferTool(config: BelloryClientConfig) {
   if (!ownerNumber) return null;
 
   return {
-    type: "system" as const,
     name: "transfer_to_number",
     description: `Transfers the call to ${config.businessIdentity.ownerName}. Use only after bellory_request_transfer says transfer is allowed, and tell the caller first.`,
     params: {
+      system_tool_type: "transfer_to_number",
       transfers: [
         {
           transfer_destination: { type: "phone", phone_number: ownerNumber },
@@ -463,7 +464,7 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
           // repeats of questions it already asked.
           temperature: 0.3,
           tool_ids: toolIds,
-          ...(buildTransferTool(config) ? { tools: [buildTransferTool(config)] } : {}),
+          ...(buildTransferTool(config) ? { built_in_tools: { transfer_to_number: buildTransferTool(config) } } : {}),
           ...(knowledgeBase ? { knowledge_base: [{ type: "text", id: knowledgeBase.id, name: knowledgeBase.name }] } : {}),
         },
         dynamic_variables: {
