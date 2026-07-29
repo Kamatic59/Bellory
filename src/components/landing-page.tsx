@@ -158,7 +158,7 @@ const faqs = [
   { question: "Does Bellory replace my phone number?", answer: "No. Your number stays exactly as it is — calls forward to Bellory when you can't pick up, or ring a dedicated Bellory line if you prefer. Nothing about how customers reach you changes." },
   { question: "What happens if the calendar is full?", answer: "Bellory never invents availability. If nothing is open, it collects the caller's preferred windows, saves their details, and alerts you so a person can sort it out." },
   { question: "Is there a contract?", answer: "No contract. Month one is free, and after that it's month to month. If Bellory stops earning its keep, cancel and we take it off your line." },
-  { question: "How is pricing calculated?", answer: "One flat monthly price — $300 — covering answering, booking, and human support. Typical garage-door call volumes are fully covered; if your line is unusually heavy we'll talk before anything changes." },
+  { question: "How is pricing calculated?", answer: "One flat monthly rate — about the cost of one small repair job — covering answering, booking, and human support. We settle the exact number together after your free month, so you're never paying for something you haven't seen work. Typical garage-door call volumes are fully covered." },
 ] as const;
 
 const setupChecklist = ["Services", "Service areas", "Business hours", "Emergency routing", "Booking rules", "Fallback contacts", "Call summaries", "Test scenarios"];
@@ -206,7 +206,7 @@ function DisplayHeading({ children, className = "" }: { children: ReactNode; cla
 
 function Section({ id, children, className = "" }: { id?: string; children: ReactNode; className?: string }) {
   return (
-    <section id={id} className={`relative z-10 mx-auto max-w-[1180px] scroll-mt-20 px-5 py-16 sm:px-8 sm:py-24 ${className}`}>
+    <section id={id} className={`relative z-10 mx-auto max-w-[1180px] scroll-mt-20 px-5 py-14 sm:px-8 sm:py-20 ${className}`}>
       {children}
     </section>
   );
@@ -374,7 +374,7 @@ function DemoSection() {
                 </div>
                 <div className="hidden sm:block"><Waveform bars={16} /></div>
               </div>
-              <p className="font-mono-ui mt-4 text-[10px] leading-4 tracking-[.04em] text-[#99978C]">
+              <p className="mt-4 text-[12.5px] leading-5 text-[#99978C]">
                 Answers as Wasatch Garage Door — a demo company running Bellory end to end. Demo calls wrap up after about two minutes; real installs have no cap.
               </p>
             </div>
@@ -495,7 +495,7 @@ function FAQSection() {
       <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr]">
         <div>
           <div className="lg:sticky lg:top-24">
-            <SectionMark index="07" label="Questions" />
+            <SectionMark index="08" label="Questions" />
             <DisplayHeading>Asked before handing calls to AI.</DisplayHeading>
             <p className="mt-5 max-w-sm text-base leading-7 text-[#99978C]">
               The short version: Bellory is configured before launch, answers from your rules, and escalates when a human should take over.
@@ -828,9 +828,9 @@ export function LandingPage() {
             <MonoTag>Done-for-you AI receptionist</MonoTag>
           </div>
           <h1 className="font-display text-[clamp(2.6rem,5.3vw,4.3rem)] font-medium leading-[1.0] tracking-[-.025em] text-[#F3F1E6]">
-            It’s 9:47 PM. A spring
+            It’s 9:47 PM.
             <br />
-            just snapped.
+            A spring just snapped.
             <br />
             <span className="text-[#C6F23D]">Bellory answers.</span>
           </h1>
@@ -849,9 +849,8 @@ export function LandingPage() {
               <PhoneCall size={15} className="shrink-0" /> Call the live demo — {demoPhoneDisplay}
             </a>
           </div>
-          <p className="font-mono-ui mt-3 text-[10px] leading-5 tracking-[.08em] text-[#99978C]">
-            <span className="block">Free install · pay nothing if month one doesn’t book you jobs · no contract</span>
-            <span className="block">Call the demo right now — after hours is the whole point.</span>
+          <p className="mt-3.5 text-[13px] leading-6 text-[#99978C]">
+            Free installation · No contract · Pay nothing if month one doesn’t book you jobs
           </p>
           <div className="font-mono-ui mt-9 flex flex-wrap gap-x-8 gap-y-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#99978C]">
             <span className="flex items-center gap-2"><Check size={12} className="text-[#8FD14F]" /> 24/7 coverage</span>
@@ -907,8 +906,8 @@ export function LandingPage() {
                 </div>
               </div>
               <div className="rule-dashed mt-7 opacity-50" />
-              <p className="font-mono-ui mt-4 text-[10px] leading-4 tracking-[.04em] text-[#99978C]">
-                Example only: 20 missed jobs × $350 average ticket. Your numbers will differ — that’s what the install review is for.
+              <p className="mt-4 text-[12.5px] leading-5 text-[#99978C]">
+                Example numbers: 20 missed jobs × $350 average ticket. Yours will differ — that’s what the install review is for.
               </p>
             </div>
           </div>
@@ -1092,9 +1091,10 @@ export function LandingPage() {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="font-mono-ui text-[10px] font-semibold uppercase tracking-[.2em] text-[#8FD14F]">Bellory receptionist</p>
-                <p className="mt-2 text-4xl font-bold tracking-[-.02em] text-white">$300<span className="text-base font-semibold text-[#99978C]">/month</span></p>
+                <p className="mt-2 text-4xl font-bold tracking-[-.02em] text-white">First month free</p>
+                <p className="mt-2 text-[13.5px] leading-6 text-[#99978C]">Then one flat monthly rate — about the cost of one small repair job. Settled together after your free month.</p>
               </div>
-              <p className="font-mono-ui rounded-lg border border-[#C6F23D]/25 bg-[#C6F23D]/[.07] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.16em] text-[#C6F23D]">Month one free</p>
+              <p className="font-mono-ui rounded-lg border border-[#C6F23D]/25 bg-[#C6F23D]/[.07] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.16em] text-[#C6F23D]">No contract</p>
             </div>
             <div className="mt-6 grid gap-px overflow-hidden rounded-xl border border-[#303228] bg-[#303228] sm:grid-cols-2">
               {[
@@ -1129,7 +1129,7 @@ export function LandingPage() {
       <Section className="pb-24 pt-4 sm:pb-28 sm:pt-8">
         <div className="grid gap-12 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
           <div>
-            <SectionMark index="08" label="First month free" />
+            <SectionMark index="09" label="First month free" />
             <DisplayHeading>Put Bellory on your next missed call.</DisplayHeading>
             <p className="mt-6 max-w-md text-base leading-7 text-[#99978C]">
               We open garage door installs in small batches so each business gets configured, tested, and supported correctly before Bellory answers real callers.

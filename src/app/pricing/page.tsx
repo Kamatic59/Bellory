@@ -5,7 +5,7 @@ import { InfoCard, MarketingPage, PageSection } from "@/components/marketing-pag
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: "One plan: $300/month with the first month free. Free installation, no contract, human support included. If month one doesn't book you jobs, you pay nothing.",
+  description: "One plan with the first month free. Free installation, no contract, human support included. If month one doesn't book you jobs, you pay nothing.",
   alternates: { canonical: "/pricing" },
 };
 
@@ -32,7 +32,7 @@ export default function PricingPage() {
     <MarketingPage
       eyebrow="Pricing"
       title={<>One plan. No contract. Month one is free.</>}
-      lede="Bellory costs $300 a month — about one small repair job. Installation is free, there's no contract, and if the first month doesn't book you work you would have missed, you pay nothing and we take it off your line."
+      lede="Bellory runs on one flat monthly rate — about the cost of one small repair job, settled together after your free month. Installation is free, there's no contract, and if the first month doesn't book you work you would have missed, you pay nothing and we take it off your line."
     >
       <PageSection>
         <div className="grid gap-4 lg:grid-cols-2">
@@ -49,7 +49,7 @@ export default function PricingPage() {
           <div className="glass rounded-[18px] p-6 sm:p-8">
             <div className="flex items-baseline justify-between gap-4">
               <p className="font-mono-ui text-[10px] font-semibold uppercase tracking-[.2em] text-[#8FD14F]">Monthly service</p>
-              <p className="text-3xl font-bold tracking-[-.02em] text-white">$300<span className="text-sm font-semibold text-[#99978C]">/mo</span></p>
+              <p className="text-xl font-bold tracking-[-.02em] text-white">One flat rate</p>
             </div>
             <ul className="mt-5 space-y-3">
               {monthlyIncludes.map((item) => (
