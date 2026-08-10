@@ -11,6 +11,7 @@ import {
   type ClientIssue,
   type CreateClientPayload,
 } from "@/lib/client-api";
+import { getSession, type ConsoleSession } from "@/lib/session-api";
 import { AppShell, PageId, pages } from "./app-shell";
 import {
   AccountDetailPage,
@@ -32,6 +33,8 @@ export function BelloryApp() {
   const [issuesError, setIssuesError] = useState<string | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [accountView, setAccountView] = useState<"directory" | "detail">("directory");
+  const [session, setSession] = useState<ConsoleSession | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
 
   const refreshClients = useCallback(async () => {
     setClientsLoading(true);
@@ -61,11 +64,26 @@ export function BelloryApp() {
 
   useEffect(() => {
     queueMicrotask(() => {
-      // Deep link: /admin#sales opens that page directly (handy as a phone bookmark).
-      const hash = window.location.hash.slice(1);
-      if (pages.some((page) => page.id === hash)) setActive(hash as PageId);
-      void refreshClients();
-      void refreshIssues();
+      void (async () => {
+        // Callers only ever see the call list, and the client/issue endpoints
+        // are closed to them, so we never ask for data they can't have.
+        const who = await getSession().catch(() => null);
+        setSession(who);
+        setSessionReady(true);
+
+        if (who?.role === "caller") {
+          setActive("sales");
+          setClientsLoading(false);
+          setIssuesLoading(false);
+          return;
+        }
+
+        // Deep link: /admin#sales opens that page directly (handy as a phone bookmark).
+        const hash = window.location.hash.slice(1);
+        if (pages.some((page) => page.id === hash)) setActive(hash as PageId);
+        void refreshClients();
+        void refreshIssues();
+      })();
     });
   }, [refreshClients, refreshIssues]);
 
@@ -97,7 +115,7 @@ export function BelloryApp() {
   };
 
   const content = {
-    sales: <SalesPage />,
+    sales: <SalesPage session={session} />,
     accounts: (
       <AccountsPage
         clients={clients}
@@ -145,9 +163,19 @@ export function BelloryApp() {
     settings: <OperatorSettingsPage />,
   };
 
+  // Wait for the sign-in before painting: a caller must never glimpse the
+  // owner's navigation on the way in.
+  if (!sessionReady) {
+    return (
+      <div className="grain grid min-h-screen place-items-center text-[#99978C]">
+        <p className="text-[13px]">Signing you in…</p>
+      </div>
+    );
+  }
+
   return (
-    <AppShell active={active} onNavigate={navigate} issueCount={issues.length}>
-      {content[active]}
+    <AppShell active={active} onNavigate={navigate} issueCount={issues.length} session={session}>
+      {session?.role === "caller" ? content.sales : content[active]}
     </AppShell>
   );
 }

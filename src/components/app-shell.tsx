@@ -7,13 +7,11 @@ import { BelloryLogo } from "./brand";
 import {
   Activity,
   Building2,
-  ChevronDown,
   ClipboardCheck,
   FileChartColumn,
   Menu,
   PhoneOutgoing,
   Plus,
-  Search,
   Settings,
   TriangleAlert,
   X,
@@ -21,25 +19,45 @@ import {
 import { Button } from "./ui";
 
 export const pages = [
-  { id: "sales", label: "Sales", icon: PhoneOutgoing, group: "Operate", hint: "Dials, pilots, the climb to 25" },
-  { id: "accounts", label: "Accounts", icon: Building2, group: "Operate", hint: "Find every business" },
-  { id: "setup", label: "New Business Setup", icon: ClipboardCheck, group: "Operate", hint: "Launch checklist" },
-  { id: "account", label: "Account Detail", icon: Activity, group: "Operate", hint: "Configure one business" },
-  { id: "issues", label: "Issues", icon: TriangleAlert, group: "Manage", hint: "Fix what is stuck" },
-  { id: "reports", label: "Reports", icon: FileChartColumn, group: "Manage", hint: "Proof of value" },
-  { id: "settings", label: "Settings", icon: Settings, group: "Manage", hint: "Team + providers" },
+  { id: "sales", label: "Call List", icon: PhoneOutgoing, group: "Selling", hint: "Who to call and what to say" },
+  { id: "accounts", label: "Customers", icon: Building2, group: "Selling", hint: "Every business we answer for" },
+  { id: "setup", label: "Add a Customer", icon: ClipboardCheck, group: "Selling", hint: "Set up a new business step by step" },
+  { id: "account", label: "Customer Details", icon: Activity, group: "Selling", hint: "Change one business's settings" },
+  { id: "issues", label: "Problems", icon: TriangleAlert, group: "Checking", hint: "Anything that needs fixing" },
+  { id: "reports", label: "Results", icon: FileChartColumn, group: "Checking", hint: "What the AI did for each customer" },
+  { id: "settings", label: "Settings", icon: Settings, group: "Checking", hint: "Logins and connected services" },
 ] as const;
 
 export type PageId = (typeof pages)[number]["id"];
 
-const navGroups = ["Operate", "Manage"] as const;
+const navGroups = ["Selling", "Checking"] as const;
 
-function SidebarContent({ active, navigate, issueCount = 0 }: { active: PageId; navigate: (id: PageId) => void; issueCount?: number }) {
+export type ConsoleRole = "admin" | "caller";
+export type SessionInfo = { username: string; role: ConsoleRole };
+
+function initialsOf(name: string) {
+  const parts = name.trim().split(/[\s._-]+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function SidebarContent({
+  active,
+  navigate,
+  issueCount = 0,
+  session,
+}: {
+  active: PageId;
+  navigate: (id: PageId) => void;
+  issueCount?: number;
+  session: SessionInfo | null;
+}) {
   return (
     <div className="flex h-full flex-col">
       <button onClick={() => navigate("accounts")} className="flex flex-col items-start gap-1.5 px-5 pb-5 pt-6 text-left">
         <BelloryLogo className="text-[17px]" />
-        <div className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.22em] text-[#706F66]">Operator console</div>
+        <div className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.22em] text-[#706F66]">Staff area</div>
       </button>
 
       <div className="flex-1 overflow-y-auto px-3 pb-3">
@@ -90,13 +108,13 @@ function SidebarContent({ active, navigate, issueCount = 0 }: { active: PageId; 
 
       <div className="m-3 rounded-xl border border-white/[.07] bg-gradient-to-br from-white/[.035] to-transparent p-4">
         <div className="flex items-center justify-between">
-          <span className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.2em] text-[#99978C]">Console status</span>
+          <span className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.2em] text-[#99978C]">Right now</span>
           <span className="pulse-ring size-1.5 rounded-full bg-[#C6F23D]" />
         </div>
         <p className="mt-2.5 text-[12px] leading-5 text-[#99978C]">
           {issueCount > 0
-            ? `${issueCount} open issue${issueCount === 1 ? "" : "s"} need${issueCount === 1 ? "s" : ""} operator review.`
-            : "No open issues. All accounts nominal."}
+            ? `${issueCount} thing${issueCount === 1 ? "" : "s"} need${issueCount === 1 ? "s" : ""} a look.`
+            : "Nothing is broken. Every customer is running fine."}
         </p>
         <button
           onClick={() => navigate("issues")}
@@ -107,13 +125,44 @@ function SidebarContent({ active, navigate, issueCount = 0 }: { active: PageId; 
       </div>
 
       <div className="flex items-center gap-3 border-t border-white/[.06] p-4">
-        <div className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-[#FF7A1A] to-[#FF7A1A] text-[10px] font-black text-[#12120E]">KM</div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[12px] font-semibold text-white">Kael Morgan</div>
-          <div className="font-mono-ui text-[9px] uppercase tracking-[.12em] text-[#99978C]">Workspace admin</div>
+        <div className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#FF7A1A] to-[#FF7A1A] text-[10px] font-black text-[#12120E]">
+          {session ? initialsOf(session.username) : "…"}
         </div>
-        <ChevronDown size={13} className="text-[#99978C]" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[12px] font-semibold text-white">{session?.username ?? "Signing in…"}</div>
+          <div className="font-mono-ui text-[9px] uppercase tracking-[.12em] text-[#99978C]">
+            {session?.role === "caller" ? "Caller" : "Owner"}
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Callers get one page and no navigation — the call list is the whole app for
+ * them, so there is nothing to get lost in and nothing they can break.
+ */
+function CallerShell({ children, session }: { children: ReactNode; session: SessionInfo | null }) {
+  return (
+    <div className="grain min-h-screen text-[#F3F1E6]">
+      <header className="sticky top-0 z-30 flex h-[64px] items-center gap-3 border-b border-white/[.06] bg-[#12120E]/85 px-4 backdrop-blur-xl lg:px-7">
+        <BelloryLogo className="text-[16px]" />
+        <div className="min-w-0 flex-1" />
+        <div className="flex items-center gap-2.5">
+          <div className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#FF7A1A] to-[#FF7A1A] text-[10px] font-black text-[#12120E]">
+            {session ? initialsOf(session.username) : "…"}
+          </div>
+          <div className="hidden min-w-0 sm:block">
+            <div className="truncate text-[12px] font-semibold text-white">{session?.username ?? "Signing in…"}</div>
+            <div className="font-mono-ui text-[9px] uppercase tracking-[.12em] text-[#99978C]">Caller</div>
+          </div>
+        </div>
+      </header>
+      <main className="relative min-h-[calc(100vh-64px)] overflow-hidden p-3 sm:p-5 lg:p-7">
+        <div className="grid-glow pointer-events-none absolute inset-x-0 top-0 h-[300px] opacity-30" />
+        <div className="relative mx-auto max-w-[1100px]">{children}</div>
+      </main>
     </div>
   );
 }
@@ -123,11 +172,13 @@ export function AppShell({
   onNavigate,
   children,
   issueCount = 0,
+  session,
 }: {
   active: PageId;
   onNavigate: (id: PageId) => void;
   children: ReactNode;
   issueCount?: number;
+  session: SessionInfo | null;
 }) {
   const [open, setOpen] = React.useState(false);
   const page = pages.find((item) => item.id === active)!;
@@ -136,10 +187,14 @@ export function AppShell({
     setOpen(false);
   };
 
+  if (session?.role === "caller") {
+    return <CallerShell session={session}>{children}</CallerShell>;
+  }
+
   return (
     <div className="grain min-h-screen text-[#F3F1E6]">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[248px] border-r border-white/[.06] bg-[#171812]/95 backdrop-blur-xl md:block">
-        <SidebarContent active={active} navigate={navigate} issueCount={issueCount} />
+        <SidebarContent active={active} navigate={navigate} issueCount={issueCount} session={session} />
       </aside>
 
       <AnimatePresence>
@@ -162,7 +217,7 @@ export function AppShell({
               <button className="absolute left-[282px] top-4 grid size-9 place-items-center rounded-xl bg-white/10" onClick={() => setOpen(false)} aria-label="Close menu">
                 <X size={17} />
               </button>
-              <SidebarContent active={active} navigate={navigate} issueCount={issueCount} />
+              <SidebarContent active={active} navigate={navigate} issueCount={issueCount} session={session} />
             </motion.aside>
           </motion.div>
         )}
@@ -177,16 +232,8 @@ export function AppShell({
             <h1 className="truncate text-[15px] font-bold tracking-[-.015em] text-white">{page.label}</h1>
             <span className="font-mono-ui hidden truncate text-[10px] uppercase tracking-[.14em] text-[#706F66] sm:block">{page.hint}</span>
           </div>
-          <div className="relative hidden w-[280px] lg:block">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#99978C]" />
-            <input
-              placeholder="Search accounts, issues…"
-              className="w-full rounded-lg border border-white/[.07] bg-white/[.03] py-2 pl-9 pr-14 text-[12.5px] text-white outline-none transition placeholder:text-[#706F66] hover:border-white/[.12] focus:border-[#C6F23D]/30"
-            />
-            <span className="font-mono-ui absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-white/[.08] px-1.5 py-0.5 text-[9px] text-[#706F66]">⌘K</span>
-          </div>
           <Button onClick={() => navigate("setup")} className="px-3 py-2 text-[12px]">
-            <Plus size={13} /> <span className="hidden sm:inline">New Business</span>
+            <Plus size={13} /> <span className="hidden sm:inline">Add a Customer</span>
           </Button>
         </header>
 

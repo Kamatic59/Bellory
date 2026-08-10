@@ -2037,7 +2037,13 @@ export function AccountDetailPage({
         setDirty(false);
         setMessage("Config published. Backend runtime will use this version.");
       } else {
-        setMessage("Publish blocked. Fix the validation issues first.");
+        // Name what is actually missing — "validation failed" tells nobody what to do next.
+        const missing = result.validation.ok ? [] : result.validation.readiness.missing;
+        setMessage(
+          missing.length > 0
+            ? `Not ready to go live yet. Still needed: ${missing.slice(0, 4).join(", ")}${missing.length > 4 ? `, and ${missing.length - 4} more` : ""}.`
+            : "Not ready to go live yet. Check the highlighted fields below.",
+        );
       }
       await onRefreshClients();
       await onRefreshIssues();

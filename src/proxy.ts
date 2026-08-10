@@ -1,27 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { findConsoleUser, getConsoleUsers, isPathAllowed } from "@/lib/server/auth/users";
 
-const ADMIN_ACCESS_USERNAME = process.env.ADMIN_ACCESS_USERNAME ?? "bellory";
-const ADMIN_ACCESS_PASSWORD = process.env.ADMIN_ACCESS_PASSWORD ?? "bellory2026";
-const AUTH_REALM = "Bellory Admin";
+const AUTH_REALM = "Bellory Console";
+
+/** Headers the app reads to know who is signed in. */
+export const USER_HEADER = "x-bellory-user";
+export const ROLE_HEADER = "x-bellory-role";
 
 function unauthorized() {
-  return new NextResponse("Authentication required", {
+  return new NextResponse("Sign in to open the Bellory console.", {
     status: 401,
     headers: {
       "WWW-Authenticate": `Basic realm="${AUTH_REALM}", charset="UTF-8"`,
       "Cache-Control": "no-store",
     },
   });
-}
-
-function safeEqual(left: string, right: string) {
-  if (left.length !== right.length) return false;
-
-  let result = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    result |= left.charCodeAt(index) ^ right.charCodeAt(index);
-  }
-  return result === 0;
 }
 
 function decodeBasicAuth(value: string) {
@@ -53,16 +46,31 @@ export function proxy(request: NextRequest) {
     return unauthorized();
   }
 
-  const validUsername = safeEqual(credentials.username, ADMIN_ACCESS_USERNAME);
-  const validPassword = safeEqual(credentials.password, ADMIN_ACCESS_PASSWORD);
-
-  if (!validUsername || !validPassword) {
+  const user = findConsoleUser(
+    getConsoleUsers(process.env),
+    credentials.username,
+    credentials.password,
+  );
+  if (!user) {
     return unauthorized();
   }
 
-  return NextResponse.next();
+  if (!isPathAllowed(user.role, request.nextUrl.pathname)) {
+    return NextResponse.json(
+      { ok: false, error: "Your sign-in does not have access to this part of the console." },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  // Identity travels with the request so routes can attribute work without
+  // trusting anything the browser sends.
+  const headers = new Headers(request.headers);
+  headers.set(USER_HEADER, user.username);
+  headers.set(ROLE_HEADER, user.role);
+
+  return NextResponse.next({ request: { headers } });
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/clients/:path*", "/api/issues/:path*", "/api/sales/:path*"],
+  matcher: ["/admin/:path*", "/api/clients/:path*", "/api/issues/:path*", "/api/sales/:path*", "/api/me"],
 };

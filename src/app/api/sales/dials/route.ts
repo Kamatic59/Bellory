@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { salesDials, salesProspects } from "@/db/schema";
 import { apiError } from "@/lib/server/api-error";
+import { getCurrentUser } from "@/lib/server/auth/current-user";
 
 export const runtime = "nodejs";
 
@@ -51,6 +52,10 @@ export async function POST(request: Request) {
   try {
     const input = logDialSchema.parse(await request.json());
     const db = getDb();
+    // Attribution comes from the sign-in, not the browser, so credit for a dial
+    // can't be typed in as somebody else.
+    const signedInUser = await getCurrentUser();
+    const caller = signedInUser?.username ?? input.caller?.trim() ?? null;
 
     const result = await db.transaction(async (tx) => {
       const [prospect] = await tx.select().from(salesProspects).where(eq(salesProspects.id, input.prospectId));
@@ -61,7 +66,7 @@ export async function POST(request: Request) {
         .values({
           prospectId: input.prospectId,
           outcome: input.outcome,
-          caller: input.caller || null,
+          caller: caller || null,
           note: input.note || null,
         })
         .returning();

@@ -13,6 +13,7 @@ import {
   Plus,
   Trophy,
 } from "lucide-react";
+import type { ConsoleSession } from "@/lib/session-api";
 import {
   createProspect,
   importUtahProspects,
@@ -136,26 +137,31 @@ function FunnelRow({ label, count, rate, planRate, base }: { label: string; coun
   );
 }
 
-export function SalesPage() {
+export function SalesPage({ session }: { session?: ConsoleSession | null }) {
   const [prospects, setProspects] = useState<SalesProspect[]>([]);
   const [dials, setDials] = useState<SalesDial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [caller, setCaller] = useState("");
+  const [storedCaller, setStoredCaller] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [now, setNow] = useState(0);
 
+  // Dials are credited to whoever is signed in. The typed name is only a
+  // fallback for old sign-ins that predate per-person logins.
+  const caller = session?.username ?? storedCaller;
+  const isCaller = session?.role === "caller";
+
   useEffect(() => {
     queueMicrotask(() => {
-      setCaller(window.localStorage.getItem(CALLER_STORAGE_KEY) ?? "");
+      setStoredCaller(window.localStorage.getItem(CALLER_STORAGE_KEY) ?? "");
     });
   }, []);
 
   const saveCaller = (value: string) => {
-    setCaller(value);
+    setStoredCaller(value);
     window.localStorage.setItem(CALLER_STORAGE_KEY, value);
   };
 
@@ -210,10 +216,20 @@ export function SalesPage() {
     const paying = payingProspects.length;
     const profit = Math.max(0, paying * PLAN.profitPerClient - (paying > 0 ? PLAN.fixedCosts : 0));
 
+    // A caller's own numbers, so the scoreboard is about their day.
+    const mine = caller.trim().toLowerCase();
+    const isMine = (dial: SalesDial) => Boolean(mine) && (dial.caller ?? "").trim().toLowerCase() === mine;
+    const startOfToday = now === 0 ? 0 : new Date(new Date(now).setHours(0, 0, 0, 0)).getTime();
+    const myDialsThisWeek = dialsThisWeek.filter(isMine);
+
     return {
       totalDials: dials.length,
       dialsThisWeek: dialsThisWeek.length,
       conversationsThisWeek: conversationsThisWeek.length,
+      myDialsThisWeek: myDialsThisWeek.length,
+      myDialsToday: myDialsThisWeek.filter((dial) => new Date(dial.createdAt).getTime() >= startOfToday).length,
+      myConversationsThisWeek: myDialsThisWeek.filter((dial) => conversationOutcomes.includes(dial.outcome)).length,
+      untouched: prospects.filter((prospect) => prospect.status === "untouched").length,
       callerLine,
       dialed: dialedProspects.length,
       conversations: conversationProspects.length,
@@ -224,7 +240,7 @@ export function SalesPage() {
       profit,
       dueCallbacks: prospects.filter((prospect) => isDue(prospect, now)),
     };
-  }, [dials, prospects, now]);
+  }, [dials, prospects, now, caller]);
 
   const groups = useMemo(() => {
     const sorted = [...prospects].sort((a, b) => {
@@ -305,6 +321,19 @@ export function SalesPage() {
 
   return (
     <div className="space-y-6">
+      {isCaller && (
+        <>
+          <div className="rounded-2xl border border-white/[.07] bg-white/[.02] p-4 sm:p-5">
+            <h2 className="text-[16px] font-bold tracking-[-.015em] text-white">Hi {session?.username}. Here&rsquo;s the job.</h2>
+            <p className="mt-1.5 text-[13px] leading-6 text-[#99978C]">
+              Work down the call sheet below, starting at the top. Tap a company to open it, tap the green phone button to
+              call, then tap one button to say how it went. That&rsquo;s the whole job.
+            </p>
+          </div>
+          <CallScript name={caller} defaultOpen />
+        </>
+      )}
+
       {/* scoreboard */}
       <div>
         <SectionTitle
@@ -313,32 +342,60 @@ export function SalesPage() {
           action={
             <div className="flex items-center gap-2">
               <span className="font-mono-ui hidden text-[9px] font-semibold uppercase tracking-[.18em] text-[#706F66] sm:block">Dialing as</span>
-              <Input value={caller} onChange={saveCaller} placeholder="Your name" ariaLabel="Who is dialing" className="w-[120px] px-3 py-2 text-[12px]" />
+              {session ? (
+                <span className="rounded-lg border border-[#C6F23D]/20 bg-[#C6F23D]/[.07] px-3 py-2 text-[12px] font-bold text-[#D3FA5A]">
+                  {session.username}
+                </span>
+              ) : (
+                <Input value={storedCaller} onChange={saveCaller} placeholder="Your name" ariaLabel="Who is dialing" className="w-[120px] px-3 py-2 text-[12px]" />
+              )}
             </div>
           }
         />
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          <StatTile icon={PhoneOutgoing} tone="mint" label="Dials · last 7 days" value={String(stats.dialsThisWeek)} detail={stats.callerLine || `${stats.totalDials} all-time`} />
-          <StatTile icon={MessageSquareText} tone="blue" label="Conversations · last 7 days" value={String(stats.conversationsThisWeek)} detail={`${stats.conversations} owners reached all-time`} />
-          <StatTile icon={FlaskConical} tone="honey" label="Pilots running" value={String(stats.pilotsRunning)} detail={`${stats.demos} shops past the demo stage`} />
+        <div className={clsx("grid gap-3", isCaller ? "grid-cols-3" : "grid-cols-2 xl:grid-cols-4")}>
           <StatTile
-            icon={Trophy}
-            tone="violet"
-            label={`Paying clients / ${PLAN.goalClients}`}
-            value={String(stats.paying)}
-            detail={stats.paying > 0 ? `$${stats.profit.toLocaleString()}/mo profit · $${Math.floor(stats.profit / 2).toLocaleString()} each` : "client #1 pays all the bills"}
+            icon={PhoneOutgoing}
+            tone="mint"
+            label={isCaller ? "Your calls · last 7 days" : "Dials · last 7 days"}
+            value={String(isCaller ? stats.myDialsThisWeek : stats.dialsThisWeek)}
+            detail={isCaller ? `${stats.myDialsToday} today` : stats.callerLine || `${stats.totalDials} all-time`}
           />
+          <StatTile
+            icon={MessageSquareText}
+            tone="blue"
+            label={isCaller ? "Owners you reached" : "Conversations · last 7 days"}
+            value={String(isCaller ? stats.myConversationsThisWeek : stats.conversationsThisWeek)}
+            detail={isCaller ? "last 7 days" : `${stats.conversations} owners reached all-time`}
+          />
+          <StatTile
+            icon={FlaskConical}
+            tone="honey"
+            label={isCaller ? "Left to call" : "Pilots running"}
+            value={String(isCaller ? stats.untouched : stats.pilotsRunning)}
+            detail={isCaller ? "shops nobody has called yet" : `${stats.demos} shops past the demo stage`}
+          />
+          {!isCaller && (
+            <StatTile
+              icon={Trophy}
+              tone="violet"
+              label={`Paying clients / ${PLAN.goalClients}`}
+              value={String(stats.paying)}
+              detail={stats.paying > 0 ? `$${stats.profit.toLocaleString()}/mo profit · $${Math.floor(stats.profit / 2).toLocaleString()} each` : "client #1 pays all the bills"}
+            />
+          )}
         </div>
-        <div className="mt-3">
-          <Progress value={goalProgress} tone={stats.paying >= PLAN.goalClients ? "mint" : "honey"} />
-          <p className="font-mono-ui mt-1.5 text-[10px] uppercase tracking-[.14em] text-[#706F66]">
-            {stats.paying >= PLAN.goalClients ? "Freedom number hit — keep climbing to 33 for after-tax." : `${PLAN.goalClients - stats.paying} clients to the freedom number`}
-          </p>
-        </div>
+        {!isCaller && (
+          <div className="mt-3">
+            <Progress value={goalProgress} tone={stats.paying >= PLAN.goalClients ? "mint" : "honey"} />
+            <p className="font-mono-ui mt-1.5 text-[10px] uppercase tracking-[.14em] text-[#706F66]">
+              {stats.paying >= PLAN.goalClients ? "Freedom number hit — keep climbing to 33 for after-tax." : `${PLAN.goalClients - stats.paying} clients to the freedom number`}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* funnel */}
-      <Card className="p-4 sm:p-5">
+      <Card className={clsx("p-4 sm:p-5", isCaller && "hidden")}>
         <SectionTitle eyebrow="Recalibrates as real dials land" title="Funnel — measured vs plan" />
         <div className="grid gap-2 lg:grid-cols-2">
           <FunnelRow label="Dials (all-time)" count={stats.totalDials} rate={null} planRate={1} base="—" />
@@ -352,6 +409,8 @@ export function SalesPage() {
           {stats.paying > 0 && stats.totalDials > 0 ? ` · measured: ${Math.round(stats.totalDials / stats.paying)} dials per client` : ""}. Every dial ≈ ${(PLAN.profitPerClient / PLAN.dialsPerClient).toFixed(2)}/mo of recurring profit.
         </p>
       </Card>
+
+      {!isCaller && <CallScript name={caller} defaultOpen={false} />}
 
       {flash && (
         <div aria-live="polite" className="rounded-xl border border-[#C6F23D]/25 bg-[#C6F23D]/[.07] px-4 py-3 text-[13px] font-semibold text-[#D3FA5A]">
@@ -397,10 +456,13 @@ export function SalesPage() {
           title="Call sheet"
           action={
             <div className="flex gap-2">
-              <Button kind="secondary" onClick={handleImport} disabled={busy} className="px-3 py-2 text-[12px]">
-                <Download size={13} /> <span className="hidden sm:inline">Import Utah list</span><span className="sm:hidden">Import</span>
-              </Button>
+              {!isCaller && (
+                <Button kind="secondary" onClick={handleImport} disabled={busy} className="px-3 py-2 text-[12px]">
+                  <Download size={13} /> <span className="hidden sm:inline">Import Utah list</span><span className="sm:hidden">Import</span>
+                </Button>
+              )}
               <Button onClick={() => setAddOpen(true)} className="px-3 py-2 text-[12px]">
+
                 <Plus size={13} /> <span className="hidden sm:inline">Add prospect</span><span className="sm:hidden">Add</span>
               </Button>
             </div>
@@ -468,6 +530,105 @@ export function SalesPage() {
         }}
       />
     </div>
+  );
+}
+
+const SCRIPT_OPENER = [
+  "Hey, is the owner around?",
+  "My name's {name} — I'll be quick. My partner and I built an AI receptionist for garage door shops. It answers the phone when you can't, quotes the job, and books it on your calendar.",
+  "Before we charge anybody, we're looking for a couple of Utah shops to run it free and tell us what needs fixing. Any interest in trying it?",
+];
+
+const SCRIPT_ANSWERS: Array<{ they: string; you: string }> = [
+  {
+    they: "Not interested.",
+    you: "Totally fair. Can I text you the number so you can hear it yourself? Takes about a minute, and if you hate it you never hear from me again.",
+  },
+  {
+    they: "How much is it?",
+    you: "Free while you're testing it. After that it's one flat monthly rate, less than a single small repair job. Nobody pays until it's actually booking work.",
+  },
+  {
+    they: "We already have someone answering the phone.",
+    you: "Perfect, this isn't for them. It's for after they go home. What happens right now when someone calls at 9pm with a broken spring?",
+  },
+  {
+    they: "I'm busy / I'm on a job.",
+    you: "I hear you. Can I text you a number you can call whenever you've got a minute? That's the whole ask.",
+  },
+  {
+    they: "Is this a robot? / Is it AI?",
+    you: "It is, and it says so if anyone asks. That's why I want you to call it first and judge it yourself before we ever put it on your line.",
+  },
+  {
+    they: "(Receptionist) He's not available.",
+    you: "No worries at all. Can I text him a number he can call to hear it himself? Then he can decide if it's worth a conversation.",
+  },
+];
+
+/**
+ * The whole job on one card: what to say, what to say back, and the one move
+ * that ends every call that isn't a yes.
+ */
+function CallScript({ name, defaultOpen }: { name: string; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const speaker = name.trim() || "your name";
+
+  return (
+    <Card className="p-4 sm:p-5">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-3 text-left" aria-expanded={open}>
+        <span>
+          <span className="block text-[14px] font-bold tracking-[-.01em] text-white">What to say on the call</span>
+          <span className="mt-0.5 block text-[12px] text-[#99978C]">Read it word for word until it feels natural. It works.</span>
+        </span>
+        <ChevronDown size={16} className={clsx("shrink-0 text-[#99978C] transition-transform", open && "rotate-180 text-[#C6F23D]")} />
+      </button>
+
+      {open && (
+        <div className="mt-4 space-y-4">
+          <div className="rounded-xl border border-[#C6F23D]/[.16] bg-[#C6F23D]/[.04] p-3.5">
+            <p className="font-mono-ui mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-[#8FD14F]">Step 1 — open with this</p>
+            <div className="space-y-2">
+              {SCRIPT_OPENER.map((line) => (
+                <p key={line} className="text-[13px] leading-6 text-[#D8D5CA]">
+                  {line.replace("{name}", speaker)}
+                </p>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="font-mono-ui mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-[#99978C]">Step 2 — if they push back</p>
+            <div className="space-y-2">
+              {SCRIPT_ANSWERS.map((item) => (
+                <div key={item.they} className="rounded-xl border border-white/[.06] bg-white/[.02] p-3">
+                  <p className="text-[12px] font-semibold text-[#F0837B]">They say: {item.they}</p>
+                  <p className="mt-1 text-[12.5px] leading-6 text-[#D8D5CA]">You say: {item.you}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#FF7A1A]/[.18] bg-[#FF7A1A]/[.04] p-3.5">
+            <p className="font-mono-ui mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-[#FF9448]">Step 3 — always end with this</p>
+            <p className="text-[13px] leading-6 text-[#D8D5CA]">
+              If it isn&rsquo;t a yes, get permission to text them the demo line:{" "}
+              <span className="font-mono-ui font-bold text-white">(385) 340-1808</span>. It answers like a real garage door shop, so
+              they can hear it without talking to you. A &ldquo;yes, text me&rdquo; counts — tap <strong className="text-white">Demo committed</strong> when you log the call.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-white/[.06] bg-white/[.02] p-3.5">
+            <p className="font-mono-ui mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-[#99978C]">Two rules</p>
+            <p className="text-[12.5px] leading-6 text-[#99978C]">
+              1. Never call <span className="font-mono-ui text-[#D8D5CA]">(385) 340-1808</span>{" "}as a prospect — that&rsquo;s our own demo line.
+              <br />
+              2. Log every single call, even &ldquo;no answer.&rdquo; That&rsquo;s how you get paid and how we know what&rsquo;s working.
+            </p>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 
