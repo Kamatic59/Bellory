@@ -272,6 +272,8 @@ export function SalesPage({ session }: { session?: ConsoleSession | null }) {
     }
   };
 
+  // Returns whether the dial actually saved, so the row can keep the caller's
+  // typed note instead of wiping it when the request failed on bad signal.
   const handleLogDial = async (prospect: SalesProspect, outcome: DialOutcome, note: string, callbackDate: string) => {
     setBusy(true);
     setError(null);
@@ -285,8 +287,10 @@ export function SalesPage({ session }: { session?: ConsoleSession | null }) {
       });
       showFlash(`Logged ${outcomeButtons.find((button) => button.outcome === outcome)?.label.toLowerCase()} for ${prospect.company}.`);
       await refresh();
+      return true;
     } catch (logError) {
       setError(logError instanceof Error ? logError.message : "Could not log the dial");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -352,7 +356,7 @@ export function SalesPage({ session }: { session?: ConsoleSession | null }) {
             </div>
           }
         />
-        <div className={clsx("grid gap-3", isCaller ? "grid-cols-3" : "grid-cols-2 xl:grid-cols-4")}>
+        <div className={clsx("grid gap-3", isCaller ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2 xl:grid-cols-4")}>
           <StatTile
             icon={PhoneOutgoing}
             tone="mint"
@@ -647,7 +651,7 @@ function ProspectRow({
   now: number;
   expanded: boolean;
   onToggle: () => void;
-  onLogDial: (prospect: SalesProspect, outcome: DialOutcome, note: string, callbackDate: string) => Promise<void>;
+  onLogDial: (prospect: SalesProspect, outcome: DialOutcome, note: string, callbackDate: string) => Promise<boolean>;
   onSaveNotes: (prospect: SalesProspect, notes: string) => Promise<void>;
   onClearCallback: (prospect: SalesProspect) => Promise<void>;
   busy: boolean;
@@ -655,15 +659,24 @@ function ProspectRow({
 }) {
   const [note, setNote] = useState("");
   const [callbackDate, setCallbackDate] = useState("");
+  const [logResult, setLogResult] = useState<"saved" | "failed" | null>(null);
   const [notesDraft, setNotesDraft] = useState(prospect.notes ?? "");
   const meta = statusMeta[prospect.status];
   const last = daysAgo(prospect.lastDialAt, now);
   const due = isDue(prospect, now);
 
   const submitDial = async (outcome: DialOutcome) => {
-    await onLogDial(prospect, outcome, note, callbackDate);
-    setNote("");
-    setCallbackDate("");
+    setLogResult(null);
+    const saved = await onLogDial(prospect, outcome, note, callbackDate);
+    if (saved) {
+      setNote("");
+      setCallbackDate("");
+      setLogResult("saved");
+    } else {
+      // Keep what they typed — on a truck with one bar, retyping the note is
+      // the difference between logging the call and giving up on it.
+      setLogResult("failed");
+    }
   };
 
   return (
@@ -753,6 +766,16 @@ function ProspectRow({
                 <Input type="date" value={callbackDate} onChange={setCallbackDate} ariaLabel="Callback date" className="w-[150px] px-3 py-2.5 text-[12.5px]" />
               </div>
             </div>
+            {logResult === "saved" && (
+              <p aria-live="polite" className="mt-2 rounded-lg border border-[#C6F23D]/25 bg-[#C6F23D]/[.07] px-3 py-2 text-[12.5px] font-bold text-[#D3FA5A]">
+                Saved. On to the next one.
+              </p>
+            )}
+            {logResult === "failed" && (
+              <p aria-live="polite" className="mt-2 rounded-lg border border-[#E95A50]/30 bg-[#E95A50]/[.08] px-3 py-2 text-[12.5px] font-bold text-[#F0837B]">
+                Didn&rsquo;t save — your note is still here. Check your signal and tap the button again.
+              </p>
+            )}
             <p className="font-mono-ui mt-1.5 text-[9px] uppercase tracking-[.14em] text-[#706F66]">Note + callback date attach to the outcome you tap.</p>
           </div>
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { salesProspects } from "@/db/schema";
 import { apiError } from "@/lib/server/api-error";
+import { getCurrentUser } from "@/lib/server/auth/current-user";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,16 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
+    // Deleting is destructive and unrecoverable, so it stays with the owner.
+    // Callers can work a prospect and mark it "not a fit", but not erase it.
+    const user = await getCurrentUser();
+    if (user && user.role !== "admin") {
+      return Response.json(
+        { ok: false, error: "Only the owner can delete a prospect. Log it as \"Not a fit\" instead." },
+        { status: 403 },
+      );
+    }
+
     const { prospectId } = await context.params;
     const db = getDb();
     const deleted = await db.delete(salesProspects).where(eq(salesProspects.id, prospectId)).returning({ id: salesProspects.id });

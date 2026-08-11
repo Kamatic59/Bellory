@@ -59,9 +59,12 @@ export function getConsoleUsers(env: Record<string, string | undefined>): Consol
   }
 
   // The original single admin login, kept so existing bookmarks keep working.
-  const legacyPassword = env.ADMIN_ACCESS_PASSWORD ?? "bellory2026";
+  // In production the password must be set explicitly — the development
+  // default must never be a working key to a live console.
+  const isProduction = env.NODE_ENV === "production";
+  const legacyPassword = env.ADMIN_ACCESS_PASSWORD ?? (isProduction ? "" : "bellory2026");
   const legacyUsername = (env.ADMIN_ACCESS_USERNAME ?? "bellory").trim();
-  if (legacyUsername && !users.some((user) => user.username === legacyUsername)) {
+  if (legacyUsername && legacyPassword && !users.some((user) => user.username === legacyUsername)) {
     users.push({ username: legacyUsername, password: legacyPassword, role: "admin" });
   }
 

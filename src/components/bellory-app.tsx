@@ -67,11 +67,14 @@ export function BelloryApp() {
       void (async () => {
         // Callers only ever see the call list, and the client/issue endpoints
         // are closed to them, so we never ask for data they can't have.
-        const who = await getSession().catch(() => null);
+        // Fail closed: if we can't confirm who this is (dropped signal, blip),
+        // assume the least privilege rather than flashing the owner's console.
+        const who = await getSession().catch(() => null)
+          ?? { username: "", role: "caller" as const };
         setSession(who);
         setSessionReady(true);
 
-        if (who?.role === "caller") {
+        if (who.role === "caller") {
           setActive("sales");
           setClientsLoading(false);
           setIssuesLoading(false);
