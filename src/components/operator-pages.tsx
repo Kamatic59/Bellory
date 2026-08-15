@@ -1638,7 +1638,14 @@ function AccountTabContent({
             <VoicePicker clientId={client.id} currentVoiceId={getString(config, "aiVoice.externalVoiceId")} onChange={onChange} />
             <EditableField config={config} path="aiVoice.speakingPace" label="Speaking pace" onChange={onChange} />
             <EditableField config={config} path="aiVoice.interruptionStyle" label="Interruption style" onChange={onChange} />
-            <EditableField config={config} path="aiVoice.backgroundAmbience" label="Background ambience" onChange={onChange} />
+            <SelectField
+              config={config}
+              path="aiVoice.backgroundSound"
+              label="Background sound on the call"
+              options={["none", "office1", "office2", "typing", "restaurant", "city"]}
+              onChange={onChange}
+            />
+            <EditableField config={config} path="aiVoice.backgroundSoundVolume" label="Background volume (0.01-1, try 0.12)" onChange={onChange} />
             <EditableField config={config} path="aiVoice.disclosurePhrase" label="Disclosure phrase" onChange={onChange} />
           </div>
           <div className="mt-4 grid gap-4">

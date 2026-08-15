@@ -56,6 +56,14 @@ const aiVoiceSchema = z.object({
   speakingPace: nonEmptyString,
   interruptionStyle: nonEmptyString,
   backgroundAmbience: optionalString,
+  // Ambient sound mixed under the agent's voice so the line sounds like a real
+  // desk instead of a silent void. These are ElevenLabs preset ids.
+  backgroundSound: z
+    .enum(["none", "office1", "office2", "typing", "restaurant", "city", "elevator1", "elevator2", "elevator3", "elevator4"])
+    .optional(),
+  // 0.01-1.0. Phone audio is narrowband, so much above ~0.15 starts eating
+  // the words.
+  backgroundSoundVolume: z.coerce.number().min(0.01).max(1).optional(),
   disclosurePhrase: nonEmptyString,
   behaviorInstructions: nonEmptyString,
   systemPrompt: nonEmptyString,

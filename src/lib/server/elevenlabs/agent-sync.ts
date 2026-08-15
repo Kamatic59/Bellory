@@ -418,6 +418,24 @@ function buildTransferTool(config: BelloryClientConfig) {
   };
 }
 
+/**
+ * Room tone under the agent's voice. ElevenLabs ships presets (office, typing,
+ * restaurant...) that loop with a crossfade, so this is a config change rather
+ * than an audio pipeline. Volume stays deliberately low: a phone line is
+ * narrowband and ambience competes with the words.
+ */
+function buildBackgroundSound(config: BelloryClientConfig) {
+  const preset = config.aiVoice.backgroundSound;
+  if (!preset || preset === "none") return null;
+
+  return {
+    source_type: "preset" as const,
+    source_id: preset,
+    volume: config.aiVoice.backgroundSoundVolume ?? 0.12,
+    crossfade_loop: true,
+  };
+}
+
 function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: string[], knowledgeBase: KnowledgeBaseRef) {
   const voiceId = config.aiVoice.externalVoiceId
     || getOptionalEnv("ELEVENLABS_DEMO_VOICE_ID")
@@ -444,10 +462,18 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
     ].filter((word): word is string => typeof word === "string" && word.trim().length > 1),
   )).slice(0, 40);
 
+  // A silent line reads as a recording. A little room tone under the voice —
+  // an office, a keyboard — is what makes callers treat it as a real desk.
+  const backgroundSound = buildBackgroundSound(config);
+  const conversation = {
+    ...(maxCallSeconds ? { max_duration_seconds: maxCallSeconds } : {}),
+    ...(backgroundSound ? { background_sound: backgroundSound } : {}),
+  };
+
   return {
     name: config.aiVoice.agentDisplayName,
     conversation_config: {
-      ...(maxCallSeconds ? { conversation: { max_duration_seconds: maxCallSeconds } } : {}),
+      ...(Object.keys(conversation).length > 0 ? { conversation } : {}),
       asr: { keywords: asrKeywords },
       // Callers need thinking room: with the default turn timeout the agent
       // re-prompts while people are still deciding, which reads as nagging.
