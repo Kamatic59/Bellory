@@ -12,6 +12,7 @@ import {
   type CalendarConnection,
 } from "@/lib/server/google/calendar";
 import type { AgentToolPayload } from "@/lib/server/agent-tool-responses";
+import { resolveTransferNumber } from "@/lib/server/elevenlabs/agent-sync";
 import { normalizeE164, sendSms } from "@/lib/server/twilio/sms";
 import type { AgentToolContext, AgentToolHandler, AgentToolResult } from "./runtime";
 
@@ -972,14 +973,25 @@ const appointmentsCancel: AgentToolHandler = async (context) => {
 
 const transferRequest: AgentToolHandler = async ({ config, payload }) => {
   const reason = typeof payload.reason === "string" ? payload.reason : null;
-  const ownerPhone = config.businessIdentity.ownerPhone;
+  const transferNumber = resolveTransferNumber(config);
+
+  // No safe destination means the only number we hold is the one forwarding
+  // into this agent. Transferring there hands the caller back to the AI they
+  // just asked to escape, so take a message instead of promising a person.
+  if (!transferNumber) {
+    return {
+      ok: true,
+      message: "There is no separate line to transfer to right now, so do NOT tell the caller you are transferring them. Apologise that you can't put them through this second, take their name, number and what they need, save the lead, and send an owner alert so someone calls them straight back.",
+      data: { transferAllowed: false, reason },
+    };
+  }
 
   return {
     ok: true,
     message: `Transfer is allowed. Say something natural like "I'm going to forward you to someone who can help better," then use transfer_to_number to connect the caller to ${config.businessIdentity.ownerName}. If the transfer fails, take their details, save the lead, and send an owner alert instead.`,
     data: {
       transferAllowed: true,
-      transferNumber: ownerPhone,
+      transferNumber,
       contactName: config.businessIdentity.ownerName,
       reason,
     },

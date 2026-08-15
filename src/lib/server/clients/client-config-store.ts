@@ -10,6 +10,7 @@ import {
 import { parseClientConfigDraft, validateClientConfigForPublish } from "@/lib/server/config/config-validation";
 import { createDemoClientConfig } from "@/lib/server/config/demo-config";
 import { buildReceptionistPrompt } from "@/lib/server/config/prompt-builder";
+import { resolveTransferNumber } from "@/lib/server/elevenlabs/agent-sync";
 import { getConfigReadiness } from "@/lib/server/config/readiness-score";
 
 const defaultOrg = {
@@ -284,6 +285,20 @@ export async function publishClientConfig(clientId: string) {
   }
   if (!full.launchQa.passed) {
     publishGate.push("Launch QA has not been marked passed — run the test scenarios and set it on the Testing tab.");
+  }
+  // The agent checks the service-area list literally before it books, so an
+  // empty list means every caller hears "we might not cover you".
+  if (full.locationsAndHours.serviceAreas.length === 0) {
+    publishGate.push("No service area — add the towns and ZIP codes this shop covers, or the agent turns away every caller.");
+  }
+  if (full.servicesAndPricing.services.length === 0) {
+    publishGate.push("No services listed — the agent has nothing to tell callers this business actually does.");
+  }
+  // A transfer must not land back on the line that forwards into Bellory.
+  if (!resolveTransferNumber(full)) {
+    publishGate.push(
+      "No safe transfer number — \"let me talk to a person\" would forward back into the AI. Add a transfer line different from the number forwarding to Bellory.",
+    );
   }
   if (publishGate.length > 0) {
     await createValidationIssue(clientId, publishGate);

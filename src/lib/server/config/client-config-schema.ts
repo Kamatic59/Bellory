@@ -37,10 +37,21 @@ const locationsAndHoursSchema = z.object({
 
 const phoneRoutingSchema = z.object({
   mode: z.enum(["forward_existing", "new_number", "port_later"]),
+  // The number customers dial (truck, Google listing). This is the line that
+  // gets forwarded into Bellory.
   currentNumber: optionalString,
   belloryNumber: optionalString,
+  // Where "let me talk to a person" actually lands. MUST be a different line
+  // than currentNumber — otherwise the transfer forwards straight back into
+  // the agent and the caller talks to the AI twice.
+  transferNumber: optionalString,
   callerIdLabel: optionalString,
   recordingConsentMode: z.enum(["one_party", "two_party", "disabled", "custom"]),
+  // How the shop's line reaches us, so we can print the right dial codes.
+  lineType: z.enum(["mobile", "landline", "voip", "unknown"]).optional(),
+  forwardingType: z.enum(["no_answer", "unconditional", "none"]).optional(),
+  // Someone actually dialled the shop's number and Bellory picked up.
+  forwardingVerifiedAt: optionalString,
   missedCallFallback: nonEmptyString,
   spamHandling: nonEmptyString,
 });

@@ -60,6 +60,12 @@ import {
   type ValidationResult,
 } from "@/lib/client-api";
 import { buildDefaultAgentSystemPrompt } from "@/lib/config/agent-system-prompt";
+import {
+  forwardingInstructionsAsText,
+  getForwardingInstructions,
+  type ForwardingType,
+  type LineType,
+} from "@/lib/phone/forwarding-instructions";
 import { PageId } from "./app-shell";
 import { Badge, Button, Card, DemoState, EmptyCheck, IconBox, Input, Progress, SectionTitle, Select, Toggle } from "./ui";
 
@@ -304,7 +310,15 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
     },
     locationsAndHours: {
       primaryAddress: form.primaryAddress,
-      serviceAreas: [{ city: form.serviceArea, radiusMiles: Number(form.radiusMiles) || 25 }],
+      // One entry per town or ZIP the shop actually covers. The runtime matches
+      // city names and ZIPs literally, so a single "Salt Lake City" would tell
+      // every caller in Sandy or Draper that the shop may not serve them.
+      serviceAreas: splitLines(form.serviceAreas).flatMap((line) => {
+        const parts = line.split(",").map((part) => part.trim()).filter(Boolean);
+        const zip = parts.find((part) => /^\d{5}$/.test(part));
+        const city = parts.find((part) => !/^\d{5}$/.test(part));
+        return city || zip ? [{ ...(city ? { city } : {}), ...(zip ? { zip } : {}) }] : [];
+      }),
       normalHours: {
         ...(form.weekdayOpen && form.weekdayClose
           ? Object.fromEntries(["monday", "tuesday", "wednesday", "thursday", "friday"].map((day) => [day, [{ open: form.weekdayOpen, close: form.weekdayClose }]]))
@@ -315,7 +329,13 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
     },
     phoneRouting: {
       mode: form.phoneChoice === "new" ? "new_number" : form.phoneChoice === "port" ? "port_later" : "forward_existing",
-      currentNumber: form.primaryContactPhone,
+      // The published line customers dial — this is what gets forwarded to us.
+      currentNumber: normalizeUsPhone(form.businessLineNumber) || undefined,
+      // Where "let me talk to a person" goes. Deliberately a different line
+      // than the one forwarding into Bellory, or the caller lands back on the AI.
+      transferNumber: normalizeUsPhone(form.transferNumber) || undefined,
+      lineType: (form.lineType || "unknown") as "mobile" | "landline" | "voip" | "unknown",
+      forwardingType: (form.forwardingType || "none") as "no_answer" | "unconditional" | "none",
       callerIdLabel: publicName,
       missedCallFallback: form.missedCallFallback,
       spamHandling: form.spamHandling,
@@ -334,12 +354,21 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
     },
     servicesAndPricing: {
       services: splitLines(form.mainServices).map((name) => ({ name, active: true, requiredQuestions: [] })),
-      ...(Number(form.diagnosticFeeDollars) > 0
-        ? { diagnosticFees: [{ label: "Service call / diagnostic fee", amountCents: Math.round(Number(form.diagnosticFeeDollars) * 100) }] }
-        : {}),
+      // Always written, even when blank: otherwise a shop that does free
+      // estimates silently inherits the demo template's $89 and the agent
+      // quotes a fee the business does not charge.
+      diagnosticFees: Number(form.diagnosticFeeDollars) > 0
+        ? [{ label: "Service call / diagnostic fee", amountCents: Math.round(Number(form.diagnosticFeeDollars) * 100) }]
+        : [],
     },
     calendarAndDispatch: {
       bookingMode: form.bookingChoice === "approval" ? "owner_approval" : form.bookingChoice === "lead" ? "lead_only" : "direct",
+      appointmentTypes: [
+        { name: "Service call", durationMinutes: Number(form.durationServiceCall) || 60 },
+        { name: "Spring or opener repair", durationMinutes: Number(form.durationRepair) || 90 },
+        { name: "New door or opener install", durationMinutes: Number(form.durationInstall) || 240 },
+      ],
+      travelBufferMinutes: Number(form.travelBufferMinutes) || 30,
       noAvailabilityBehavior: form.noAvailabilityBehavior,
     },
     urgencyAndEscalation: {
@@ -664,8 +693,7 @@ type SetupForm = {
   primaryContactEmail: string;
   timezone: string;
   primaryAddress: string;
-  serviceArea: string;
-  radiusMiles: string;
+  serviceAreas: string;
   outOfAreaResponse: string;
   weekdayOpen: string;
   weekdayClose: string;
@@ -674,6 +702,10 @@ type SetupForm = {
   mainServices: string;
   diagnosticFeeDollars: string;
   phoneChoice: string;
+  businessLineNumber: string;
+  transferNumber: string;
+  lineType: string;
+  forwardingType: string;
   missedCallFallback: string;
   spamHandling: string;
   receptionistName: string;
@@ -688,6 +720,10 @@ type SetupForm = {
   businessSummary: string;
   brandTone: string;
   bookingChoice: string;
+  durationServiceCall: string;
+  durationRepair: string;
+  durationInstall: string;
+  travelBufferMinutes: string;
   noAvailabilityBehavior: string;
   urgentTriggers: string;
   smsAlertTemplate: string;
@@ -699,6 +735,17 @@ type SetupForm = {
 
 const SETUP_DRAFT_KEY = "bellory-setup-draft";
 
+// Offered behind a button, never pre-filled: a default service list is a claim
+// about a business we haven't asked yet.
+const GARAGE_DOOR_STARTER_SERVICES = [
+  "Broken spring replacement",
+  "Garage door opener repair",
+  "New opener installation",
+  "Off-track or cable repair",
+  "New garage door installation",
+  "Annual tune-up and safety inspection",
+].join("\n");
+
 const defaultSetupForm: SetupForm = {
   name: "",
   publicName: "",
@@ -708,16 +755,21 @@ const defaultSetupForm: SetupForm = {
   primaryContactEmail: "",
   timezone: "America/Denver",
   primaryAddress: "",
-  serviceArea: "Salt Lake City",
-  radiusMiles: "35",
+  // Facts about THIS shop are never pre-filled — a default here becomes the
+  // agent confidently telling callers something untrue.
+  serviceAreas: "",
   outOfAreaResponse: "Politely explain that the business may not service that area and offer to take details for owner review.",
   weekdayOpen: "07:30",
   weekdayClose: "18:00",
   saturdayOpen: "",
   saturdayClose: "",
-  mainServices: "Broken spring replacement\nGarage door opener repair\nNew opener installation\nOff-track or cable repair\nNew garage door installation\nAnnual tune-up and safety inspection",
-  diagnosticFeeDollars: "89",
+  mainServices: "",
+  diagnosticFeeDollars: "",
   phoneChoice: "forward",
+  businessLineNumber: "",
+  transferNumber: "",
+  lineType: "mobile",
+  forwardingType: "no_answer",
   missedCallFallback: "Collect caller details and send the owner an SMS summary.",
   spamHandling: "Politely end obvious spam calls and mark the lead as spam.",
   receptionistName: "Sam",
@@ -732,6 +784,12 @@ const defaultSetupForm: SetupForm = {
   businessSummary: "",
   brandTone: "warm, brief, professional, local",
   bookingChoice: "direct",
+  // Job lengths drive the actual slot math — a 4-hour install booked as a
+  // 60-minute slot double-books the crew for the rest of the afternoon.
+  durationServiceCall: "60",
+  durationRepair: "90",
+  durationInstall: "240",
+  travelBufferMinutes: "30",
   noAvailabilityBehavior: "Collect preferred windows and alert the owner.",
   urgentTriggers: "safety risk\nactive leak\ndoor stuck open\ncaller trapped\nproperty damage\nangry caller",
   smsAlertTemplate: "Urgent Bellory call for {{client_name}}: {{issue}}. Caller: {{caller_phone}}.",
@@ -760,6 +818,79 @@ function SetupTextarea({ label, value, onChange, rows = 5 }: { label: string; va
         onChange={(event) => onChange(event.target.value)}
         className="w-full rounded-xl border border-white/[.09] bg-[#171812]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#706F66] hover:border-white/[.14] focus:border-[#C6F23D]/45"
       />
+    </div>
+  );
+}
+
+/**
+ * The exact thing the owner types into their phone. Until this happens the
+ * product does nothing at all, so it is shown during onboarding rather than
+ * buried in a help doc — with the real Bellory number filled in once one
+ * exists, and a placeholder before that so the admin can still explain it.
+ */
+function ForwardingInstructionsPanel({
+  lineType,
+  forwardingType,
+  belloryNumber,
+}: {
+  lineType: string;
+  forwardingType: string;
+  belloryNumber?: string | null;
+}) {
+  const [copied, setCopied] = useState(false);
+  const number = belloryNumber || "+15555550100";
+  const instructions = getForwardingInstructions({
+    lineType: (lineType || "mobile") as LineType,
+    forwardingType: (forwardingType || "no_answer") as ForwardingType,
+    belloryNumber: number,
+  });
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(forwardingInstructionsAsText(instructions));
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="rounded-2xl border border-[#C6F23D]/[.16] bg-[#C6F23D]/[.04] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.18em] text-[#8FD14F]">Give this to the owner</p>
+          <p className="mt-1 text-[14px] font-bold text-white">{instructions.heading}</p>
+        </div>
+        <Button kind="secondary" onClick={() => void copy()} className="shrink-0 px-3 py-2 text-[12px]">
+          {copied ? "Copied" : "Copy to text them"}
+        </Button>
+      </div>
+
+      {instructions.dialString && (
+        <div className="mt-3 rounded-xl border border-white/[.09] bg-[#12120E]/60 px-4 py-3">
+          <p className="font-mono-ui text-[9px] uppercase tracking-[.18em] text-[#99978C]">They dial</p>
+          <p className="font-mono-ui mt-1 text-[20px] font-bold tracking-[.02em] text-[#D3FA5A]">{instructions.dialString}</p>
+        </div>
+      )}
+
+      <ol className="mt-3 space-y-1.5">
+        {instructions.steps.map((step, index) => (
+          <li key={step} className="flex gap-2.5 text-[12.5px] leading-6 text-[#D8D5CA]">
+            <span className="font-mono-ui shrink-0 text-[#8FD14F]">{index + 1}.</span> {step}
+          </li>
+        ))}
+      </ol>
+
+      {instructions.warnings.length > 0 && (
+        <div className="mt-3 border-t border-white/[.07] pt-3">
+          {instructions.warnings.map((warning) => (
+            <p key={warning} className="mb-1 text-[11.5px] leading-5 text-[#FF9448]">{warning}</p>
+          ))}
+        </div>
+      )}
+
+      {!belloryNumber && (
+        <p className="font-mono-ui mt-3 text-[9px] uppercase tracking-[.14em] text-[#706F66]">
+          Shows a placeholder number until this business has a Bellory line. Buy one on the Call Flow tab, then re-read this to the owner.
+        </p>
+      )}
     </div>
   );
 }
@@ -867,22 +998,56 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
         </div>
 
         {current === "Phone routing" && (
-          <div className="mb-5">
+          <div className="mb-5 space-y-4">
             <ChoiceGrid selected={form.phoneChoice} onSelect={update("phoneChoice")} options={[
               { id: "forward", title: "Forward current number", description: "Fastest launch: business forwards calls to Bellory." },
               { id: "new", title: "Assign Bellory number", description: "Use a Twilio number immediately and optionally advertise it." },
               { id: "port", title: "Port later", description: "Start forwarding, then port the existing number after pilot." },
             ]} />
+
+            {form.phoneChoice !== "new" && (
+              <>
+                <div>
+                  <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">What kind of phone is the shop&rsquo;s line?</p>
+                  <ChoiceGrid selected={form.lineType} onSelect={update("lineType")} options={[
+                    { id: "mobile", title: "Cell phone", description: "A mobile the owner carries." },
+                    { id: "landline", title: "Landline", description: "A traditional line from the phone company." },
+                    { id: "voip", title: "Internet phone", description: "RingCentral, Ooma, Google Voice, Spectrum…" },
+                  ]} />
+                </div>
+                <div>
+                  <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">Which calls should Bellory answer?</p>
+                  <ChoiceGrid selected={form.forwardingType} onSelect={update("forwardingType")} options={[
+                    { id: "no_answer", title: "Only the ones they miss", description: "They pick up when free. Bellory catches the rest. Most shops want this." },
+                    { id: "unconditional", title: "Every call", description: "The shop's phone stops ringing entirely." },
+                  ]} />
+                </div>
+                <ForwardingInstructionsPanel lineType={form.lineType} forwardingType={form.forwardingType} />
+              </>
+            )}
           </div>
         )}
 
         {current === "Calendar & dispatch" && (
-          <div className="mb-5">
+          <div className="mb-5 space-y-4">
             <ChoiceGrid selected={form.bookingChoice} onSelect={update("bookingChoice")} options={[
               { id: "direct", title: "Book directly", description: "AI books when all rules match and calendar has availability." },
               { id: "approval", title: "Owner approval", description: "AI collects details and holds appointment until approved." },
               { id: "lead", title: "Lead only", description: "AI captures qualified jobs without committing a time." },
             ]} />
+
+            <div className="rounded-2xl border border-[#FF7A1A]/[.2] bg-[#FF7A1A]/[.04] p-4">
+              <p className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.18em] text-[#FF9448]">Do this with the owner, on their computer</p>
+              <p className="mt-1.5 text-[14px] font-bold text-white">Connect the shop&rsquo;s Google Calendar</p>
+              <p className="mt-1.5 text-[12.5px] leading-6 text-[#D8D5CA]">
+                Booking does nothing until this is connected — the agent can take the call and then have nowhere to put the job. Finish
+                creating the business below, then open its <strong className="text-white">Calendar &amp; Dispatch</strong> tab and press Connect.
+              </p>
+              <p className="mt-2 text-[12px] leading-5 text-[#FF9448]">
+                Sign in as the <strong>shop&rsquo;s</strong> Google account, not yours. Whatever account is signed into that browser is the calendar every
+                job lands on — connect it while signed in as yourself and the shop&rsquo;s calendar stays empty.
+              </p>
+            </div>
           </div>
         )}
 
@@ -902,9 +1067,6 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
           {current === "Locations & hours" && (
             <>
               <SetupField label="Primary address" value={form.primaryAddress} onChange={update("primaryAddress")} />
-              <SetupField label="Primary service city" value={form.serviceArea} onChange={update("serviceArea")} />
-              <SetupField label="Service radius miles" value={form.radiusMiles} onChange={update("radiusMiles")} type="number" />
-              <SetupField label="Out-of-area response" value={form.outOfAreaResponse} onChange={update("outOfAreaResponse")} />
               <SetupField label="Weekday open (HH:MM)" value={form.weekdayOpen} onChange={update("weekdayOpen")} />
               <SetupField label="Weekday close (HH:MM)" value={form.weekdayClose} onChange={update("weekdayClose")} />
               <SetupField label="Saturday open (blank if closed)" value={form.saturdayOpen} onChange={update("saturdayOpen")} />
@@ -916,9 +1078,8 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
           )}
           {current === "Phone routing" && (
             <>
-              <SetupField label="Current / owner phone" value={form.primaryContactPhone} onChange={update("primaryContactPhone")} />
-              <SetupField label="Missed-call fallback" value={form.missedCallFallback} onChange={update("missedCallFallback")} />
-              <SetupField label="Spam handling" value={form.spamHandling} onChange={update("spamHandling")} />
+              <SetupField label="Number customers dial (truck, Google listing)" value={form.businessLineNumber} onChange={update("businessLineNumber")} type="tel" />
+              <SetupField label="Ring a real person on (must be a DIFFERENT line)" value={form.transferNumber} onChange={update("transferNumber")} type="tel" />
             </>
           )}
           {current === "Agent identity & prompt" && (
@@ -933,7 +1094,10 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
           )}
           {current === "Calendar & dispatch" && (
             <>
-              <SetupField label="No availability behavior" value={form.noAvailabilityBehavior} onChange={update("noAvailabilityBehavior")} />
+              <SetupField label="Service call — how many minutes?" value={form.durationServiceCall} onChange={update("durationServiceCall")} type="number" />
+              <SetupField label="Spring or opener repair — minutes" value={form.durationRepair} onChange={update("durationRepair")} type="number" />
+              <SetupField label="New door or opener install — minutes" value={form.durationInstall} onChange={update("durationInstall")} type="number" />
+              <SetupField label="Drive time to leave between jobs — minutes" value={form.travelBufferMinutes} onChange={update("travelBufferMinutes")} type="number" />
             </>
           )}
           {current === "Compliance & policies" && (
@@ -946,7 +1110,32 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
 
         <div className="mt-4 grid gap-4">
           {current === "Business identity" && <SetupTextarea label="Business summary" value={form.businessSummary} onChange={update("businessSummary")} />}
-          {current === "Services & pricing" && <SetupTextarea label="Main services, one per line" value={form.mainServices} onChange={update("mainServices")} rows={7} />}
+          {current === "Locations & hours" && (
+            <div>
+              <SetupTextarea
+                label="Towns and ZIP codes they cover, one per line"
+                value={form.serviceAreas}
+                onChange={update("serviceAreas")}
+                rows={6}
+              />
+              <p className="mt-1.5 text-[11.5px] leading-5 text-[#99978C]">
+                One line each, e.g. <span className="font-mono-ui text-[#D8D5CA]">Sandy, 84070</span>. The agent checks this list literally before it books
+                — anything not listed gets &ldquo;let me check with the team&rdquo; instead of a booking, so list every town they will drive to.
+              </p>
+            </div>
+          )}
+          {current === "Services & pricing" && (
+            <div>
+              <SetupTextarea label="What they fix, one per line" value={form.mainServices} onChange={update("mainServices")} rows={7} />
+              <Button
+                kind="secondary"
+                onClick={() => update("mainServices")(GARAGE_DOOR_STARTER_SERVICES)}
+                className="mt-2 px-3 py-2 text-[12px]"
+              >
+                Use the garage door starter list
+              </Button>
+            </div>
+          )}
           {current === "Agent identity & prompt" && (
             <>
               <SetupTextarea label="Greeting script" value={form.greetingScript} onChange={update("greetingScript")} rows={3} />

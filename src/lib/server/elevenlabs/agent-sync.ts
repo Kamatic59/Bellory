@@ -391,6 +391,34 @@ async function deleteKnowledgeBaseDoc(id: string) {
   }
 }
 
+function toE164(value: string | undefined | null): string | null {
+  const digits = (value ?? "").replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return null;
+}
+
+/**
+ * Where "let me talk to a person" goes.
+ *
+ * The trap this avoids: in forwarding mode the shop's published line is pointed
+ * at Bellory, and that same number is usually also the owner's phone. Handing
+ * it to the transfer tool sends the caller straight back into the agent they
+ * just asked to escape. So an explicit transferNumber wins, and the owner phone
+ * is only used when it is demonstrably a different line.
+ */
+export function resolveTransferNumber(config: BelloryClientConfig): string | null {
+  const explicit = toE164(config.phoneRouting.transferNumber);
+  if (explicit) return explicit;
+
+  const owner = toE164(config.businessIdentity.ownerPhone);
+  const forwarded = toE164(config.phoneRouting.currentNumber);
+  const bellory = toE164(config.phoneRouting.belloryNumber);
+  if (!owner) return null;
+  if (owner === forwarded || owner === bellory) return null;
+  return owner;
+}
+
 /**
  * ElevenLabs' native call-transfer system tool. Webhook tools can only return
  * data — without this, the agent could SAY it was transferring but had no way
@@ -398,8 +426,7 @@ async function deleteKnowledgeBaseDoc(id: string) {
  * inline prompt.tools cannot be combined with tool_ids.
  */
 function buildTransferTool(config: BelloryClientConfig) {
-  const digits = config.businessIdentity.ownerPhone.replace(/\D/g, "");
-  const ownerNumber = digits.length === 10 ? `+1${digits}` : digits.length === 11 && digits.startsWith("1") ? `+${digits}` : null;
+  const ownerNumber = resolveTransferNumber(config);
   if (!ownerNumber) return null;
 
   return {
