@@ -138,13 +138,33 @@ export async function deleteCalendarEvent(connection: CalendarConnection, eventI
 
 export async function createCalendarEvent(
   connection: CalendarConnection,
-  event: { summary: string; description: string; location?: string | null; startsAt: Date; endsAt: Date; timeZone: string },
+  event: {
+    summary: string;
+    description: string;
+    location?: string | null;
+    startsAt: Date;
+    endsAt: Date;
+    timeZone: string;
+    /**
+     * The owner. Adding them as an attendee makes Google send the "new job"
+     * email and push it to their phone, which is how the owner finds out a job
+     * was booked at all. Bellory has no mail server and SMS is gated, so this
+     * is the notification channel rather than a nicety.
+     */
+    notifyEmails?: string[];
+  },
 ): Promise<{ eventId: string; htmlLink: string | null } | null> {
   const accessToken = await getAccessToken(connection);
   if (!accessToken) return null;
 
+  const attendees = (event.notifyEmails ?? [])
+    .map((email) => email.trim())
+    .filter((email) => email.includes("@"))
+    .map((email) => ({ email }));
+
   const calendarId = connection.primaryCalendarId || "primary";
-  const response = await fetch(`${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`, {
+  const query = attendees.length > 0 ? "?sendUpdates=all" : "";
+  const response = await fetch(`${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events${query}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -153,6 +173,15 @@ export async function createCalendarEvent(
       ...(event.location ? { location: event.location } : {}),
       start: { dateTime: event.startsAt.toISOString(), timeZone: event.timeZone },
       end: { dateTime: event.endsAt.toISOString(), timeZone: event.timeZone },
+      ...(attendees.length > 0 ? { attendees } : {}),
+      // A job booked for this afternoon is useless as a silent calendar row.
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: "popup", minutes: 60 },
+          { method: "popup", minutes: 10 },
+        ],
+      },
     }),
   });
   if (!response.ok) {

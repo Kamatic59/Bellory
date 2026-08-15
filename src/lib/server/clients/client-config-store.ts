@@ -294,6 +294,24 @@ export async function publishClientConfig(clientId: string) {
   if (full.servicesAndPricing.services.length === 0) {
     publishGate.push("No services listed — the agent has nothing to tell callers this business actually does.");
   }
+  // Booked jobs reach the owner as a Google Calendar invite to their email —
+  // that is currently the only notification channel that exists, so these two
+  // combinations would book work nobody ever hears about.
+  if (full.calendarAndDispatch.bookingMode === "owner_approval") {
+    publishGate.push(
+      "Owner approval has nowhere to approve from yet — nothing notifies the owner and there is no approval screen. Launch on direct booking with Google Calendar, or lead-only.",
+    );
+  }
+  if (full.calendarAndDispatch.bookingMode === "direct" && full.calendarAndDispatch.provider !== "google") {
+    publishGate.push(
+      "Direct booking needs Google Calendar connected — otherwise the agent books jobs the owner never sees. Connect it, or switch to lead-only.",
+    );
+  }
+  if (full.calendarAndDispatch.provider === "google" && !full.businessIdentity.ownerEmail) {
+    publishGate.push(
+      "No owner email — that is how the owner gets told a job was booked (Google emails them the calendar invite). Add it on the Business Brain tab.",
+    );
+  }
   // A transfer must not land back on the line that forwards into Bellory.
   if (!resolveTransferNumber(full)) {
     publishGate.push(

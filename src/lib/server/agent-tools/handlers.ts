@@ -528,6 +528,9 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
       startsAt,
       endsAt,
       timeZone: config.businessIdentity.timezone,
+      // Google emails the owner and pushes it to their phone. Without this a
+      // booked job is a silent row on a calendar nobody is watching.
+      notifyEmails: [config.businessIdentity.ownerEmail].filter((email): email is string => Boolean(email)),
     });
 
     await db.update(appointments)
