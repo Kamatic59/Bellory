@@ -290,6 +290,9 @@ const clientContext: AgentToolHandler = async ({ config, payload }) => {
       diagnosticFees: servicesAndPricing.diagnosticFees.map((fee) => ({ label: fee.label, amount: formatCents(fee.amountCents) })),
       quoteGuardrails: servicesAndPricing.quoteGuardrails,
       neverQuoteConditions: servicesAndPricing.neverQuoteConditions,
+      // Work the shop refuses. Booking one of these costs a wasted truck roll,
+      // so the agent needs it on every call, not just in the prompt.
+      doNotBook: config.qualificationRules.doNotBookConditions,
       requiredIntakeFields: receptionistBrain.requiredIntakeFields,
       wordsToAvoid: receptionistBrain.wordsToAvoid,
       forbiddenClaims: receptionistBrain.forbiddenClaims,

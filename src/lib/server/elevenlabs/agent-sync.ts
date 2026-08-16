@@ -391,6 +391,32 @@ async function deleteKnowledgeBaseDoc(id: string) {
   }
 }
 
+/**
+ * The rules this particular shop cares about, appended last so the model
+ * weights them above the generic sections.
+ *
+ * Two things were being collected and then going nowhere: behaviorInstructions
+ * (typed in the admin, only ever rendered into an unused prompt preview) and
+ * doNotBookConditions (work the shop refuses — gates, rolling steel, RV doors).
+ * Without the second one those jobs got booked and eaten as wasted truck rolls.
+ */
+function buildShopRulesSection(config: BelloryClientConfig): string {
+  const rules = config.aiVoice.behaviorInstructions?.trim();
+  const doNotBook = config.qualificationRules.doNotBookConditions.filter((line) => line.trim().length > 0);
+  if (!rules && doNotBook.length === 0) return "";
+
+  const parts = ["\n\n# This shop's own rules\n"];
+  if (rules) parts.push(`${rules}\n`);
+  if (doNotBook.length > 0) {
+    parts.push(
+      "\nWork this shop does NOT take. If a caller asks for any of these, do not book it and do not quote it — say it isn't something they handle, and offer to take a message so someone can point them in the right direction:\n",
+      doNotBook.map((line) => `- ${line}`).join("\n"),
+      "\n",
+    );
+  }
+  return parts.join("");
+}
+
 function toE164(value: string | undefined | null): string | null {
   const digits = (value ?? "").replace(/\D/g, "");
   if (digits.length === 10) return `+1${digits}`;
@@ -510,7 +536,7 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
         first_message: config.aiVoice.greetingScript,
         language: "en",
         prompt: {
-          prompt: `${config.aiVoice.systemPrompt}${SPEECH_STYLE_SECTION}${TOOL_PROMPT_SECTION}${brevitySection}`,
+          prompt: `${config.aiVoice.systemPrompt}${SPEECH_STYLE_SECTION}${TOOL_PROMPT_SECTION}${brevitySection}${buildShopRulesSection(config)}`,
           // Sonnet holds negative constraints (never narrate, never re-ask)
           // far better than the flash-tier models; worth the extra latency.
           llm: "claude-sonnet-4-5",

@@ -149,8 +149,10 @@ export function buildKnowledgeBaseDocument(config: BelloryClientConfigDraft, opt
       `- Industry: ${text(business?.industry)}`,
       `- Timezone: ${text(business?.timezone)}`,
       `- Owner or primary contact: ${text(business?.ownerName)}`,
-      `- Owner phone: ${text(business?.ownerPhone)}`,
-      `- Owner email: ${text(business?.ownerEmail)}`,
+      // Owner phone and email are deliberately NOT here. The agent reads this
+      // document aloud, and nothing stops it reciting the owner's personal
+      // number to a caller. Transfers use the number resolved server-side, so
+      // the agent never needs to know it.
       `- Business summary: ${text(business?.businessSummary)}`,
       "- Brand tone words:",
       list(business?.brandTone),

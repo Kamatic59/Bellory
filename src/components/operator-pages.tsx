@@ -395,6 +395,11 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
         ? [{ label: "Service call / diagnostic fee", amountCents: Math.round(Number(form.diagnosticFeeDollars) * 100) }]
         : [],
     },
+    qualificationRules: {
+      // Work the shop refuses. Reaches both the agent's prompt and the live
+      // client-context tool, so it can decline before it books a truck roll.
+      doNotBookConditions: splitLines(form.doNotBook),
+    },
     calendarAndDispatch: {
       bookingMode: form.bookingChoice === "approval" ? "owner_approval" : form.bookingChoice === "lead" ? "lead_only" : "direct",
       appointmentTypes: [
@@ -734,6 +739,7 @@ type SetupForm = {
   saturdayOpen: string;
   saturdayClose: string;
   mainServices: string;
+  doNotBook: string;
   diagnosticFeeDollars: string;
   phoneChoice: string;
   businessLineNumber: string;
@@ -801,6 +807,7 @@ const defaultSetupForm: SetupForm = {
   saturdayOpen: "",
   saturdayClose: "",
   mainServices: "",
+  doNotBook: "",
   diagnosticFeeDollars: "",
   phoneChoice: "forward",
   businessLineNumber: "",
@@ -828,7 +835,30 @@ const defaultSetupForm: SetupForm = {
   durationInstall: "240",
   travelBufferMinutes: "30",
   noAvailabilityBehavior: "Collect preferred windows and alert the owner.",
-  urgentTriggers: "safety risk\nactive leak\ndoor stuck open\ncaller trapped\nproperty damage\nangry caller",
+  // Matched against what the caller actually said, so these have to be the
+  // caller's words. Operator taxonomy like "caller trapped" or "safety risk"
+  // never appears in a real sentence, so nothing matched and every emergency
+  // scored as routine.
+  urgentTriggers: [
+    "trapped",
+    "stuck",
+    "won't close",
+    "wont close",
+    "won't open",
+    "wont open",
+    "spring broke",
+    "spring snapped",
+    "snapped",
+    "came off",
+    "off track",
+    "hanging",
+    "crooked",
+    "fell",
+    "can't get my car out",
+    "cant get my car out",
+    "won't lock",
+    "wide open",
+  ].join("\n"),
   smsAlertTemplate: "Urgent Bellory call for {{client_name}}: {{issue}}. Caller: {{caller_phone}}.",
   operatorReviewThreshold: "Escalate low confidence, urgent, or pricing-outside-rules calls.",
   aiDisclosurePolicy: "Use the approved Bellory disclosure phrase when asked and wherever legally required.",
@@ -1207,6 +1237,18 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
               >
                 Use the garage door starter list
               </Button>
+              <div className="mt-5">
+                <SetupTextarea
+                  label="Work they do NOT take, one per line"
+                  value={form.doNotBook}
+                  onChange={update("doNotBook")}
+                  rows={4}
+                />
+                <p className="mt-1.5 text-[11.5px] leading-5 text-[#99978C]">
+                  Gates, rolling steel, RV doors, commercial jobs, brands they won&rsquo;t touch. Anything left off this list gets booked — and a job
+                  they can&rsquo;t do is a truck roll they eat.
+                </p>
+              </div>
             </div>
           )}
           {current === "Agent identity & prompt" && (
