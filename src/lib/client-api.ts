@@ -192,6 +192,27 @@ export async function getCalendarStatus(clientId: string) {
   return { connected: data.connected, status: data.status, email: data.email, updatedAt: data.updatedAt };
 }
 
+export type GoogleCalendarOption = {
+  id: string;
+  name: string;
+  primary: boolean;
+  canWrite: boolean;
+};
+
+export async function listClientCalendars(clientId: string) {
+  const data = await requestJson<{ ok: true; selectedCalendarId: string; accountEmail: string | null; calendars: GoogleCalendarOption[] }>(
+    `/api/clients/${clientId}/calendar`,
+  );
+  return { selectedCalendarId: data.selectedCalendarId, accountEmail: data.accountEmail, calendars: data.calendars };
+}
+
+export async function selectClientCalendar(clientId: string, calendarId: string) {
+  return requestJson<{ ok: true; selectedCalendarId: string }>(`/api/clients/${clientId}/calendar`, {
+    method: "PATCH",
+    body: JSON.stringify({ calendarId }),
+  });
+}
+
 export type TwilioNumberOption = {
   phoneNumber: string;
   friendlyName: string;

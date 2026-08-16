@@ -37,6 +37,8 @@ import type { BelloryClientConfigDraft } from "@/lib/server/config/client-config
 import {
   connectPhoneNumber,
   getCalendarStatus,
+  listClientCalendars,
+  selectClientCalendar,
   getClientActivity,
   getClientConfig,
   getClientPhoneState,
@@ -48,6 +50,7 @@ import {
   validateClientConfig,
   type AppClient,
   type CalendarStatus,
+  type GoogleCalendarOption,
   type ClientActivity,
   type ClientPhoneState,
   type TwilioNumberOption,
@@ -1550,6 +1553,11 @@ function CalendarConnectionCard({ clientId }: { clientId: string }) {
                 : "Until a calendar is connected, availability comes from business-hours rules only."}
           </p>
           {error && <p className="mt-2 text-[11px] text-[#F0837B]">{error}</p>}
+          {!status?.connected && (
+            <p className="mt-2 max-w-xl text-[12px] leading-5 text-[#FF9448]">
+              Sign in as the <strong>shop&rsquo;s</strong> Google account. Whichever account this browser is signed into is the one that gets every booked job.
+            </p>
+          )}
         </div>
         <a
           href={`/api/google/oauth/start?clientId=${clientId}`}
@@ -1558,7 +1566,70 @@ function CalendarConnectionCard({ clientId }: { clientId: string }) {
           <CalendarCheck size={14} /> {status?.connected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
         </a>
       </div>
+      {status?.connected && <CalendarPicker clientId={clientId} />}
     </ConfigPanel>
+  );
+}
+
+/**
+ * Which calendar the jobs land on. Defaults to the account's primary, which is
+ * usually wrong for a shop that dispatches off a shared "Jobs" calendar — and
+ * a personal primary also makes birthdays and all-day entries read as busy.
+ */
+function CalendarPicker({ clientId }: { clientId: string }) {
+  const [calendars, setCalendars] = useState<GoogleCalendarOption[]>([]);
+  const [selected, setSelected] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+    queueMicrotask(() => {
+      listClientCalendars(clientId)
+        .then((next) => {
+          if (ignore) return;
+          setCalendars(next.calendars);
+          setSelected(next.selectedCalendarId);
+        })
+        .catch(() => { /* the connection card already reports connection problems */ });
+    });
+    return () => { ignore = true; };
+  }, [clientId]);
+
+  if (calendars.length === 0) return null;
+
+  const choose = async (calendarId: string) => {
+    setSelected(calendarId);
+    setBusy(true);
+    setMessage(null);
+    try {
+      await selectClientCalendar(clientId, calendarId);
+      setMessage("Saved. New bookings land on this calendar.");
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "Could not switch calendar");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 border-t border-white/[.07] pt-4">
+      <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">Book jobs onto which calendar?</p>
+      <Select
+        value={selected}
+        onChange={(value) => void choose(value)}
+        ariaLabel="Calendar that receives bookings"
+        options={calendars.map((calendar) => ({
+          value: calendar.id,
+          label: calendar.primary ? `${calendar.name} (main calendar)` : calendar.name,
+        }))}
+      />
+      <p className="mt-1.5 text-[11.5px] leading-5 text-[#99978C]">
+        If the shop dispatches off a shared job calendar, pick it here — a personal calendar also counts birthdays and all-day entries as busy time.
+      </p>
+      {busy && <p className="mt-1.5 text-[11px] text-[#99978C]">Saving…</p>}
+      {message && <p className="mt-1.5 text-[11px] text-[#8FD14F]">{message}</p>}
+    </div>
   );
 }
 

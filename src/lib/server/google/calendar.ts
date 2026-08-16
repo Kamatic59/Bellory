@@ -7,6 +7,47 @@ const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 
 export type CalendarConnection = typeof calendarConnections.$inferSelect;
 
+export type GoogleCalendarOption = {
+  id: string;
+  name: string;
+  primary: boolean;
+  /** Only calendars we can actually write to can receive bookings. */
+  canWrite: boolean;
+};
+
+/**
+ * The calendars this Google account can see. Shops often dispatch off a shared
+ * "Jobs" calendar rather than the owner's personal one, and booking onto a
+ * personal calendar also means birthdays and all-day "OOO" entries read as
+ * busy — so which calendar we write to has to be a choice, not a guess.
+ */
+export async function listCalendars(connection: CalendarConnection): Promise<GoogleCalendarOption[] | null> {
+  const accessToken = await getAccessToken(connection);
+  if (!accessToken) return null;
+
+  const response = await fetch(`${CALENDAR_API}/users/me/calendarList?minAccessRole=writer&maxResults=100`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) {
+    console.error("google calendar: calendarList failed", response.status, await response.text().catch(() => ""));
+    return null;
+  }
+
+  const body = await response.json().catch(() => null) as {
+    items?: Array<{ id?: string; summary?: string; primary?: boolean; accessRole?: string }>;
+  } | null;
+
+  return (body?.items ?? [])
+    .filter((item): item is { id: string; summary?: string; primary?: boolean; accessRole?: string } => Boolean(item.id))
+    .map((item) => ({
+      id: item.id,
+      name: item.summary ?? item.id,
+      primary: item.primary === true,
+      canWrite: item.accessRole === "owner" || item.accessRole === "writer",
+    }))
+    .filter((option) => option.canWrite);
+}
+
 export async function getActiveCalendarConnection(clientId: string): Promise<CalendarConnection | null> {
   const db = getDb();
   const [connection] = await db
