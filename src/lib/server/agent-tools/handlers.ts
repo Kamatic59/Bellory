@@ -195,14 +195,20 @@ async function generateAvailability(
   const stepMs = (durationMinutes + bufferMinutes) * 60_000;
   const durationMs = durationMinutes * 60_000;
   const bufferMs = bufferMinutes * 60_000;
+  const crewSize = config.calendarAndDispatch.concurrentJobs ?? 1;
   const maxSlots = options.maxSlots ?? 3;
-  const earliestStart = new Date(Date.now() + 60 * 60_000);
+  // How soon a tech can actually be there. Offering a slot an hour out across
+  // a whole metro is a promise the crew can't keep.
+  const leadMinutes = config.calendarAndDispatch.minimumLeadTimeMinutes ?? 60;
+  const earliestStart = new Date(Date.now() + leadMinutes * 60_000);
 
   const today = tzDateString(new Date(), timeZone);
   const firstDay = options.preferredDate && /^\d{4}-\d{2}-\d{2}$/.test(options.preferredDate) && options.preferredDate >= today
     ? options.preferredDate
     : today;
-  const days = Array.from({ length: 7 }, (_, index) => addDays(firstDay, index));
+  // A shop booked two weeks out looks broken when the agent can only see 7 days.
+  const horizonDays = config.calendarAndDispatch.bookingHorizonDays ?? 14;
+  const days = Array.from({ length: horizonDays }, (_, index) => addDays(firstDay, index));
 
   const windowStart = zonedTimeToUtc(days[0], "00:00", timeZone) ?? new Date();
   const windowEnd = zonedTimeToUtc(addDays(days[days.length - 1], 1), "00:00", timeZone) ?? new Date(Date.now() + 8 * 86_400_000);
@@ -227,10 +233,12 @@ async function generateAvailability(
         if (start < earliestStart.getTime()) continue;
 
         const end = start + durationMs;
-        const overlaps = conflicts.some(
+        // Count how many jobs already overlap rather than rejecting on the
+        // first: a shop with three trucks can run three jobs at once.
+        const overlapping = conflicts.filter(
           (conflict) => start < conflict.endsAt.getTime() + bufferMs && end > conflict.startsAt.getTime() - bufferMs,
-        );
-        if (overlaps) continue;
+        ).length;
+        if (overlapping >= crewSize) continue;
 
         slots.push({
           startsAt: new Date(start).toISOString(),
@@ -473,7 +481,8 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
 
   const connection = await getActiveCalendarConnection(client.id);
   const conflicts = await loadConflicts(client.id, startsAt, endsAt, config, connection);
-  if (conflicts.length > 0) {
+  // Full only when every truck is already out.
+  if (conflicts.length >= (config.calendarAndDispatch.concurrentJobs ?? 1)) {
     return {
       ok: true,
       message: "That time was just taken. Re-check availability and offer the caller another opening.",

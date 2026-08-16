@@ -50,7 +50,12 @@ export function createDemoClientConfig(clientName = "Demo Client"): BelloryClien
       callerIntents: ["book_appointment", "ask_price", "urgent_help", "reschedule", "general_question"],
       requiredIntakeFields: ["caller_name", "caller_phone", "service_address", "issue", "urgency", "preferred_time"],
       faqs: [],
-      wordsToAvoid: ["guaranteed", "exact price", "licensed technician"],
+      // "licensed technician" used to be here, which made the agent dodge
+      // "are you licensed and insured?" — the one question that closes the
+      // trust gap on a home-services call. The honest answer belongs in the
+      // FAQs, filled in by the shop; forbiddenClaims below still stops the
+      // agent claiming to be a technician itself.
+      wordsToAvoid: ["guaranteed", "exact price"],
       forbiddenClaims: ["Never guarantee exact pricing.", "Never claim to be a technician.", "Never promise unavailable appointment times."],
       lowConfidencePolicy: "Ask a clarifying question once, then collect callback details and alert the owner.",
     },
@@ -72,14 +77,27 @@ export function createDemoClientConfig(clientName = "Demo Client"): BelloryClien
     calendarAndDispatch: {
       provider: "google",
       bookingMode: "owner_approval",
-      appointmentTypes: [{ name: "Service call", durationMinutes: 60 }],
+      appointmentTypes: [
+        { name: "Service call", durationMinutes: 60 },
+        { name: "Spring or opener repair", durationMinutes: 90 },
+        { name: "New door or opener install", durationMinutes: 240 },
+      ],
       travelBufferMinutes: 20,
+      concurrentJobs: 1,
+      minimumLeadTimeMinutes: 120,
+      bookingHorizonDays: 14,
       appointmentWindowWording: "Arrival window, not exact arrival time.",
       technicianRoutingRules: ["Prefer nearest available technician when configured."],
       noAvailabilityBehavior: "Collect preferred windows and alert the owner.",
     },
     urgencyAndEscalation: {
-      urgentTriggers: ["safety risk", "active leak", "door stuck open", "caller trapped", "property damage", "angry caller"],
+      // Matched against the caller's own words, so these have to sound like a
+      // person on the phone, not an operator taxonomy.
+      urgentTriggers: [
+        "trapped", "stuck", "won't close", "wont close", "won't open", "wont open",
+        "spring broke", "spring snapped", "snapped", "came off", "off track",
+        "hanging", "crooked", "fell", "can't get my car out", "cant get my car out",
+      ],
       smsAlertTemplate: "Urgent Bellory call for {{client_name}}: {{issue}}. Caller: {{caller_phone}}.",
       operatorReviewThreshold: "Escalate low confidence, urgent, or pricing-outside-rules calls.",
     },

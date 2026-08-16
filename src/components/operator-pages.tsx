@@ -395,6 +395,16 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
         ? [{ label: "Service call / diagnostic fee", amountCents: Math.round(Number(form.diagnosticFeeDollars) * 100) }]
         : [],
     },
+    receptionistBrain: {
+      // Only the ones actually answered — an empty answer would have the agent
+      // reading a blank back to the caller.
+      faqs: [
+        { question: "Are you licensed and insured?", answer: form.faqLicensed },
+        { question: "What payment methods do you take?", answer: form.faqPayment },
+        { question: "How soon can someone come out?", answer: form.faqHowSoon },
+        { question: "Is the service call fee waived if I have the work done?", answer: form.faqFeeWaived },
+      ].filter((faq) => faq.answer.trim().length > 0),
+    },
     qualificationRules: {
       // Work the shop refuses. Reaches both the agent's prompt and the live
       // client-context tool, so it can decline before it books a truck roll.
@@ -408,6 +418,9 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
         { name: "New door or opener install", durationMinutes: Number(form.durationInstall) || 240 },
       ],
       travelBufferMinutes: Number(form.travelBufferMinutes) || 30,
+      concurrentJobs: Number(form.concurrentJobs) || 1,
+      minimumLeadTimeMinutes: Number(form.minimumLeadTimeMinutes) || 120,
+      bookingHorizonDays: Number(form.bookingHorizonDays) || 14,
       noAvailabilityBehavior: form.noAvailabilityBehavior,
     },
     urgencyAndEscalation: {
@@ -741,6 +754,10 @@ type SetupForm = {
   mainServices: string;
   doNotBook: string;
   diagnosticFeeDollars: string;
+  faqLicensed: string;
+  faqPayment: string;
+  faqHowSoon: string;
+  faqFeeWaived: string;
   phoneChoice: string;
   businessLineNumber: string;
   transferNumber: string;
@@ -764,6 +781,9 @@ type SetupForm = {
   durationRepair: string;
   durationInstall: string;
   travelBufferMinutes: string;
+  concurrentJobs: string;
+  minimumLeadTimeMinutes: string;
+  bookingHorizonDays: string;
   noAvailabilityBehavior: string;
   urgentTriggers: string;
   smsAlertTemplate: string;
@@ -809,6 +829,12 @@ const defaultSetupForm: SetupForm = {
   mainServices: "",
   doNotBook: "",
   diagnosticFeeDollars: "",
+  // The four questions that decide whether a caller books or keeps dialling.
+  // Blank because every one of them is a claim about this specific business.
+  faqLicensed: "",
+  faqPayment: "",
+  faqHowSoon: "",
+  faqFeeWaived: "",
   phoneChoice: "forward",
   businessLineNumber: "",
   transferNumber: "",
@@ -834,6 +860,9 @@ const defaultSetupForm: SetupForm = {
   durationRepair: "90",
   durationInstall: "240",
   travelBufferMinutes: "30",
+  concurrentJobs: "1",
+  minimumLeadTimeMinutes: "120",
+  bookingHorizonDays: "14",
   noAvailabilityBehavior: "Collect preferred windows and alert the owner.",
   // Matched against what the caller actually said, so these have to be the
   // caller's words. Operator taxonomy like "caller trapped" or "safety risk"
@@ -1194,6 +1223,9 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
               <SetupField label="Spring or opener repair — minutes" value={form.durationRepair} onChange={update("durationRepair")} type="number" />
               <SetupField label="New door or opener install — minutes" value={form.durationInstall} onChange={update("durationInstall")} type="number" />
               <SetupField label="Drive time to leave between jobs — minutes" value={form.travelBufferMinutes} onChange={update("travelBufferMinutes")} type="number" />
+              <SetupField label="How many trucks can be on jobs at once?" value={form.concurrentJobs} onChange={update("concurrentJobs")} type="number" />
+              <SetupField label="Soonest a tech could get there — minutes from now" value={form.minimumLeadTimeMinutes} onChange={update("minimumLeadTimeMinutes")} type="number" />
+              <SetupField label="How many days out do they book?" value={form.bookingHorizonDays} onChange={update("bookingHorizonDays")} type="number" />
             </>
           )}
           {current === "Compliance & policies" && (
@@ -1248,6 +1280,20 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
                   Gates, rolling steel, RV doors, commercial jobs, brands they won&rsquo;t touch. Anything left off this list gets booked — and a job
                   they can&rsquo;t do is a truck roll they eat.
                 </p>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-white/[.07] bg-white/[.02] p-4">
+                <p className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.18em] text-[#8FD14F]">The four questions every caller asks</p>
+                <p className="mt-1.5 text-[12px] leading-5 text-[#99978C]">
+                  Ask the owner these out loud and type what they say. Leave one blank and the agent has to deflect it — which on a first call reads
+                  as &ldquo;they&rsquo;re hiding something&rdquo; and the caller dials the next shop.
+                </p>
+                <div className="mt-3 grid gap-3">
+                  <SetupField label="Are you licensed and insured? (include the license number)" value={form.faqLicensed} onChange={update("faqLicensed")} />
+                  <SetupField label="What payment methods do you take?" value={form.faqPayment} onChange={update("faqPayment")} />
+                  <SetupField label="How soon can someone come out?" value={form.faqHowSoon} onChange={update("faqHowSoon")} />
+                  <SetupField label="Is the service call fee waived if they do the work?" value={form.faqFeeWaived} onChange={update("faqFeeWaived")} />
+                </div>
               </div>
             </div>
           )}

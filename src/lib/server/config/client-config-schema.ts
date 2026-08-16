@@ -123,6 +123,14 @@ const calendarAndDispatchSchema = z.object({
   bookingMode: z.enum(["direct", "owner_approval", "lead_only"]),
   appointmentTypes: z.array(z.object({ name: nonEmptyString, durationMinutes: z.number().int().positive() })).default([]),
   travelBufferMinutes: z.number().int().nonnegative(),
+  // How many jobs the shop can run at the same time — trucks on the road. A
+  // 3-truck shop with this at 1 can only ever hold one job per slot.
+  concurrentJobs: z.number().int().positive().default(1),
+  // Soonest a tech can realistically be there, from right now.
+  minimumLeadTimeMinutes: z.number().int().nonnegative().default(60),
+  // How far ahead the agent will offer times. A shop booked two weeks out
+  // looks broken when it can only see 7 days.
+  bookingHorizonDays: z.number().int().positive().default(14),
   appointmentWindowWording: nonEmptyString,
   technicianRoutingRules: z.array(nonEmptyString).default([]),
   noAvailabilityBehavior: nonEmptyString,
