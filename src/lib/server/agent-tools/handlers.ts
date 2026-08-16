@@ -175,19 +175,23 @@ async function loadConflicts(
     ));
 
   // With a connected Google Calendar, real busy time also blocks slots. A
-  // failed lookup falls back to rules-only rather than breaking the call.
+  // failed lookup falls back to rules-only rather than breaking the call —
+  // but the caller must not then be offered times the crew is already out on,
+  // so the failure is reported back and the agent hedges instead of promising.
+  let calendarBusyUnavailable = false;
   if (connection && config.calendarAndDispatch.provider === "google") {
     const busy = await fetchBusyIntervals(connection, windowStart, windowEnd);
     if (busy) conflicts.push(...busy);
+    else calendarBusyUnavailable = true;
   }
 
-  return conflicts;
+  return Object.assign(conflicts, { calendarBusyUnavailable });
 }
 
 async function generateAvailability(
   context: AgentToolContext,
   options: { preferredDate?: string; appointmentType?: string; maxSlots?: number },
-): Promise<{ slots: Slot[]; daysChecked: string[] }> {
+): Promise<{ slots: Slot[]; daysChecked: string[]; calendarBusyUnavailable: boolean }> {
   const { config, client } = context;
   const timeZone = config.businessIdentity.timezone;
   const durationMinutes = appointmentDurationMinutes(config, options.appointmentType);
@@ -249,7 +253,7 @@ async function generateAvailability(
     }
   }
 
-  return { slots, daysChecked: days };
+  return { slots, daysChecked: days, calendarBusyUnavailable: conflicts.calendarBusyUnavailable === true };
 }
 
 /* --------------------------------- handlers ------------------------------- */
@@ -357,10 +361,14 @@ const serviceArea: AgentToolHandler = async ({ config, payload }) => {
     };
   }
 
+  // Not on the list is not the same as not covered — the list is typed by hand
+  // and misses neighbouring towns, spellings and new suburbs. A false "we
+  // don't serve you" loses a job that was never out of range, while "let me
+  // check" costs nothing, so this stays deliberately soft.
   return {
     ok: true,
-    message: `No configured area matches this location. ${config.locationsAndHours.outOfAreaResponse}`,
-    data: { inServiceArea: false, configuredAreas: areas, checkedCity: effectiveCity ?? null, checkedZip: effectiveZip ?? null },
+    message: `${effectiveCity ?? effectiveZip} is not on this business's list of towns, but that list may simply be incomplete — do NOT tell the caller the business does not serve them. Say you want to make sure someone can get out that far, take their name, number, address and what they need, save the lead, and tell them the team will confirm and call straight back. Guidance from the business: ${config.locationsAndHours.outOfAreaResponse}`,
+    data: { inServiceArea: null, notOnConfiguredList: true, configuredAreas: areas, checkedCity: effectiveCity ?? null, checkedZip: effectiveZip ?? null },
   };
 };
 
@@ -418,7 +426,7 @@ const calendarAvailability: AgentToolHandler = async (context) => {
   const input = availabilityInput.safeParse(context.payload);
   const options = input.success ? input.data : {};
 
-  const { slots, daysChecked } = await generateAvailability(context, options);
+  const { slots, daysChecked, calendarBusyUnavailable } = await generateAvailability(context, options);
 
   if (slots.length === 0) {
     return {
@@ -428,10 +436,21 @@ const calendarAvailability: AgentToolHandler = async (context) => {
     };
   }
 
+  // We could not read the real calendar, so these times come from opening
+  // hours alone and the crew may already be out on some of them. Offer them,
+  // but don't let the agent promise the slot is locked in.
+  if (calendarBusyUnavailable) {
+    return {
+      ok: true,
+      message: `These times come from opening hours only — the live calendar could not be reached, so they are not guaranteed free. Offer them one at a time and tell the caller you'll confirm the exact time shortly rather than promising it outright. ${context.config.calendarAndDispatch.appointmentWindowWording}`,
+      data: { slots, timezone: context.config.businessIdentity.timezone, calendarChecked: false },
+    };
+  }
+
   return {
     ok: true,
     message: `Offer these openings one at a time, using the spoken label. ${context.config.calendarAndDispatch.appointmentWindowWording}`,
-    data: { slots, timezone: context.config.businessIdentity.timezone },
+    data: { slots, timezone: context.config.businessIdentity.timezone, calendarChecked: true },
   };
 };
 
@@ -615,7 +634,11 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
     : "confirm the details verbally,";
   const messages: Record<string, string> = {
     booked: calendarSyncFailed
-      ? `The ${spoken} appointment is recorded, but it did NOT reach the business calendar. Tell the caller the appointment is set and ${confirmationLine} then send bellory_send_owner_alert with the appointment details so the team gets it on the schedule, and save the lead with this appointmentId.`
+      // The job is in our database but not on the crew's board. Don't let the
+      // caller hang up believing it is fully locked in — say someone will
+      // confirm, so a dropped job surfaces as a follow-up call rather than a
+      // no-show.
+      ? `The ${spoken} appointment is recorded, but it did NOT reach the business calendar. Tell the caller you have them down for ${spoken} and that someone will call shortly to confirm it — do not say it is fully confirmed. Then ${confirmationLine} send bellory_send_owner_alert with the appointment details so the team gets it on the schedule, and save the lead with this appointmentId.`
       : `Booked for ${spoken}. Confirm the time with the caller using arrival-window wording, ${confirmationLine} and save the lead with this appointmentId.`,
     needs_approval: `The request for ${spoken} is recorded and waiting on owner approval. Tell the caller the time will be confirmed shortly, and save the lead with this appointmentId.`,
     held: `The ${spoken} slot is held for 30 minutes. Confirm details with the caller, then book it.`,

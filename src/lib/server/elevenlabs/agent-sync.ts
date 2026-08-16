@@ -143,6 +143,10 @@ function buildToolDefinitions(clientId: string, baseUrl: string): WebhookToolCon
       "The chosen slot, caller contact details, and the job.",
       {
         starts_at: { type: "string", description: "Exact startsAt ISO timestamp of the chosen slot from bellory_check_availability." },
+        // Without this the slot could be searched as a 4-hour install and then
+        // written to the calendar as a 60-minute job, quietly double-booking
+        // the rest of the crew's afternoon.
+        appointment_type: { type: "string", description: "The SAME appointment_type you passed to bellory_check_availability, so the booking is as long as the slot you searched for." },
         caller_name: { type: "string", description: "Caller's full name." },
         caller_phone: { type: "string", description: "Caller's callback phone number." },
         address: { type: "string", description: "Full service address where the work happens, including street and city." },

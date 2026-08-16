@@ -132,7 +132,6 @@ export function buildKnowledgeBaseDocument(config: BelloryClientConfigDraft, opt
   const calendar = config.calendarAndDispatch;
   const urgency = config.urgencyAndEscalation;
   const compliance = config.complianceAndPolicies;
-  const integrations = config.integrations;
 
   const publicName = text(business?.publicName || options.clientName, "Configured business");
   const generatedAt = options.generatedAt ?? new Date();
@@ -191,9 +190,9 @@ export function buildKnowledgeBaseDocument(config: BelloryClientConfigDraft, opt
 
     "## Phone Routing and Fallback",
     compact([
-      `- Phone mode: ${text(phone?.mode)}`,
-      `- Current business number: ${text(phone?.currentNumber)}`,
-      `- Bellory number: ${text(phone?.belloryNumber)}`,
+      // Phone mode and the raw numbers are omitted for the same reason: the
+      // Bellory number is assigned after this document is written, so it was
+      // always "Not configured" here, and the agent has no use for either.
       `- Caller ID label: ${text(phone?.callerIdLabel)}`,
       `- Recording consent mode: ${text(phone?.recordingConsentMode)}`,
       `- Missed-call or human fallback language: ${text(phone?.missedCallFallback, "I am going to forward you to someone who can help better.")}`,
@@ -282,17 +281,14 @@ export function buildKnowledgeBaseDocument(config: BelloryClientConfigDraft, opt
       `- Payment information policy: ${text(compliance?.paymentInfoPolicy)}`,
     ]).join("\n"),
 
+    // Connection statuses deliberately left out. This document is uploaded
+    // only when the agent syncs, but numbers and calendars get connected
+    // afterwards — so the statuses were permanently stale, telling a live
+    // agent "Twilio: not_connected" while a real caller was on that number.
+    // The tools return live truth and the publish gate checks connections
+    // server-side, so the agent never needed to read them.
     "## Integrations the Agent Should Expect",
-    compact([
-      `- ElevenLabs status: ${text(integrations?.elevenLabs?.status)}`,
-      `- ElevenLabs agent ID: ${text(integrations?.elevenLabs?.externalAgentId)}`,
-      `- Twilio status: ${text(integrations?.twilio?.status)}`,
-      `- Twilio phone number ID: ${text(integrations?.twilio?.phoneNumberId)}`,
-      `- Google Calendar status: ${text(integrations?.googleCalendar?.status)}`,
-      `- Google Calendar connection ID: ${text(integrations?.googleCalendar?.connectionId)}`,
-      `- CRM status: ${text(integrations?.crm?.status)}`,
-      "- Use live tools for booking, owner alerts, CRM/job creation, and call transfer whenever those tools are available.",
-    ]).join("\n"),
+    "- Use live tools for booking, owner alerts, CRM/job creation, and call transfer whenever those tools are available.",
 
     "## What To Do When Unsure",
     compact([
