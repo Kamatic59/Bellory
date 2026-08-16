@@ -491,6 +491,7 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
 
   // A silent line reads as a recording. A little room tone under the voice —
   // an office, a keyboard — is what makes callers treat it as a real desk.
+  const transferTool = buildTransferTool(config);
   const backgroundSound = buildBackgroundSound(config);
   const conversation = {
     ...(maxCallSeconds ? { max_duration_seconds: maxCallSeconds } : {}),
@@ -517,7 +518,18 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
           // repeats of questions it already asked.
           temperature: 0.3,
           tool_ids: toolIds,
-          ...(buildTransferTool(config) ? { built_in_tools: { transfer_to_number: buildTransferTool(config) } } : {}),
+          built_in_tools: {
+            // The prompt tells the agent to say goodbye and end the call on
+            // pocket dials, recordings and dead air. Without this tool it can
+            // only say it — the line stays open burning voice minutes until
+            // ElevenLabs times out.
+            end_call: {
+              name: "end_call",
+              description: "Hangs up. Use after saying goodbye: the caller is done, it is a wrong number, a recording, a pocket dial, obvious spam, or nobody has spoken after you have offered twice.",
+              params: { system_tool_type: "end_call" },
+            },
+            ...(transferTool ? { transfer_to_number: transferTool } : {}),
+          },
           ...(knowledgeBase ? { knowledge_base: [{ type: "text", id: knowledgeBase.id, name: knowledgeBase.name }] } : {}),
         },
         dynamic_variables: {

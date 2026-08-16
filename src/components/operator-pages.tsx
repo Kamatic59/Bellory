@@ -284,6 +284,37 @@ function splitLines(value: string) {
   return value.split("\n").map((item) => item.trim()).filter(Boolean);
 }
 
+/**
+ * "Broken spring replacement | 180-320" -> a service the agent can actually
+ * quote. Price is the single most common question on a garage door call, and
+ * without a range the agent can only offer a callback while the shopper dials
+ * the next shop. A bare name still works — it just can't be quoted.
+ */
+type ParsedService = {
+  name: string;
+  active: boolean;
+  requiredQuestions: string[];
+  startingPriceCents?: number;
+  priceRangeCents?: { min: number; max: number };
+};
+
+function parseServiceLine(line: string): ParsedService {
+  const [rawName, rawPrice] = line.split("|");
+  const name = (rawName ?? line).trim();
+  const base: ParsedService = { name, active: true, requiredQuestions: [] };
+  if (!rawPrice) return base;
+
+  const numbers = rawPrice.match(/\d[\d,]*(?:\.\d+)?/g);
+  if (!numbers || numbers.length === 0) return base;
+
+  const toCents = (raw: string) => Math.round(Number(raw.replace(/,/g, "")) * 100);
+  const values = numbers.map(toCents).filter((value) => Number.isFinite(value) && value >= 0);
+  if (values.length === 0) return base;
+
+  if (values.length === 1) return { ...base, startingPriceCents: values[0] };
+  return { ...base, priceRangeCents: { min: Math.min(...values), max: Math.max(...values) } };
+}
+
 function normalizeUsPhone(raw: string): string | null {
   const digits = raw.replace(/\D/g, "");
   if (digits.length === 10) return `+1${digits}`;
@@ -356,7 +387,7 @@ function setupPatch(form: SetupForm): BelloryClientConfigDraft {
       systemPrompt,
     },
     servicesAndPricing: {
-      services: splitLines(form.mainServices).map((name) => ({ name, active: true, requiredQuestions: [] })),
+      services: splitLines(form.mainServices).map(parseServiceLine),
       // Always written, even when blank: otherwise a shop that does free
       // estimates silently inherits the demo template's $89 and the agent
       // quotes a fee the business does not charge.
@@ -740,13 +771,16 @@ const SETUP_DRAFT_KEY = "bellory-setup-draft";
 
 // Offered behind a button, never pre-filled: a default service list is a claim
 // about a business we haven't asked yet.
+// Names and typical shapes only — the numbers are placeholders the owner
+// must replace with their own, and the preview under the box shows exactly
+// what the agent would quote.
 const GARAGE_DOOR_STARTER_SERVICES = [
-  "Broken spring replacement",
-  "Garage door opener repair",
-  "New opener installation",
-  "Off-track or cable repair",
-  "New garage door installation",
-  "Annual tune-up and safety inspection",
+  "Broken spring replacement | 180-350",
+  "Garage door opener repair | 120-280",
+  "New opener installation | 350-650",
+  "Off-track or cable repair | 150-300",
+  "New garage door installation | 900-2500",
+  "Annual tune-up and safety inspection | 89-150",
 ].join("\n");
 
 const defaultSetupForm: SetupForm = {
@@ -821,6 +855,35 @@ function SetupTextarea({ label, value, onChange, rows = 5 }: { label: string; va
         onChange={(event) => onChange(event.target.value)}
         className="w-full rounded-xl border border-white/[.09] bg-[#171812]/80 p-4 text-sm leading-6 text-white shadow-[inset_0_1px_3px_rgba(0,0,0,.25)] outline-none transition placeholder:text-[#706F66] hover:border-white/[.14] focus:border-[#C6F23D]/45"
       />
+    </div>
+  );
+}
+
+/**
+ * Shows what we actually understood from each service line, so a mistyped
+ * price is caught at the kitchen table instead of on a customer call.
+ */
+function ServicePreview({ value }: { value: string }) {
+  const services = splitLines(value).map(parseServiceLine);
+  if (services.length === 0) return null;
+
+  const money = (cents: number) => `$${(cents / 100).toFixed(0)}`;
+
+  return (
+    <div className="mt-3 rounded-xl border border-white/[.07] bg-white/[.02] p-3">
+      <p className="font-mono-ui mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-[#99978C]">What the receptionist will say</p>
+      <div className="space-y-1">
+        {services.map((service) => (
+          <p key={service.name} className="text-[12.5px] leading-6 text-[#D8D5CA]">
+            <span className="text-white">{service.name}</span>
+            {service.priceRangeCents
+              ? <span className="text-[#8FD14F]"> — usually {money(service.priceRangeCents.min)} to {money(service.priceRangeCents.max)}</span>
+              : service.startingPriceCents
+                ? <span className="text-[#8FD14F]"> — starting at {money(service.startingPriceCents)}</span>
+                : <span className="text-[#706F66]"> — no price, so it can&rsquo;t quote this one</span>}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1129,7 +1192,14 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
           )}
           {current === "Services & pricing" && (
             <div>
-              <SetupTextarea label="What they fix, one per line" value={form.mainServices} onChange={update("mainServices")} rows={7} />
+              <SetupTextarea label="What they fix and what it runs, one per line" value={form.mainServices} onChange={update("mainServices")} rows={7} />
+              <p className="mt-1.5 text-[11.5px] leading-5 text-[#99978C]">
+                Put the price after a <span className="font-mono-ui text-[#D8D5CA]">|</span>, e.g.{" "}
+                <span className="font-mono-ui text-[#D8D5CA]">Broken spring replacement | 180-320</span>. &ldquo;What&rsquo;s a spring cost?&rdquo; is the most
+                common question on these calls — without a range the agent can only offer a callback, and the shopper dials the next shop. A name
+                on its own is fine; it just won&rsquo;t be quoted.
+              </p>
+              <ServicePreview value={form.mainServices} />
               <Button
                 kind="secondary"
                 onClick={() => update("mainServices")(GARAGE_DOOR_STARTER_SERVICES)}
