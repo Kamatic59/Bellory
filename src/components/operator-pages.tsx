@@ -2068,7 +2068,7 @@ function AccountTabContent({
               config={config}
               path="aiVoice.ttsModel"
               label="Voice engine (flash = fastest, least pause)"
-              options={["eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_turbo_v2"]}
+              options={["eleven_flash_v2", "eleven_turbo_v2"]}
               onChange={onChange}
             />
             <EditableField config={config} path="aiVoice.ttsStability" label="Stability (0-1; lower = more lively, try 0.35)" onChange={onChange} />

@@ -78,8 +78,10 @@ const aiVoiceSchema = z.object({
   // How the voice is rendered. Left tunable because "sounds like a robot" is
   // fixed by ear, not by argument, and a redeploy per experiment is too slow.
   // flash is the fastest model and the right default for a live phone call;
-  // turbo trades ~150ms for a little more polish.
-  ttsModel: z.enum(["eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_turbo_v2"]).optional(),
+  // turbo trades ~150ms for a little more polish. ElevenLabs rejects the v2_5
+  // models on English agents ("English Agents must use turbo or flash v2"), so
+  // only the v2 pair is offered here.
+  ttsModel: z.enum(["eleven_flash_v2", "eleven_turbo_v2"]).optional(),
   // Lower = more expressive and variable, higher = flatter and more consistent.
   ttsStability: z.coerce.number().min(0).max(1).optional(),
   ttsSimilarityBoost: z.coerce.number().min(0).max(1).optional(),
