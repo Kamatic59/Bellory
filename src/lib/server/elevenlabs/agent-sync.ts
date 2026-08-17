@@ -556,8 +556,10 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
         prompt: {
           prompt: `${config.aiVoice.systemPrompt}${SPEECH_STYLE_SECTION}${TOOL_PROMPT_SECTION}${brevitySection}${buildShopRulesSection(config)}`,
           // Sonnet holds negative constraints (never narrate, never re-ask)
-          // far better than the flash-tier models; worth the extra latency.
-          llm: "claude-sonnet-4-5",
+          // better than the flash-tier models, but it is also the largest
+          // single source of dead air before the agent speaks. Overridable per
+          // client so speed can win where it matters more than nuance.
+          llm: config.aiVoice.llmModel || "claude-sonnet-4-5",
           // Low temperature keeps the agent from improvising reworded
           // repeats of questions it already asked.
           temperature: 0.3,

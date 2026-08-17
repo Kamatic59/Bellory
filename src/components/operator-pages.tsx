@@ -2074,6 +2074,7 @@ function AccountTabContent({
             <EditableField config={config} path="aiVoice.ttsStability" label="Stability (0-1; lower = more lively, try 0.35)" onChange={onChange} />
             <EditableField config={config} path="aiVoice.ttsSimilarityBoost" label="Similarity (0-1; lower = less processed, try 0.75)" onChange={onChange} />
             <EditableField config={config} path="aiVoice.ttsSpeed" label="Talking speed (0.7-1.2; 1.0 is natural)" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.llmModel" label="Brain (blank = most accurate, slower)" onChange={onChange} />
             <EditableField config={config} path="aiVoice.disclosurePhrase" label="Disclosure phrase" onChange={onChange} />
           </div>
           <div className="mt-4 grid gap-4">

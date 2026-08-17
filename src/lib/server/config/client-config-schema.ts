@@ -86,6 +86,11 @@ const aiVoiceSchema = z.object({
   // client rather than degrading it. Unsupported values are normalised to a
   // safe model at sync time instead.
   ttsModel: optionalString,
+  // Which LLM answers the caller. This is the single biggest contributor to
+  // the gap between a caller finishing a sentence and the agent starting to
+  // speak, so it is tunable per client: a fast model for shops where snappiness
+  // matters more than nuance, a stronger one where it doesn't.
+  llmModel: optionalString,
   // Lower = more expressive and variable, higher = flatter and more consistent.
   ttsStability: z.coerce.number().min(0).max(1).optional(),
   ttsSimilarityBoost: z.coerce.number().min(0).max(1).optional(),
