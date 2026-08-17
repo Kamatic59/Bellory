@@ -72,9 +72,19 @@ const aiVoiceSchema = z.object({
   backgroundSound: z
     .enum(["none", "office1", "office2", "typing", "restaurant", "city", "elevator1", "elevator2", "elevator3", "elevator4"])
     .optional(),
-  // 0.01-1.0. Phone audio is narrowband, so much above ~0.15 starts eating
-  // the words.
+  // 0.01-1.0. Phone audio is narrowband, so much above ~0.4 starts eating the
+  // words — but below ~0.2 nobody hears it at all through a phone speaker.
   backgroundSoundVolume: z.coerce.number().min(0.01).max(1).optional(),
+  // How the voice is rendered. Left tunable because "sounds like a robot" is
+  // fixed by ear, not by argument, and a redeploy per experiment is too slow.
+  // flash is the fastest model and the right default for a live phone call;
+  // turbo trades ~150ms for a little more polish.
+  ttsModel: z.enum(["eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_turbo_v2"]).optional(),
+  // Lower = more expressive and variable, higher = flatter and more consistent.
+  ttsStability: z.coerce.number().min(0).max(1).optional(),
+  ttsSimilarityBoost: z.coerce.number().min(0).max(1).optional(),
+  // 1.0 is the voice's natural pace.
+  ttsSpeed: z.coerce.number().min(0.7).max(1.2).optional(),
   disclosurePhrase: nonEmptyString,
   behaviorInstructions: nonEmptyString,
   systemPrompt: nonEmptyString,

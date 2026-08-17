@@ -488,7 +488,10 @@ function buildBackgroundSound(config: BelloryClientConfig) {
   return {
     source_type: "preset" as const,
     source_id: preset,
-    volume: config.aiVoice.backgroundSoundVolume ?? 0.12,
+    // 0.12 was inaudible through a phone earpiece. Room tone only does its job
+    // if the caller actually registers it, so this sits high enough to hear
+    // and low enough to stay behind the words.
+    volume: config.aiVoice.backgroundSoundVolume ?? 0.3,
     crossfade_loop: true,
   };
 }
@@ -574,13 +577,20 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
         ? {
           tts: {
             voice_id: voiceId,
-            // Turbo trades a little latency for noticeably more natural
-            // delivery; lower stability lets intonation vary like a person.
-            // English agents require the v2 models (v2_5 is multilingual-only).
-            model_id: "eleven_turbo_v2",
-            stability: 0.4,
-            similarity_boost: 0.85,
-            speed: 0.97,
+            // Flash is the fastest model ElevenLabs ships and the one they
+            // recommend for live conversation: roughly 75-150ms to first audio
+            // against 200-350ms for turbo. On a phone call that gap is the
+            // difference between a person and a system, and narrowband audio
+            // hides most of the quality turbo buys.
+            model_id: config.aiVoice.ttsModel ?? "eleven_flash_v2_5",
+            // Lower stability lets intonation move the way a person's does.
+            // Too low and the voice wobbles; 0.35 keeps it alive but steady.
+            stability: config.aiVoice.ttsStability ?? 0.35,
+            // High similarity tracks the reference recording so closely it can
+            // sound processed. Backing off reads as more casual.
+            similarity_boost: config.aiVoice.ttsSimilarityBoost ?? 0.75,
+            // Receptionists talk at a normal clip; the old 0.97 read as careful.
+            speed: config.aiVoice.ttsSpeed ?? 1.0,
           },
         }
         : {}),

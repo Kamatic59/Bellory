@@ -2063,7 +2063,17 @@ function AccountTabContent({
               options={["none", "office1", "office2", "typing", "restaurant", "city"]}
               onChange={onChange}
             />
-            <EditableField config={config} path="aiVoice.backgroundSoundVolume" label="Background volume (0.01-1, try 0.12)" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.backgroundSoundVolume" label="Background volume (0.01-1, try 0.3)" onChange={onChange} />
+            <SelectField
+              config={config}
+              path="aiVoice.ttsModel"
+              label="Voice engine (flash = fastest, least pause)"
+              options={["eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_turbo_v2"]}
+              onChange={onChange}
+            />
+            <EditableField config={config} path="aiVoice.ttsStability" label="Stability (0-1; lower = more lively, try 0.35)" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.ttsSimilarityBoost" label="Similarity (0-1; lower = less processed, try 0.75)" onChange={onChange} />
+            <EditableField config={config} path="aiVoice.ttsSpeed" label="Talking speed (0.7-1.2; 1.0 is natural)" onChange={onChange} />
             <EditableField config={config} path="aiVoice.disclosurePhrase" label="Disclosure phrase" onChange={onChange} />
           </div>
           <div className="mt-4 grid gap-4">
