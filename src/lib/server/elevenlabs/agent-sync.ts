@@ -481,6 +481,17 @@ function buildTransferTool(config: BelloryClientConfig) {
  * than an audio pipeline. Volume stays deliberately low: a phone line is
  * narrowband and ambience competes with the words.
  */
+/**
+ * ElevenLabs only accepts turbo or flash **v2** on English agents — a v2_5
+ * model is rejected outright with "English Agents must use turbo or flash v2",
+ * which fails the whole sync. Anything we don't recognise (including a value
+ * stored before this rule was known) becomes flash, the fastest legal option.
+ */
+function resolveTtsModel(configured: string | undefined): string {
+  const supported = ["eleven_flash_v2", "eleven_turbo_v2"];
+  return configured && supported.includes(configured) ? configured : "eleven_flash_v2";
+}
+
 function buildBackgroundSound(config: BelloryClientConfig) {
   const preset = config.aiVoice.backgroundSound;
   if (!preset || preset === "none") return null;
@@ -582,8 +593,7 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
             // against 200-350ms for turbo. On a phone call that gap is the
             // difference between a person and a system, and narrowband audio
             // hides most of the quality turbo buys.
-            // Must be a v2 model — ElevenLabs rejects v2_5 on English agents.
-            model_id: config.aiVoice.ttsModel ?? "eleven_flash_v2",
+            model_id: resolveTtsModel(config.aiVoice.ttsModel),
             // Lower stability lets intonation move the way a person's does.
             // Too low and the voice wobbles; 0.35 keeps it alive but steady.
             stability: config.aiVoice.ttsStability ?? 0.35,
