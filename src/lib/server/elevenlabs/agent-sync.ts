@@ -558,9 +558,15 @@ function buildAgentBody(clientId: string, config: BelloryClientConfig, toolIds: 
         prompt: {
           prompt: `${config.aiVoice.systemPrompt}${SPEECH_STYLE_SECTION}${TOOL_PROMPT_SECTION}${brevitySection}${buildShopRulesSection(config)}`,
           // Sonnet holds negative constraints (never narrate, never re-ask)
-          // better than the flash-tier models, but it is also the largest
+          // better than the mini-tier models, but it is also the largest
           // single source of dead air before the agent speaks. Overridable per
           // client so speed can win where it matters more than nuance.
+          //
+          // ElevenLabs only accepts ids from its own list and rejects anything
+          // else with a 400 that enumerates the legal values. The fast tier is
+          // gpt-4o-mini, gpt-4.1-mini, gpt-4.1-nano and gpt-5.4-mini; the rest
+          // are full-size gpt-4*/gpt-5* and claude models. If a value here
+          // starts 400ing, send a junk value and read the error to re-list.
           llm: config.aiVoice.llmModel || "claude-sonnet-4-5",
           // Low temperature keeps the agent from improvising reworded
           // repeats of questions it already asked.
