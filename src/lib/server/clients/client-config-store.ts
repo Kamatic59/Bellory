@@ -11,6 +11,7 @@ import { parseClientConfigDraft, validateClientConfigForPublish } from "@/lib/se
 import { createDemoClientConfig } from "@/lib/server/config/demo-config";
 import { buildReceptionistPrompt } from "@/lib/server/config/prompt-builder";
 import { resolveTransferNumber } from "@/lib/server/elevenlabs/agent-sync";
+import { getActiveCalendarConnection } from "@/lib/server/google/calendar";
 import { getConfigReadiness } from "@/lib/server/config/readiness-score";
 
 const defaultOrg = {
@@ -280,8 +281,15 @@ export async function publishClientConfig(clientId: string) {
   if (full.integrations.twilio.status !== "connected") {
     publishGate.push("No phone number is connected — connect one on the Call Flow tab.");
   }
-  if (full.calendarAndDispatch.provider === "google" && full.integrations.googleCalendar.status !== "connected") {
-    publishGate.push("Google Calendar is not connected — connect it on the Integrations tab, or set the calendar provider to manual.");
+  if (full.calendarAndDispatch.provider === "google") {
+    // Check the live connection, not the config snapshot. The snapshot is
+    // written once at connect time and never revised, so a client whose token
+    // has since been revoked still reads "connected" here — and would go live
+    // with every booking silently failing.
+    const liveConnection = await getActiveCalendarConnection(clientId);
+    if (!liveConnection) {
+      publishGate.push("Google Calendar is not connected (or the connection has expired) — reconnect it on the Calendar & Dispatch tab.");
+    }
   }
   if (!full.launchQa.passed) {
     publishGate.push("Launch QA has not been marked passed — run the test scenarios and set it on the Testing tab.");
