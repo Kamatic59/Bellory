@@ -18,6 +18,9 @@ export const serverEnvSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  // Enables address verification on bookings. Absent = verification is skipped
+  // entirely and bookings behave exactly as they did before.
+  GOOGLE_MAPS_API_KEY: z.string().min(1).optional(),
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   INNGEST_EVENT_KEY: z.string().min(1).optional(),

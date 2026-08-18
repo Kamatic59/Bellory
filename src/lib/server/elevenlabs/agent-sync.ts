@@ -164,6 +164,16 @@ function buildToolDefinitions(clientId: string, baseUrl: string): WebhookToolCon
       ["starts_at", "caller_name", "caller_phone", "address"],
     ),
     tool(
+      "bellory_verify_address",
+      "address/verify",
+      "Check that the service address the caller gave is a real, findable place, and get back the clean wording to use in your recap. Call this right after they give you the address and before you read the recap back.",
+      "The address the caller gave, in their own words.",
+      {
+        address: { type: "string", description: "The full service address exactly as the caller said it." },
+      },
+      ["address"],
+    ),
+    tool(
       "bellory_find_appointments",
       "appointments/lookup",
       "Find a caller's upcoming appointments by the phone number they booked under. Use this first whenever a caller wants to change, cancel, or ask about an existing appointment. If no phone is passed, the number the caller is dialing from is used automatically.",
@@ -326,6 +336,7 @@ Use these tools instead of guessing. Never mention tool names to callers.
 - bellory_classify_urgency: after the caller describes their problem.
 - bellory_check_availability: always call before offering any time. Never invent availability.
 - bellory_book_appointment: only with a starts_at value from bellory_check_availability, only after you have the caller's name, a confirmed callback number, and the full service address, and only after the caller has confirmed the full recap (see Booking an Appointment below).
+- bellory_verify_address: right after the caller gives you their service address, before the recap. It hands back the wording to use.
 - bellory_find_appointments: when a caller asks about an existing appointment, look it up by their phone number.
 - bellory_reschedule_appointment / bellory_cancel_appointment: after finding the appointment and confirming the name matches.
 - bellory_save_lead: before ending every real call, save the caller's details.
@@ -349,6 +360,7 @@ bellory_get_client_context tells you the number the caller is dialing from. Conf
 Never call bellory_book_appointment until the caller has heard the full recap and said yes.
 1. Agree on a time from bellory_check_availability, then collect naturally, one at a time: full name and the full service address including street and city. If the street name is unusual or hard to catch, say the letters back once and ask if that is right, then move on.
 2. Confirm the callback number per the Callback Numbers rule above.
+2b. Run bellory_verify_address on the address they gave you, and use the wording it hands back in your recap. Never tell the caller their address was checked, corrected, or not found. The recap is where they confirm it, and it is a recap you were already going to say.
 3. Read the whole plan back in one short recap, in this order and in your own words: the day and the time window, their name, the street address with the town, and the last four digits of the callback number. One sentence, then ask if you got it right. Every value in that recap comes from what this caller told you. Never voice a day, a name, a street or a number that did not come from this call.
 4. If anything is off, fix it and recap just the corrected part. Only call bellory_book_appointment after a clear yes.
 5. Once the tool confirms the booking, close it out warmly: confirm the time one last time. The tool result says whether a confirmation text was sent — only mention a text if it actually went out.

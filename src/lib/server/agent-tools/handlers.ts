@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, inArray, lt, gt, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, gt, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db/client";
-import { appointments, clientIssues, leads, ownerNotifications } from "@/db/schema";
+import { agentToolCalls, appointments, clientIssues, leads, ownerNotifications } from "@/db/schema";
 import type { BelloryClientConfig } from "@/lib/server/config/client-config-schema";
+import { verifyServiceAddress, type AddressVerification } from "@/lib/server/google/address-validation";
 import {
   createCalendarEvent,
   deleteCalendarEvent,
@@ -483,6 +484,133 @@ const bookingInput = z.object({
   appointmentType: optionalText,
 });
 
+/**
+ * The booking-time backstop. The agent is told to verify before the recap, but
+ * a model can skip a step, so booking re-checks rather than trusting it.
+ * Reuses the answer from earlier in the same call when the address has not
+ * changed, so a normal booking costs one API call, not two.
+ *
+ * This never blocks and never returns early. The owner's goal is to stop trucks
+ * being sent into the void, and that is a dispatch problem, not a booking
+ * problem: there is a human between the booking and the truck, so flagging the
+ * job is what actually prevents the wasted drive. Refusing the booking would
+ * just convert a fixable data problem into a lost customer.
+ */
+async function resolveAddressVerification(
+  conversationId: string | null,
+  address: string | undefined,
+): Promise<AddressVerification | null> {
+  if (!address) return null;
+  if (conversationId) {
+    try {
+      const db = getDb();
+      const [prior] = await db
+        .select({ request: agentToolCalls.requestPayload, response: agentToolCalls.responsePayload })
+        .from(agentToolCalls)
+        .where(and(
+          eq(agentToolCalls.toolName, "address/verify"),
+          sql`${agentToolCalls.requestPayload}->>'conversation_id' = ${conversationId}`,
+        ))
+        .orderBy(desc(agentToolCalls.createdAt))
+        .limit(1);
+      const priorAddress = typeof prior?.request?.address === "string" ? prior.request.address : null;
+      const priorData = (prior?.response as { data?: Record<string, unknown> } | undefined)?.data;
+      if (priorAddress && priorAddress.trim() === address.trim() && priorData?.status) {
+        const status = priorData.status as AddressVerification["status"];
+        if (status === "confirmed" || status === "corrected") {
+          return {
+            status,
+            normalizedAddress: String(priorData.normalizedAddress ?? address),
+            spokenAddress: String(priorData.spokenAddress ?? address),
+            dpv: null,
+          };
+        }
+        return { status: "unverified", reason: (priorData.reason as "error") ?? "error" };
+      }
+    } catch {
+      // fall through to a fresh check
+    }
+  }
+  return verifyServiceAddress(address);
+}
+
+const addressVerifyInput = z.object({
+  address: optionalText,
+  serviceAddress: optionalText,
+});
+
+/**
+ * How many times we already checked an address on THIS call. Counted from the
+ * tool-call log rather than trusted to the model, so the agent cannot be talked
+ * into interrogating a customer about their own address in a loop.
+ */
+async function priorAddressChecks(conversationId: string | null): Promise<number> {
+  if (!conversationId) return 0;
+  try {
+    const db = getDb();
+    const rows = await db
+      .select({ id: agentToolCalls.id })
+      .from(agentToolCalls)
+      .where(and(
+        eq(agentToolCalls.toolName, "address/verify"),
+        sql`${agentToolCalls.requestPayload}->>'conversation_id' = ${conversationId}`,
+      ));
+    return rows.length;
+  } catch {
+    // Never let bookkeeping break a booking.
+    return 0;
+  }
+}
+
+const addressVerify: AgentToolHandler = async (context) => {
+  const input = addressVerifyInput.safeParse(context.payload);
+  const address = input.success ? (input.data.address ?? input.data.serviceAddress) : undefined;
+  if (!address) {
+    return askAgainResult("You do not have their street address yet. Ask for it, then check it.");
+  }
+
+  const [verification, priorChecks] = await Promise.all([
+    verifyServiceAddress(address),
+    priorAddressChecks(context.conversationId),
+  ]);
+
+  if (verification.status === "confirmed") {
+    return {
+      ok: true,
+      message: "That address checks out. Carry on to the recap and say it back the way they gave it.",
+      data: { status: "confirmed", spokenAddress: verification.spokenAddress, normalizedAddress: verification.normalizedAddress },
+    };
+  }
+
+  if (verification.status === "corrected") {
+    return {
+      ok: true,
+      // The recap is mandatory and already contains the address, so a
+      // correction costs zero extra turns: the caller simply hears the right
+      // version and confirms it, never knowing anything was checked.
+      message: `That address is real, with a small correction. In your recap say the address exactly like this: ${verification.spokenAddress}. Do not mention that you checked it or that anything was corrected. Just say it that way and let them confirm it.`,
+      data: { status: "corrected", spokenAddress: verification.spokenAddress, normalizedAddress: verification.normalizedAddress },
+    };
+  }
+
+  // Unverified. This is NOT a rejection. Plenty of real addresses land here:
+  // new builds that are not in the postal file yet, rural highway addresses,
+  // apartments without a unit number. One extra check, then book regardless.
+  if (priorChecks === 0 && verification.reason !== "disabled") {
+    return {
+      ok: true,
+      message: "That one did not come back as findable. It may be a new build or a rural road, or a digit may have been misheard. Do NOT tell the caller anything failed or that their address is invalid. In your recap, read the house number back one digit at a time and the street normally, so they can catch it if it is wrong. Then book it either way.",
+      data: { status: "unverified", reason: verification.reason, attempt: 1 },
+    };
+  }
+
+  return {
+    ok: true,
+    message: "Still not findable, and that is fine — plenty of real addresses never come up. Do not ask about it again. Recap it exactly as they gave it and book normally.",
+    data: { status: "unverified", reason: verification.reason, attempt: priorChecks + 1 },
+  };
+};
+
 async function createAppointment(context: AgentToolContext, kind: "hold" | "book"): Promise<AgentToolResult> {
   const input = bookingInput.safeParse(context.payload);
   if (!input.success || !input.data.startsAt) {
@@ -497,6 +625,10 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
 
   const { config, client } = context;
   const bookingMode = config.calendarAndDispatch.bookingMode;
+
+  const addressCheck = kind === "book" ? await resolveAddressVerification(context.conversationId, address) : null;
+  const addressUnverified = addressCheck?.status === "unverified";
+  const dispatchAddress = addressCheck && addressCheck.status !== "unverified" ? addressCheck.normalizedAddress : address;
 
   if (kind === "book" && bookingMode === "lead_only") {
     return {
@@ -548,6 +680,7 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
       urgency: input.data.urgency ?? null,
       conversationId: context.conversationId,
       configVersionId: context.configVersionId,
+      ...(addressCheck ? { addressVerification: { status: addressCheck.status, ...(addressCheck.status === "unverified" ? { reason: addressCheck.reason } : { normalizedAddress: addressCheck.normalizedAddress }), checkedAt: new Date().toISOString() } } : {}),
       ...(kind === "hold" ? { holdExpiresAt: new Date(Date.now() + 30 * 60_000).toISOString() } : {}),
     },
   }).returning();
@@ -562,6 +695,8 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
     const event = await createCalendarEvent(connection, {
       summary: `${summaryLine} — ${input.data.callerName ?? "caller"} (Bellory)`,
       description: [
+        // First line, so it is visible on a phone without expanding the event.
+        addressUnverified ? "** ADDRESS NOT VERIFIED - confirm with the customer before dispatch **" : null,
         input.data.callerName ? `Customer: ${input.data.callerName}` : null,
         callerPhone ? `Phone: ${normalizePhone(callerPhone)}` : null,
         input.data.email ? `Email: ${input.data.email}` : null,
@@ -571,7 +706,7 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
         "",
         "Booked by the Bellory receptionist. Contact the customer directly with any questions.",
       ].filter((line) => line !== null).join("\n"),
-      location: address,
+      location: dispatchAddress,
       startsAt,
       endsAt,
       timeZone: config.businessIdentity.timezone,
@@ -602,6 +737,23 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
         metadata: { appointmentId: appointment.id },
       });
     }
+  }
+
+  // Medium, not high: rural and new-build addresses will generate these
+  // routinely, and a high-severity alarm nobody can act on gets ignored, which
+  // then buries the real ones.
+  if (status === "booked" && addressUnverified) {
+    await db.insert(clientIssues).values({
+      organizationId: client.organizationId,
+      clientId: client.id,
+      severity: "medium",
+      status: "open",
+      source: "agent_tools",
+      title: "Appointment booked with an unverified address",
+      description: `${input.data.callerName ?? "A caller"} (${normalizePhone(callerPhone ?? "")}) booked ${spoken} at "${address}", which did not come back as a findable address. It may be a new build, a rural road, or a misheard digit. Confirm it with the customer before sending a truck.`,
+      actionLabel: "Review appointments",
+      metadata: { appointmentId: appointment.id, address: address ?? null },
+    });
   }
 
   // The agent promises callers a confirmation text, so one actually goes out
@@ -1055,6 +1207,7 @@ const transferRequest: AgentToolHandler = async ({ config, payload }) => {
 export const agentToolHandlers: Record<string, AgentToolHandler> = {
   "client-context": clientContext,
   "service-area": serviceArea,
+  "address/verify": addressVerify,
   "classify-urgency": classifyUrgency,
   "calendar/availability": calendarAvailability,
   "calendar/hold": calendarHold,
