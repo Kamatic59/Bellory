@@ -121,32 +121,45 @@ export async function verifyServiceAddress(rawAddress: string, debugSink?: Recor
     debugSink.formatted = res.address?.formattedAddress ?? null;
   }
 
-  const foundTheBuilding = PREMISE_LEVEL.has(granularity);
-  const missingPieces = (res.address?.missingComponentTypes ?? []).length > 0;
-  if (!foundTheBuilding || missingPieces) {
-    return { status: "unverified", reason: missingPieces ? "incomplete" : granularity === "ROUTE" ? "route_only" : "not_found" };
-  }
-
-  // Google's own recommendation is to trust possibleNextAction when it is
-  // present and fall back to reading the verdict fields when it is not.
+  // Measured against real Utah addresses before trusting any of this. Every
+  // genuine address came back PREMISE; only the invented one dropped to OTHER
+  // with a FIX action. So granularity plus possibleNextAction is the real
+  // discriminator, and the first cut of these thresholds rejected 5 of 7 real
+  // addresses, which would have been far worse than no checking at all.
   const nextAction = verdict.possibleNextAction;
+
+  // Google's own summary verdict, and the only one that fired on a fake house
+  // number.
   if (nextAction === "FIX") return { status: "unverified", reason: "not_found" };
 
+  if (!PREMISE_LEVEL.has(granularity)) {
+    return { status: "unverified", reason: granularity === "ROUTE" ? "route_only" : "not_found" };
+  }
+
+  // A missing subpremise is an apartment or suite number. Google reports it as
+  // a missing component, but for a garage door call the unit number is usually
+  // meaningless — the truck is going to the building. Treating it as a failure
+  // rejected the downtown library, which plainly exists.
+  const essentialMissing = (res.address?.missingComponentTypes ?? []).filter((type) => type !== "subpremise");
+  if (essentialMissing.length > 0) return { status: "unverified", reason: "incomplete" };
+
+  // USPS delivery-point data only arrives for some addresses; when it is absent
+  // it is not evidence of anything. Only an explicit bad code counts against.
+  if (dpv !== null && !DELIVERABLE_DPV.has(dpv)) return { status: "unverified", reason: "not_found" };
+
+  if (nextAction === "ACCEPT") return { status: "confirmed", normalizedAddress, spokenAddress, dpv };
+
+  // Deliberately does NOT include hasInferredComponents: Google infers the ZIP
+  // and state whenever a caller gives street and city alone, which is what
+  // people say out loud. Counting that as a correction flagged almost every
+  // normal address.
   const wasChanged =
     nextAction === "CONFIRM" ||
     nextAction === "CONFIRM_ADD_SUBPREMISES" ||
     verdict.hasReplacedComponents === true ||
-    verdict.hasSpellCorrectedComponents === true ||
-    verdict.hasInferredComponents === true;
+    verdict.hasSpellCorrectedComponents === true;
 
-  const deliverable = dpv === null || DELIVERABLE_DPV.has(dpv);
-  if (!deliverable) return { status: "unverified", reason: "not_found" };
-
-  if (nextAction === "ACCEPT" && !wasChanged) {
-    return { status: "confirmed", normalizedAddress, spokenAddress, dpv };
-  }
-  if (wasChanged || verdict.addressComplete === false) {
-    return { status: "corrected", normalizedAddress, spokenAddress, dpv };
-  }
-  return { status: "confirmed", normalizedAddress, spokenAddress, dpv };
+  return wasChanged
+    ? { status: "corrected", normalizedAddress, spokenAddress, dpv }
+    : { status: "confirmed", normalizedAddress, spokenAddress, dpv };
 }
