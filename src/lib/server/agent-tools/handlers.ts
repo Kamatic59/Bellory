@@ -316,6 +316,11 @@ const clientContext: AgentToolHandler = async ({ config, payload }) => {
 };
 
 const serviceAreaInput = z.object({
+  // Free-form: whatever the caller said when asked where they are. This is the
+  // field the agent is steered toward, so it never has to say "city or ZIP"
+  // out loud. city/zip/address stay accepted because the model still fills
+  // them when it already knows the answer from earlier in the call.
+  location: optionalText,
   city: optionalText,
   zip: optionalText,
   address: optionalText,
@@ -323,15 +328,26 @@ const serviceAreaInput = z.object({
 
 const serviceArea: AgentToolHandler = async ({ config, payload }) => {
   const input = serviceAreaInput.safeParse(payload);
-  if (!input.success) return askAgainResult("Ask the caller for their city or ZIP code, then check the service area again.");
+  if (!input.success) return askAgainResult("You do not have their location yet. Ask where they are, the way a person would, and send back whatever they say - a town, a ZIP, or a street address all work.");
 
-  const { city, zip, address } = input.data;
-  const zipFromAddress = address?.match(/\b\d{5}\b/)?.[0];
-  const effectiveZip = zip?.match(/\d{5}/)?.[0] ?? zipFromAddress;
-  const effectiveCity = city ?? (address && !effectiveZip ? address : undefined);
+  const { city, zip, address, location } = input.data;
+  const freeForm = location ?? address;
+  // Callers answer "where are you?" however they feel like - a town, a ZIP, a
+  // street address, a landmark - and the model drops that answer into whichever
+  // parameter it thinks fits. Scan every field for both kinds of location
+  // instead of trusting the parameter names. Previously only zip and address
+  // were scanned for digits, so a caller who just said "84070" had it compared
+  // against the configured TOWN names and never matched.
+  const zipFromCity = city?.match(/\b\d{5}\b/)?.[0];
+  // In a US address the ZIP comes last and the house number comes first, so
+  // drop a leading number before looking - otherwise "12345 S Redwood Rd"
+  // reads as ZIP 12345.
+  const zipFromFreeForm = freeForm?.replace(/^\s*\d+\s/, "").match(/\b\d{5}\b/g)?.pop();
+  const effectiveZip = zip?.match(/\d{5}/)?.[0] ?? zipFromCity ?? zipFromFreeForm;
+  const effectiveCity = city ?? freeForm;
 
   if (!effectiveZip && !effectiveCity) {
-    return askAgainResult("Ask the caller for their city or ZIP code, then check the service area again.");
+    return askAgainResult("You do not have their location yet. Ask where they are, the way a person would, and send back whatever they say - a town, a ZIP, or a street address all work.");
   }
 
   const areas = config.locationsAndHours.serviceAreas;
