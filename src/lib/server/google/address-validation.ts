@@ -66,7 +66,7 @@ function buildSpokenAddress(res: NonNullable<ValidationResponse["result"]>, fall
   return fallback;
 }
 
-export async function verifyServiceAddress(rawAddress: string): Promise<AddressVerification> {
+export async function verifyServiceAddress(rawAddress: string, debugSink?: Record<string, unknown>): Promise<AddressVerification> {
   const address = rawAddress.trim();
   if (!address) return { status: "unverified", reason: "incomplete" };
 
@@ -108,6 +108,18 @@ export async function verifyServiceAddress(rawAddress: string): Promise<AddressV
   const dpv = res.uspsData?.dpvConfirmation ?? null;
   const normalizedAddress = res.address?.formattedAddress?.trim() || address;
   const spokenAddress = buildSpokenAddress(res, address);
+
+  if (debugSink) {
+    debugSink.granularity = granularity;
+    debugSink.dpv = dpv;
+    debugSink.possibleNextAction = verdict.possibleNextAction ?? null;
+    debugSink.addressComplete = verdict.addressComplete ?? null;
+    debugSink.hasInferred = verdict.hasInferredComponents ?? null;
+    debugSink.hasReplaced = verdict.hasReplacedComponents ?? null;
+    debugSink.hasSpellCorrected = verdict.hasSpellCorrectedComponents ?? null;
+    debugSink.missing = res.address?.missingComponentTypes ?? [];
+    debugSink.formatted = res.address?.formattedAddress ?? null;
+  }
 
   const foundTheBuilding = PREMISE_LEVEL.has(granularity);
   const missingPieces = (res.address?.missingComponentTypes ?? []).length > 0;

@@ -17,14 +17,16 @@ export async function GET(request: Request) {
     return Response.json({ error: "Pass ?address=..." }, { status: 400 });
   }
 
+  const debug: Record<string, unknown> = {};
   const startedAt = Date.now();
-  const result = await verifyServiceAddress(address);
+  const result = await verifyServiceAddress(address, debug);
   const latencyMs = Date.now() - startedAt;
 
   return Response.json({
     input: address,
     latencyMs,
     ...result,
+    debug,
     // What the caller would actually experience.
     callerImpact:
       result.status === "confirmed" ? "Nothing. Booked silently."
