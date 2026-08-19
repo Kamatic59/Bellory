@@ -588,7 +588,14 @@ function resolveTtsModel(configured: string | undefined): string {
 function buildFirstMessage(greeting: string, modelId: string): string {
   const trimmed = greeting.trim();
   if (!trimmed) return greeting;
-  return isExpressiveModel(modelId) ? `[pause] ${trimmed}` : `<break time="1.0s" /> ${trimmed}`;
+  // v3 gets nothing. Its bracketed tags are delivery modifiers that colour the
+  // next few words, not silence inserters, so "[pause]" produced no audible
+  // gap on a real call - confirmed by reading the transcript, where the tag
+  // sits in the text having done nothing. Real silence before the greeting
+  // only exists at the Twilio layer, and buying it there means the caller
+  // hears true dead air before the room tone can start, which sounds worse
+  // than no pause. v2 keeps the break tag, which its models genuinely honour.
+  return isExpressiveModel(modelId) ? trimmed : `<break time="1.0s" /> ${trimmed}`;
 }
 
 // v3 reads stability as three buckets rather than a continuous dial: below 0.5
