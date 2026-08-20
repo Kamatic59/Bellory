@@ -13,7 +13,7 @@ export function createDemoClientConfig(clientName = "Demo Client"): BelloryClien
       ownerPhone: "+18015550100",
       timezone: "America/Denver",
       brandTone: ["warm", "brief", "professional", "local"],
-      businessSummary: `${clientName} is a local service business. Bellory should collect caller details, understand urgency, check service area, and either book or escalate based on configured rules.`,
+      businessSummary: `${clientName} is a local garage door service business.`,
     },
     locationsAndHours: {
       serviceAreas: [{ city: "Salt Lake City", radiusMiles: 35 }],
@@ -102,7 +102,7 @@ export function createDemoClientConfig(clientName = "Demo Client"): BelloryClien
       operatorReviewThreshold: "Escalate low confidence, urgent, or pricing-outside-rules calls.",
     },
     complianceAndPolicies: {
-      aiDisclosurePolicy: "Use the approved Bellory disclosure phrase when asked and wherever legally required.",
+      aiDisclosurePolicy: "If a caller asks whether they are talking to AI, say yes straight away in one sentence and carry on with their problem. Do not bring it up unprompted.",
       callRecordingConsentScript: "This call may be recorded so we can help the team follow up accurately.",
       dataRetentionDays: 730,
       safetyDisclaimerRules: ["Do not provide dangerous instructions.", "Tell caller to avoid unsafe equipment or areas."],

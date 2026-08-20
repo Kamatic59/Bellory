@@ -904,10 +904,16 @@ function SetupField({ label, value, onChange, type = "text" }: { label: string; 
   );
 }
 
-function SetupTextarea({ label, value, onChange, rows = 5 }: { label: string; value: string; onChange: (value: string) => void; rows?: number }) {
+function SetupTextarea({ label, value, onChange, rows = 5, help }: { label: string; value: string; onChange: (value: string) => void; rows?: number; help?: string }) {
   return (
     <div>
       <p className="font-mono-ui mb-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#99978C]">{label}</p>
+      {/* The agent reads several of these fields aloud verbatim, so the hint
+          matters: an owner who writes "they take card or check" here hands the
+          agent a sentence that makes it sound like it does not work at the
+          shop. Asking for first person at the point of typing is the only
+          place this can be fixed once rather than in every downstream prompt. */}
+      {help ? <p className="mb-2 text-xs leading-5 text-[#99978C]">{help}</p> : null}
       <textarea
         rows={rows}
         value={value}
@@ -1254,7 +1260,7 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
           )}
           {current === "Services & pricing" && (
             <div>
-              <SetupTextarea label="What they fix and what it runs, one per line" value={form.mainServices} onChange={update("mainServices")} rows={7} />
+              <SetupTextarea label="What we fix and what it runs, one per line" value={form.mainServices} onChange={update("mainServices")} rows={7} />
               <p className="mt-1.5 text-[11.5px] leading-5 text-[#99978C]">
                 Put the price after a <span className="font-mono-ui text-[#D8D5CA]">|</span>, e.g.{" "}
                 <span className="font-mono-ui text-[#D8D5CA]">Broken spring replacement | 180-320</span>. &ldquo;What&rsquo;s a spring cost?&rdquo; is the most
@@ -1271,7 +1277,7 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
               </Button>
               <div className="mt-5">
                 <SetupTextarea
-                  label="Work they do NOT take, one per line"
+                  label="Work we do NOT take, one per line"
                   value={form.doNotBook}
                   onChange={update("doNotBook")}
                   rows={4}
@@ -1285,21 +1291,21 @@ export function NewBusinessSetupPage({ onCreateBusiness }: { onCreateBusiness: (
               <div className="mt-5 rounded-2xl border border-white/[.07] bg-white/[.02] p-4">
                 <p className="font-mono-ui text-[9px] font-semibold uppercase tracking-[.18em] text-[#8FD14F]">The four questions every caller asks</p>
                 <p className="mt-1.5 text-[12px] leading-5 text-[#99978C]">
-                  Ask the owner these out loud and type what they say. Leave one blank and the agent has to deflect it — which on a first call reads
+                  Ask the owner these out loud and type the answer the way you would say it on the phone, as we and us. Leave one blank and the agent has to deflect it — which on a first call reads
                   as &ldquo;they&rsquo;re hiding something&rdquo; and the caller dials the next shop.
                 </p>
                 <div className="mt-3 grid gap-3">
                   <SetupField label="Are you licensed and insured? (include the license number)" value={form.faqLicensed} onChange={update("faqLicensed")} />
                   <SetupField label="What payment methods do you take?" value={form.faqPayment} onChange={update("faqPayment")} />
                   <SetupField label="How soon can someone come out?" value={form.faqHowSoon} onChange={update("faqHowSoon")} />
-                  <SetupField label="Is the service call fee waived if they do the work?" value={form.faqFeeWaived} onChange={update("faqFeeWaived")} />
+                  <SetupField label="Do we waive the service call fee if we do the work?" value={form.faqFeeWaived} onChange={update("faqFeeWaived")} />
                 </div>
               </div>
             </div>
           )}
           {current === "Agent identity & prompt" && (
             <>
-              <SetupTextarea label="Greeting script" value={form.greetingScript} onChange={update("greetingScript")} rows={3} />
+              <SetupTextarea label="Greeting script" value={form.greetingScript} onChange={update("greetingScript")} rows={3} help="Spoken word for word on every call. Business name, first name, then hand it to the caller. Around fifteen words. No job title, no department, and nothing chirpy, because plenty of these callers have a car stuck in the garage." />
               <SetupTextarea label="Behavior instructions" value={form.behaviorInstructions} onChange={update("behaviorInstructions")} />
               <div>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">

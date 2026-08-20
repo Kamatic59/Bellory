@@ -266,7 +266,7 @@ const clientContext: AgentToolHandler = async ({ config, payload }) => {
 
   return {
     ok: true,
-    message: `Live call context for ${businessIdentity.publicName} loaded. It is currently ${nowStatus.localTime} for this business, which is ${nowStatus.isOpen ? "OPEN" : "CLOSED"} right now.${callerPhone ? ` The caller is dialing from ${callerPhone} — confirm that number as their callback instead of asking them to dictate one.` : ""} Follow these rules exactly; never invent pricing, availability, or promises beyond them.`,
+    message: `Our live rules are loaded. It is ${nowStatus.localTime} here at the shop and we are ${nowStatus.isOpen ? "open" : "closed"} right now.${callerPhone ? ` They are calling from ${callerPhone}, so check that number rather than making them dictate one.` : ""} Everything in this result is our own information: hours, prices, payment, coverage. Say all of it as ours, in the first person. Never invent a price, an opening or a promise beyond what is here.`,
     data: {
       now: {
         localTime: nowStatus.localTime,
@@ -355,7 +355,7 @@ const serviceArea: AgentToolHandler = async ({ config, payload }) => {
   if (areas.length === 0) {
     return {
       ok: true,
-      message: "No service areas are configured for this business. Take the caller's location and details for owner review instead of confirming coverage.",
+      message: "You do not have our coverage list on this call, so do not confirm or rule out coverage either way. Take where they are and their details, and tell them somebody will call straight back to confirm.",
       data: { inServiceArea: null, checkedCity: effectiveCity ?? null, checkedZip: effectiveZip ?? null },
     };
   }
@@ -384,8 +384,8 @@ const serviceArea: AgentToolHandler = async ({ config, payload }) => {
   // check" costs nothing, so this stays deliberately soft.
   return {
     ok: true,
-    message: `${effectiveCity ?? effectiveZip} is not on this business's list of towns, but that list may simply be incomplete — do NOT tell the caller the business does not serve them. Say you want to make sure someone can get out that far, take their name, number, address and what they need, save the lead, and tell them the team will confirm and call straight back. Guidance from the business: ${config.locationsAndHours.outOfAreaResponse}`,
-    data: { inServiceArea: null, notOnConfiguredList: true, configuredAreas: areas, checkedCity: effectiveCity ?? null, checkedZip: effectiveZip ?? null },
+    message: `${effectiveCity ?? effectiveZip} is not on our list of towns, but that list is typed by hand and misses places we do cover, so do NOT tell the caller we do not serve them and do NOT hedge at length. Say you want to make sure we can get a truck out that far, take their name, number, address and what they need, save the lead, and tell them we will call them straight back on it. Say all of that as us.`,
+    data: { inServiceArea: null, notOnConfiguredList: true, configuredAreas: areas, checkedCity: effectiveCity ?? null, checkedZip: effectiveZip ?? null, ownerGuidance: config.locationsAndHours.outOfAreaResponse },
   };
 };
 
@@ -416,10 +416,11 @@ const classifyUrgency: AgentToolHandler = async ({ config, payload }) => {
   const urgency = matchedTriggers.length > 0 || vehicleTrapped ? "high" : afterHours ? "medium" : "low";
 
   const messages = {
-    high: "Treat this as urgent. Offer the soonest opening, and if none works, send an owner alert or transfer per the business rules.",
-    medium: "Treat this as time-sensitive. Offer the soonest reasonable opening and collect full callback details.",
-    low: "This is routine. Continue normal intake and scheduling.",
+    high: "Move fast on this one. Offer the soonest opening we have, and if nothing works, send an owner alert or transfer per our rules. How you rated this call is for you and never something you say out loud: talk about the actual thing that is wrong instead.",
+    medium: "Offer the soonest reasonable opening we have and collect full callback details. How you rated this call is for you and never something you say out loud.",
+    low: "Nothing special here. Continue normal intake and scheduling.",
   } as const;
+
 
   return {
     ok: true,
@@ -448,7 +449,7 @@ const calendarAvailability: AgentToolHandler = async (context) => {
   if (slots.length === 0) {
     return {
       ok: true,
-      message: `No openings in the next ${daysChecked.length} days. ${context.config.calendarAndDispatch.noAvailabilityBehavior}`,
+      message: `We have nothing open in the next ${daysChecked.length} days. Ask what days would work for them, take their details, and alert the owner.`,
       data: { slots: [], daysChecked },
     };
   }
@@ -459,14 +460,14 @@ const calendarAvailability: AgentToolHandler = async (context) => {
   if (calendarBusyUnavailable) {
     return {
       ok: true,
-      message: `These times come from opening hours only — the live calendar could not be reached, so they are not guaranteed free. Offer them one at a time and tell the caller you'll confirm the exact time shortly rather than promising it outright. ${context.config.calendarAndDispatch.appointmentWindowWording}`,
+      message: "These times come from our opening hours only, so they may already be taken. Offer one at a time and say somebody will confirm the exact time shortly rather than promising it outright. Give the time as when we will get there, give or take, and not as a promise to the minute.",
       data: { slots, timezone: context.config.businessIdentity.timezone, calendarChecked: false },
     };
   }
 
   return {
     ok: true,
-    message: `Offer these openings one at a time, using the spoken label. ${context.config.calendarAndDispatch.appointmentWindowWording}`,
+    message: "Offer these openings one at a time, using the spoken label. Give the time as when we will get there, give or take, and not as a promise to the minute.",
     data: { slots, timezone: context.config.businessIdentity.timezone, calendarChecked: true },
   };
 };
@@ -599,7 +600,7 @@ const addressVerify: AgentToolHandler = async (context) => {
   if (priorChecks === 0 && verification.reason !== "disabled") {
     return {
       ok: true,
-      message: "That one did not come back as findable. It may be a new build or a rural road, or a digit may have been misheard. Do NOT tell the caller anything failed or that their address is invalid. In your recap, read the house number back one digit at a time and the street normally, so they can catch it if it is wrong. Then book it either way.",
+      message: "That one did not come back as findable. It may be a new build or a rural road, or a digit may have been misheard. Do NOT tell the caller anything failed or that their address is invalid. Say the address back in your recap the way they gave it to you, at normal speed, so they can catch a wrong digit themselves. Then book it either way.",
       data: { status: "unverified", reason: verification.reason, attempt: 1 },
     };
   }
@@ -633,7 +634,7 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
   if (kind === "book" && bookingMode === "lead_only") {
     return {
       ok: true,
-      message: "This business collects details for the owner instead of booking directly. Save the lead, tell the caller the owner will confirm the time, and do not promise a slot.",
+      message: "We take details for the owner instead of booking straight into the calendar. Save the lead, tell the caller the owner will confirm the time, and do not promise a slot.",
       data: { booked: false, reason: "lead_only" },
     };
   }
@@ -798,16 +799,16 @@ async function createAppointment(context: AgentToolContext, kind: "hold" | "book
   }
 
   const confirmationLine = confirmationTexted
-    ? "tell them a confirmation text was just sent to their number,"
-    : "confirm the details verbally,";
+    ? " Tell them a confirmation text just went to their number."
+    : "";
   const messages: Record<string, string> = {
     booked: calendarSyncFailed
       // The job is in our database but not on the crew's board. Don't let the
       // caller hang up believing it is fully locked in — say someone will
       // confirm, so a dropped job surfaces as a follow-up call rather than a
       // no-show.
-      ? `The ${spoken} appointment is recorded, but it did NOT reach the business calendar. Tell the caller you have them down for ${spoken} and that someone will call shortly to confirm it — do not say it is fully confirmed. Then ${confirmationLine} send bellory_send_owner_alert with the appointment details so the team gets it on the schedule, and save the lead with this appointmentId.`
-      : `Booked for ${spoken}. Confirm the time with the caller using arrival-window wording, ${confirmationLine} and save the lead with this appointmentId.`,
+      ? `The ${spoken} appointment is recorded but it did NOT reach our calendar. Tell the caller you have them down for ${spoken} and that somebody will call shortly to confirm it. Do not say it is fully confirmed. Send bellory_send_owner_alert with the appointment details so one of us gets it onto the schedule, and save the lead with this appointmentId.${confirmationLine}`
+      : `Booked for ${spoken}. Say the time back once, as when we will get there rather than a promise to the minute, then save the lead with this appointmentId. They already agreed to the rest in the recap, so do not repeat their name, address or number.${confirmationLine}`,
     needs_approval: `The request for ${spoken} is recorded and waiting on owner approval. Tell the caller the time will be confirmed shortly, and save the lead with this appointmentId.`,
     held: `The ${spoken} slot is held for 30 minutes. Confirm details with the caller, then book it.`,
   };
@@ -978,7 +979,7 @@ const ownerAlert: AgentToolHandler = async (context) => {
     ok: true,
     message: sent.ok
       ? `Alert texted to ${config.businessIdentity.ownerName}. Tell the caller their details have been passed along for follow-up.`
-      : `Alert recorded for the team's review. Tell the caller their details have been passed along for follow-up.`,
+      : `Saved here for the owner to see. Tell the caller their details are with us and somebody will follow up.`,
     data: { notificationId: notification.id, channel: notification.channel, status: sent.ok ? "sent" : "failed" },
   };
 };
@@ -1011,7 +1012,7 @@ const appointmentsLookup: AgentToolHandler = async (context) => {
   if (rows.length === 0) {
     return {
       ok: true,
-      message: "No upcoming appointments under that number. Double-check the number with the caller; if it still finds nothing, save their details as a lead and alert the owner so the team can sort it out.",
+      message: "Nothing upcoming on that number. Check the number once with the caller; if it still finds nothing, save their details as a lead and alert the owner so somebody here can sort it out.",
       data: { appointments: [] },
     };
   }
@@ -1116,7 +1117,7 @@ const appointmentsReschedule: AgentToolHandler = async (context) => {
 
   return {
     ok: true,
-    message: `Rescheduled to ${spoken}. Confirm the new time with the caller using arrival-window wording.`,
+    message: `Moved to ${spoken}. Say the new time back to the caller once, as when we will get there rather than a promise to the minute.`,
     data: { rescheduled: true, appointmentId: appointment.id, startsAt: newStartsAt.toISOString(), endsAt: newEndsAt.toISOString(), spoken, calendarMoved },
   };
 };
@@ -1194,7 +1195,7 @@ const transferRequest: AgentToolHandler = async ({ config, payload }) => {
 
   return {
     ok: true,
-    message: `Transfer is allowed. Say something natural like "I'm going to forward you to someone who can help better," then use transfer_to_number to connect the caller to ${config.businessIdentity.ownerName}. If the transfer fails, take their details, save the lead, and send an owner alert instead.`,
+    message: `Transfer is allowed. Tell the caller in your own words that you are putting them through now, then use transfer_to_number to connect them to ${config.businessIdentity.ownerName}. If the transfer fails, take their details, save the lead, and send an owner alert instead.`,
     data: {
       transferAllowed: true,
       transferNumber,

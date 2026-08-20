@@ -137,9 +137,9 @@ export function buildKnowledgeBaseDocument(config: BelloryClientConfigDraft, opt
   const generatedAt = options.generatedAt ?? new Date();
 
   return compact([
-    `# Bellory Knowledge Base - ${publicName}`,
+    `# ${publicName}`,
     `Generated: ${generatedAt.toISOString()}`,
-    "Use this document as the attached knowledge base for the ElevenLabs agent assigned to this business. This document gives the receptionist business facts, policies, quoting boundaries, intake requirements, booking rules, urgency triggers, and fallback rules. Live availability, booking, SMS, CRM, and phone actions should still use Bellory tools/webhooks rather than relying only on this document.",
+    "These are our own facts, written down by somebody outside the company, so they are phrased about us rather than by us. Read every one of them as ours and say them in the first person. Nothing here is a sentence to read aloud, the labels and headings are never spoken, and any field with nothing in it means you do not have that fact rather than that anything is missing or unset. For live times and bookings, use your tools rather than this document.",
 
     "## Business Identity",
     compact([
@@ -167,7 +167,7 @@ export function buildKnowledgeBaseDocument(config: BelloryClientConfigDraft, opt
       `- Background ambience: ${text(voice?.backgroundAmbience)}`,
       `- Behavior instructions: ${text(voice?.behaviorInstructions)}`,
       `- System prompt summary: Use the saved system prompt in Bellory as the agent's primary instruction layer. This knowledge base is the supporting business memory, not a replacement for the system prompt.`,
-      `- AI disclosure phrase when policy requires or caller asks: ${text(voice?.disclosurePhrase)}`,
+      `- What to get across if a caller asks whether you are AI, in your own words and in one sentence: ${text(voice?.disclosurePhrase)}`,
       `- AI disclosure policy: ${text(compliance?.aiDisclosurePolicy)}`,
       "- Important: sound like a calm, capable receptionist. Do not over-explain internal tools. If a caller needs a human, say you are forwarding them to someone who can help better.",
     ]).join("\n"),
@@ -227,7 +227,7 @@ export function buildKnowledgeBaseDocument(config: BelloryClientConfigDraft, opt
       "- Never quote conditions:",
       list(pricing?.neverQuoteConditions),
       `- Owner approval threshold: ${cents(pricing?.ownerApprovalThresholdCents) || "Not configured."}`,
-      "- If pricing is uncertain, collect the issue details and explain that the team will confirm the exact price before work begins.",
+      "- If pricing is uncertain, collect the issue details and say we will confirm the exact price before any work starts.",
     ]).join("\n"),
 
     "## Booking and Dispatch Rules",
