@@ -158,6 +158,8 @@ const footerColumns = [
     links: [
       { href: "/privacy", label: "Privacy policy" },
       { href: "/terms", label: "Terms of service" },
+      { href: "/sms-terms", label: "SMS terms" },
+      { href: "/sms-consent", label: "SMS consent" },
     ],
   },
 ] as const;
